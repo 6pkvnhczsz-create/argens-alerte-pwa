@@ -406,7 +406,7 @@ async function loadMeasurements(code,{silent=false}={}){
   level.textContent=(last.value/1000).toFixed(2).replace('.',',');
   document.querySelector('#stationUpdated').textContent=new Intl.DateTimeFormat('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}).format(last.date);readingTime.textContent='';
   const age=Date.now()-last.date.getTime(),stale=age>3*60*60*1000||age< -15*60*1000;
-  if(previous){const change=last.value-previous.value;delta.textContent=(change>0?'+':'')+(change/10).toFixed(1).replace('.',',')+' cm';period.textContent='Depuis la mesure précédente ('+Math.round((last.date-previous.date)/60000)+' min)';trend.textContent=change>0?'↗ Niveau en hausse':change<0?'↘ Niveau en baisse':'→ Niveau stable'}else{delta.textContent='—';trend.textContent='Une seule mesure disponible'}
+  if(previous){const change=last.value-previous.value;delta.textContent=(change>0?'+':'')+(change/10).toFixed(1).replace('.',',')+' cm';period.textContent=mapText('Depuis la mesure précédente (','Since previous reading (')+Math.round((last.date-previous.date)/60000)+' min)';trend.textContent=change>0?'↗ Niveau en hausse':change<0?'↘ Niveau en baisse':'→ Niveau stable'}else{delta.textContent='—';trend.textContent='Une seule mesure disponible'}
   const metres=last.value/1000;const band=metres>=4.5||(riseRate!==null&&riseRate>=50)?'red':metres>=3||rapidRise?'orange':'green';const local=code==='Y531201001';document.querySelector('.threshold-row').hidden=!local;document.querySelector('#thresholdNotice').hidden=local;document.querySelector('.hero').dataset.alert=stale||!local?'unknown':band;document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.toggle('is-current',!stale&&local&&x.dataset.threshold===band));status.className='threshold-message';status.textContent=stale?'● Mesure ancienne · statut non fiable':!local?'':rapidRise&&metres<3?'● Montée rapide (≥ 30 cm/h)':'';
   document.querySelector('.hero').dataset.stale=String(stale);
   drawChart(chartReadings);
@@ -678,6 +678,10 @@ async function syncPushLanguage(language){
 (()=>{
 const translations={
 "Rouge":"Red","Violet":"Purple","Vert":"Green",
+"Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez":"Unofficial indicative thresholds. A rapid rise (≥ 30 cm/h) can trigger orange even below 3 m. In case of danger, consult",
+"et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.":"and official safety instructions. Do not rely on this application as your only warning source.",
+"Aucune mesure disponible":"No readings available",
+
 "🔎 Projection des seuils":"🔎 Threshold projection",
 "Calcul en attente de mesures récentes…":"Waiting for recent readings to calculate…",
 "Extrapolation linéaire du niveau mesuré, limitée à 3 heures. Ni prévision hydrologique ni alerte officielle. Le débit peut évoluer rapidement.":"Linear extrapolation of measured water level, limited to 3 hours. Not a hydrological forecast or official warning. River flow can change rapidly.",
