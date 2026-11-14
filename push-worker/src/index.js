@@ -65,7 +65,7 @@ export class AdminPushService extends WorkerEntrypoint {
 
 }
 const STATION='Y531201001';
-const ORIGIN='https://6pkvnhczsz-create.github.io';
+const ALLOWED_ORIGINS=new Set(['https://6pkvnhczsz-create.github.io','https://riviere-alerte.fr','https://www.riviere-alerte.fr']);
 const API='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr';
 const encoder=new TextEncoder();
 const b64url=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -113,7 +113,7 @@ async function deliver(sub,payload,env){
  const authorization=await vapidHeader(sub.endpoint,env);
  return fetch(sub.endpoint,{method:'POST',headers:{'Content-Type':'application/octet-stream','Content-Encoding':'aes128gcm','TTL':'3600','Authorization':authorization},body:bytes});
 }
-function cors(request){return {'Access-Control-Allow-Origin':request.headers.get('Origin')===ORIGIN?ORIGIN:'null','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Vary':'Origin'}}
+function cors(request){const origin=request.headers.get('Origin');return {'Access-Control-Allow-Origin':ALLOWED_ORIGINS.has(origin)?origin:'null','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Vary':'Origin'}}
 function json(request,value,status=200){return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8',...cors(request),'Cache-Control':'no-store'}})}
 function levelFor(metres,rate){return metres>=4.5?'red':metres>=3||(rate!==null&&rate>=30)?'orange':'green'}
 async function currentObservation(){
@@ -243,7 +243,7 @@ async function authUser(request,db){
  return db.prepare('SELECT u.id,u.email,u.created_at,u.last_login_at FROM auth_sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.status=\'active\'').bind(hash,Date.now()).first();
 }
 async function accountRoute(request,env,url){
- if(request.headers.get('Origin')!==ORIGIN)return json(request,{error:'Origin not allowed'},403);
+ if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
  if(!env.DB)return json(request,{error:'Database unavailable'},503);
  if(!env.RESEND_API_KEY||!env.AUTH_EMAIL_FROM)return json(request,{error:'Email sign-in is not configured yet'},503);
  const db=env.DB,now=Date.now(),ip=request.headers.get('CF-Connecting-IP')||'unknown';
@@ -314,7 +314,7 @@ export default {
   if(url.pathname.startsWith('/auth/')){try{return await accountRoute(request,env,url)}catch(e){console.error('Auth error',String(e));return json(request,{error:'Authentication unavailable'},500)}}
   if(url.pathname==='/health'&&request.method==='GET')return json(request,{ok:true,service:'argens-alerte-push',pushConfigured:Boolean(env.VAPID_PRIVATE_KEY&&env.VAPID_PUBLIC_KEY&&env.VAPID_SUBJECT)});
   if(url.pathname==='/subscribe'&&request.method==='POST'){
-   if(request.headers.get('Origin')!==ORIGIN)return json(request,{error:'Origin not allowed'},403);
+   if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
    if(!env.DB)return json(request,{error:'Database not configured'},503);
    try{
     const raw=await request.text();if(raw.length>5000)return json(request,{error:'Too large'},413);
@@ -328,7 +328,7 @@ export default {
    }catch(e){console.error('Subscription rejected',String(e));return json(request,{error:'Invalid subscription'},400)}
   }
   if(url.pathname==='/language'&&request.method==='POST'){
-   if(request.headers.get('Origin')!==ORIGIN)return json(request,{error:'Origin not allowed'},403);
+   if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
    if(!env.DB)return json(request,{error:'Database not configured'},503);
    try{
     const raw=await request.text();if(raw.length>2500)return json(request,{error:'Too large'},413);
@@ -342,7 +342,7 @@ export default {
    }catch(e){console.error('Language update failed',String(e));return json(request,{error:'Unable to save language'},500)}
   }
   if(url.pathname==='/test'&&request.method==='POST'){
-   if(request.headers.get('Origin')!==ORIGIN)return json(request,{error:'Origin not allowed'},403);
+   if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
    if(!env.DB)return json(request,{error:'Database not configured'},503);
    try{
     const raw=await request.text();if(raw.length>5000)return json(request,{error:'Too large'},413);
