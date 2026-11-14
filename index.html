@@ -103,7 +103,7 @@ function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
  const en=document.documentElement.lang==='en';
  box.classList.toggle('hidden',code!=='Y531201001');out.classList.add('hidden');
- document.querySelector('#forecastHeading').textContent=en?'6-hour water-level trend':'Tendance du niveau sur 6 h';
+ document.querySelector('#forecastHeading').textContent=en?'🔎 6-hour water-level trend':'🔎 Tendance du niveau sur 6 h';
  document.querySelector('#forecastDisclaimer').textContent=en?'Indicative linear extrapolation over 6 hours, not a hydrological forecast or official warning. The trend may change suddenly; uncertainty increases with time.':'Extrapolation linéaire indicative sur 6 heures, ni prévision hydrologique ni alerte officielle. La tendance peut changer brutalement ; l’incertitude augmente avec le temps.';
  if(code!=='Y531201001')return;
  const unavailable=(msg)=>{statusEl.textContent=msg||(en?'Insufficient recent measurements for a trend.':'Mesures récentes insuffisantes pour établir une tendance.')};
