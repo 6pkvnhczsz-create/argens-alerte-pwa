@@ -246,7 +246,6 @@ async function authUser(request,db){
 async function accountRoute(request,env,url){
  if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
  if(!env.DB)return json(request,{error:'Database unavailable'},503);
- if(!env.RESEND_API_KEY||!env.AUTH_EMAIL_FROM)return json(request,{error:'Email sign-in is not configured yet'},503);
  const db=env.DB,now=Date.now(),ip=request.headers.get('CF-Connecting-IP')||'unknown';
  await authTables(db);
  if(url.pathname==='/auth/me'&&request.method==='GET'){
@@ -258,6 +257,7 @@ async function accountRoute(request,env,url){
   return json(request,{ok:true});
  }
  if(request.method!=='POST')return json(request,{error:'Not found'},404);
+ if(!env.RESEND_API_KEY||!env.AUTH_EMAIL_FROM)return json(request,{error:'Email sign-in is not configured yet'},503);
  const raw=await request.text();if(raw.length>1024)return json(request,{error:'Request too large'},413);
  let body;try{body=JSON.parse(raw)}catch{return json(request,{error:'Invalid JSON'},400)}
  const email=authEmail(body.email);if(!email)return json(request,{error:'Invalid email'},400);
