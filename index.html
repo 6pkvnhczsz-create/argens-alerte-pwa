@@ -103,6 +103,16 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <a href="https://www.windy.com/?radar,43.44,6.64,8" target="_blank" rel="noopener noreferrer" id="radarLink">Ouvrir le radar dans Windy</a>
 </details>
 </section>
+<section class="panel" id="systemHealthPanel" style="margin-top:15px" aria-label="État des services">
+<strong id="systemHealthTitle">🛡 État des services</strong>
+<div style="display:grid;gap:10px;margin-top:12px;font-size:14px">
+<div style="display:flex;justify-content:space-between;gap:10px"><span id="healthRiverLabel">Mesures du fleuve</span><strong id="healthRiver">⏳ Vérification…</strong></div>
+<div style="display:flex;justify-content:space-between;gap:10px"><span id="healthWeatherLabel">Prévisions météo</span><strong id="healthWeather">⏳ Vérification…</strong></div>
+<div style="display:flex;justify-content:space-between;gap:10px"><span id="healthPushLabel">Serveur de notifications</span><strong id="healthPush">⏳ Vérification…</strong></div>
+</div>
+<p id="healthNote" class="note" style="margin:12px 0 0">État vérifié depuis cet appareil. La disponibilité du serveur ne confirme pas l’envoi des notifications automatiques.</p>
+<button type="button" id="healthRefresh" style="margin-top:10px;padding:9px 12px;border:1px solid #9db6c2;border-radius:9px;background:white;color:#163447;font:inherit;font-size:13px">↻ Actualiser l’état</button>
+</section>
 <div class="section-title">Explorer les stations</div><div class="panel station-panel"><strong>📍 Trouver une station près de chez moi</strong><p class="note">Entrez une commune française ou autorisez votre position. Les stations sont classées par distance à vol d’oiseau.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="place" placeholder="Ville ou code postal" aria-label="Ville ou code postal" style="flex:1;min-width:160px;border:1px solid #cbdce4;border-radius:10px;padding:12px;font:inherit"><button id="findPlace" style="border:0;background:#087f91;color:white;border-radius:10px;padding:11px">Rechercher</button><button id="gps" style="border:1px solid #cbdce4;background:white;border-radius:10px;padding:11px">⌖ Ma position</button></div><p id="stationMessage" class="note" role="status"></p><div id="stations"></div></div><div class="hidden" aria-hidden="true"><span id="delta"></span><span id="deltaPeriod"></span></div><div class="panel simulation-panel hidden"><strong>Tester les couleurs d’alerte (simulation uniquement)</strong><p class="note">Déplacez le curseur pour prévisualiser les couleurs. Les données réelles restent distinctes. Aperçu uniquement : les seuils réels sont configurés séparément.</p><div id="simulation" class="status green">Aperçu : vert</div><input type="range" min="1" max="4" step=".05" value="1.56" id="slider"><div class="muted" style="display:flex;justify-content:space-between"><span>1,00 m</span><span>4,00 m</span></div></div>
 <p class="note safety-note">Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez <a href="https://www.vigicrues.gouv.fr/" target="_blank" rel="noopener noreferrer">Vigicrues</a> et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.</p></div>
 <div id="pushSettings" class="hidden"><div class="section-title">Notifications</div><div class="panel"><strong>🔔 Alertes sur votre iPhone</strong><p class="note">Recevez une notification orange entre 3 m et moins de 4,5 m, ou dès une hausse ≥ 30 cm/h. Notification rouge dès 4,5 m ou en cas de hausse ≥ 50 cm/h, même sous 4,5 m. Les hausses rapides déclenchent une alerte dès leur détection. Vous êtes également informé lors du retour à un niveau inférieur. Seuils indicatifs non officiels.</p><p id="pushMessage" class="note" role="status" aria-live="polite">Vérification du service de notifications…</p><button id="testPush" class="hidden" style="border:1px solid #087f91;background:white;color:#087f91;border-radius:10px;padding:12px;font:inherit;margin-top:10px">Envoyer une notification test</button><button id="enablePush" disabled style="border:0;background:#087f91;color:white;border-radius:10px;padding:12px;font:inherit">Activer les notifications</button><p class="note">Sur iPhone, ouvrez l’application depuis l’écran d’accueil. Les notifications sont envoyées par notre serveur Cloudflare. Les seuils sont indicatifs et non officiels.</p></div></div><div id="other" class="hidden"><div class="section-title" id="otherTitle"></div><div class="panel">Cette rubrique sera développée dans la prochaine étape.</div></div>
@@ -113,6 +123,36 @@ const stationTitle=document.querySelector('#stationTitle');
 const trend=document.querySelector('#trend'),readingTime=document.querySelector('#readingTime'),period=document.querySelector('#deltaPeriod');
 const RAPID_RISE_CM_PER_HOUR=30; // Seuil indicatif à valider localement.
 let activeStation='Y531201001',loadSequence=0;let chartHours=1,chartReadings=[];document.querySelectorAll('[data-hours]').forEach(b=>b.addEventListener('click',()=>{chartHours=Number(b.dataset.hours);document.querySelectorAll('[data-hours]').forEach(x=>x.setAttribute('aria-pressed',String(Number(x.dataset.hours)===chartHours)));drawChart(chartReadings)}));
+// Client-side service checks: reachability is not proof of scheduled push delivery.
+const healthState={river:'pending',riverAt:null,weather:'pending',push:'pending'};
+function renderSystemHealth(){
+ const en=document.documentElement.lang==='en';
+ const labels={good:en?'● Available':'● Disponible',stale:en?'● Outdated reading':'● Mesure ancienne',bad:en?'● Unavailable':'● Indisponible',pending:en?'⏳ Checking…':'⏳ Vérification…'};
+ const put=(id,state)=>{const el=document.querySelector(id);el.textContent=labels[state];el.style.color=state==='good'?'#087f71':state==='pending'?'#64748b':'#b45309'};
+ document.querySelector('#systemHealthTitle').textContent=en?'🛡 Service status':'🛡 État des services';
+ document.querySelector('#healthRiverLabel').textContent=en?'River measurements':'Mesures du fleuve';
+ document.querySelector('#healthWeatherLabel').textContent=en?'Weather forecast':'Prévisions météo';
+ document.querySelector('#healthPushLabel').textContent=en?'Notification server':'Serveur de notifications';
+ document.querySelector('#healthNote').textContent=en?'Checked from this device. Server availability does not confirm that scheduled push notifications are being sent.':'État vérifié depuis cet appareil. La disponibilité du serveur ne confirme pas l’envoi des notifications automatiques.';
+ document.querySelector('#healthRefresh').textContent=en?'↻ Refresh status':'↻ Actualiser l’état';
+ const age=healthState.riverAt===null?null:Date.now()-healthState.riverAt;
+ put('#healthRiver',healthState.river==='good'&&age!==null&&(age>3*3600000||age< -15*60000)?'stale':healthState.river);
+ put('#healthWeather',healthState.weather);
+ put('#healthPush',healthState.push);
+}
+async function checkPushHealth(){
+ try{
+  const response=await fetch('https://argens-alerte-push.p-hammerschmidt.workers.dev/health',{cache:'no-store',signal:AbortSignal.timeout(10000)});
+  if(!response.ok)throw Error('Push server unavailable');
+  const data=await response.json();
+  healthState.push=data.ok===true&&data.pushConfigured===true?'good':'bad';
+ }catch(e){healthState.push='bad'}
+ renderSystemHealth();
+}
+document.querySelector('#healthRefresh').addEventListener('click',()=>{healthState.push='pending';renderSystemHealth();checkPushHealth();refreshCurrentStation();loadLocalWeather()});
+document.addEventListener('argens-language-changed',renderSystemHealth);
+checkPushHealth();
+setInterval(()=>{if(!document.hidden){checkPushHealth();renderSystemHealth()}},5*60*1000);
 // Informational weather widget; intentionally independent of flood alerts and push subscriptions.
 async function loadLocalWeather(){
  const en=document.documentElement.lang==='en';
@@ -143,8 +183,8 @@ async function loadLocalWeather(){
   document.querySelector('#weatherDay').textContent=fmt(sum(24));
   const temp=data.current?.temperature_2m;
   summary.textContent=(en?'Current temperature: ':'Température actuelle : ')+(Number.isFinite(temp)?temp.toLocaleString(en?'en-GB':'fr-FR',{maximumFractionDigits:1})+' °C':en?'not available':'indisponible');
-  numbers.classList.remove('hidden');
- }catch(err){numbers.classList.add('hidden');summary.textContent=en?'Weather data temporarily unavailable. Radar may still be accessible.':'Données météo temporairement indisponibles. Le radar reste éventuellement accessible.';console.warn('Weather panel',err)}
+  numbers.classList.remove('hidden');healthState.weather='good';renderSystemHealth();
+ }catch(err){healthState.weather='bad';renderSystemHealth();numbers.classList.add('hidden');summary.textContent=en?'Weather data temporarily unavailable. Radar may still be accessible.':'Données météo temporairement indisponibles. Le radar reste éventuellement accessible.';console.warn('Weather panel',err)}
 }
 loadLocalWeather();
 setInterval(()=>{if(!document.hidden)loadLocalWeather()},30*60*1000);
@@ -220,6 +260,7 @@ async function loadMeasurements(code,{silent=false}={}){
   const items=(payload.data||[]).map(x=>({value:Number(x.resultat_obs),date:new Date(x.date_obs)})).filter(x=>Number.isFinite(x.value)&&Number.isFinite(x.date.getTime())).sort((a,b)=>b.date-a.date);
   if(!items.length){if(!silent)noReading('Aucune mesure de hauteur disponible pour cette station.');throw Error('No readings')}chartReadings=items;
   const last=items[0],previous=items.find(x=>x.date<last.date);
+  healthState.river='good';healthState.riverAt=last.date.getTime();renderSystemHealth();
   // Compare to a reading 30–180 minutes earlier; avoid extrapolating from tiny intervals.
   const reference=items.find(x=>{const minutes=(last.date-x.date)/60000;return minutes>=30&&minutes<=180});
   const riseRate=reference?(last.value-reference.value)/10/((last.date-reference.date)/3600000):null;
