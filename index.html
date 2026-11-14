@@ -68,5 +68,5 @@ async function searchPlace(){const q=document.querySelector('#place').value.trim
 document.querySelector('#findPlace').addEventListener('click',searchPlace);
 document.querySelector('#place').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchPlace()}});
 document.querySelector('#gps').addEventListener('click',()=>{if(!navigator.geolocation){message.textContent='Géolocalisation non disponible.';return}message.textContent='Demande de position…';navigator.geolocation.getCurrentPosition(p=>findStations(p.coords.latitude,p.coords.longitude),()=>message.textContent='Position non autorisée ou indisponible.',{timeout:12000,enableHighAccuracy:false})});
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{const reg=await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});await reg.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)reg.update().catch(()=>{})});let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!reloaded){reloaded=true;location.reload()}})}catch(e){}})}
 </script></body></html>
