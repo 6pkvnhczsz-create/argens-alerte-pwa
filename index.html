@@ -103,25 +103,36 @@ function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
  const en=document.documentElement.lang==='en';
  box.classList.toggle('hidden',code!=='Y531201001');out.classList.add('hidden');
- document.querySelector('#forecastHeading').textContent=en?'🔎 Threshold trend projection':'🔎 Projection des seuils';
- document.querySelector('#forecastDisclaimer').textContent=en?'Linear extrapolation of measured water levels, limited to 3 hours. Not a hydrological forecast or official warning. Conditions can change rapidly.':'Extrapolation linéaire du niveau mesuré, limitée à 3 heures. Ni prévision hydrologique ni alerte officielle. Le débit peut évoluer rapidement.';
+ document.querySelector('#forecastHeading').textContent=en?'🔎 6-hour water-level trend':'🔎 Tendance du niveau sur 6 h';
+ document.querySelector('#forecastDisclaimer').textContent=en?'Indicative linear extrapolation over 6 hours, not a hydrological forecast or official warning. The trend may change suddenly; uncertainty increases with time.':'Extrapolation linéaire indicative sur 6 heures, ni prévision hydrologique ni alerte officielle. La tendance peut changer brutalement ; l’incertitude augmente avec le temps.';
  if(code!=='Y531201001')return;
- const unavailable=()=>{statusEl.textContent=en?'No sufficiently reliable short-term projection available.':'Aucune extrapolation à court terme suffisamment fiable.'};
+ const unavailable=(msg)=>{statusEl.textContent=msg||(en?'Insufficient recent measurements for a trend.':'Mesures récentes insuffisantes pour établir une tendance.')};
  if(items.length<3){unavailable();return}
- const last=items[0],now=Date.now(),age=now-last.date.getTime();
- if(age< -15*60000||age>30*60000){statusEl.textContent=en?'Latest reading too old for projection.':'Dernière mesure trop ancienne pour une projection.';return}
- const reference=(target)=>items.filter(x=>{const d=(last.date-x.date)/60000;return d>=target-7&&d<=target+7}).sort((a,b)=>Math.abs((last.date-a.date)/60000-target)-Math.abs((last.date-b.date)/60000-target))[0];
+ const last=items[0],age=Date.now()-last.date.getTime();
+ if(age< -15*60000||age>30*60000){unavailable(en?'Latest reading too old for extrapolation.':'Dernière mesure trop ancienne pour une extrapolation.');return}
+ const reference=target=>items.filter(x=>{const d=(last.date-x.date)/60000;return d>=target-10&&d<=target+10}).sort((a,b)=>Math.abs((last.date-a.date)/60000-target)-Math.abs((last.date-b.date)/60000-target))[0];
  const p60=reference(60),p120=reference(120);
  if(!p60||!p120){unavailable();return}
  const r1=(last.value-p60.value)/10/((last.date-p60.date)/3600000);
  const r2=(p60.value-p120.value)/10/((p60.date-p120.date)/3600000);
- if(!Number.isFinite(r1)||!Number.isFinite(r2)||r1<5||r2<=0||Math.abs(r1-r2)>Math.max(10,r1*.5)){unavailable();return}
- const valueM=last.value/1000,rateM=r1/100;
- const fmt=hours=>{const minutes=Math.ceil(hours*60/5)*5;return en?'about '+(minutes>=60?Math.floor(minutes/60)+' h '+(minutes%60?minutes%60+' min':''):minutes+' min'):'env. '+(minutes>=60?Math.floor(minutes/60)+' h '+(minutes%60?minutes%60+' min':''):minutes+' min')};
- const estimate=threshold=>{if(valueM>=threshold)return en?'Already exceeded':'Déjà franchi';const hours=(threshold-valueM)/rateM;return hours>0&&hours<=3?fmt(hours):en?'Not within 3 h':'Pas dans les 3 h'};
+ if(!Number.isFinite(r1)||!Number.isFinite(r2)){unavailable();return}
+ // Allow rising, falling and stable trends. A strongly changing slope is too unreliable to extrapolate.
+ if(Math.abs(r1-r2)>Math.max(15,Math.max(Math.abs(r1),Math.abs(r2))*.75)){unavailable(en?'Trend changing too quickly for extrapolation.':'Tendance trop variable pour une extrapolation.');return}
+ const rate=(r1+r2)/2,metres=last.value/1000,rateM=rate/100;
+ const direction=rate>2?(en?'↗ Rising':'↗ En hausse'):rate< -2?(en?'↘ Falling':'↘ En baisse'):(en?'→ Stable':'→ Stable');
+ const projected=metres+rateM*6;
+ const num=n=>n.toLocaleString(en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+ const fmt=hours=>{const minutes=Math.ceil(hours*60/5)*5;return (en?'about ':'env. ')+(minutes>=60?Math.floor(minutes/60)+' h'+(minutes%60?' '+minutes%60+' min':''):minutes+' min')};
+ function estimate(threshold){
+   if(metres>=threshold)return en?'Already above threshold':'Seuil déjà dépassé';
+   if(rateM<=.02)return en?'Not expected to cross':'Franchissement non attendu';
+   const hours=(threshold-metres)/rateM;
+   return hours>0&&hours<=6?fmt(hours):en?'Not within 6 h':'Pas dans les 6 h';
+ }
  document.querySelector('#forecastOrange').textContent=estimate(3);
  document.querySelector('#forecastRed').textContent=estimate(4.5);
- statusEl.textContent=(en?'Recent rise: +':'Hausse récente : +')+r1.toFixed(1).replace('.',',')+(en?' cm/h · trend only':' cm/h · simple tendance');
+ const signed=rate>0?'+':'';
+ statusEl.textContent=direction+' · '+signed+rate.toFixed(1).replace('.',',')+' cm/h · '+(en?'6 h extrapolation: ':'Projection à 6 h : ')+num(projected)+' m';
  out.classList.remove('hidden');
 }
 function noReading(text){document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'No sufficiently reliable short-term projection available.':'Aucune extrapolation à court terme suffisamment fiable.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='status orange';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren()}
