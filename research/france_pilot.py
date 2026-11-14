@@ -87,6 +87,21 @@ def choose_coverage(rows, count):
         candidates.remove(best)
     return selected
 
+REFERENCE = {
+    "station_code": "Y531201001",
+    "station_name": "L'Argens à Roquebrune-sur-Argens",
+    "river": "L'Argens",
+    "department": "83",
+    "latitude": "",
+    "longitude": "",
+    "zip_zich_status": "not_checked",
+    "scenario_height_m": "",
+    "scenario_source_url": "",
+    "documented_local_impact": "",
+    "review_status": "historical_peaks_verified_not_overflow_threshold",
+    "review_notes": "HydroPortail historical flood peaks: 2010-06-16 7.71m; 2019-11-23 7.12m (tolerance 0.10m); 2024-03-10 6.22m. These are NOT first-overflow levels. https://www.hydro.eaufrance.fr/sitehydro/Y5312010/seuils"
+}
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default="research/output")
@@ -128,6 +143,18 @@ def main():
             "review_status": "needs_source_review",
             "review_notes": "ZIP/ZICH scenario and local impact must be checked against official sources; no automatic threshold."
         })
+    # Keep the geographically selected 30 unchanged; append a fixed, source-auditable reference.
+    if not any(r["station_code"] == REFERENCE["station_code"] for r in records):
+        matching = next((r for r in rows if r.get("code_station") == REFERENCE["station_code"]), None)
+        reference = dict(REFERENCE)
+        if matching:
+            reference["station_name"] = value(matching, "libelle_station") or reference["station_name"]
+            reference["river"] = value(matching, "libelle_cours_eau", "libelle_site") or reference["river"]
+            reference["department"] = value(matching, "code_departement") or reference["department"]
+            pos = coords(matching)
+            if pos:
+                reference["latitude"], reference["longitude"] = pos
+        records.append(reference)
     with (output / "stations.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=FIELDS)
         writer.writeheader()
@@ -136,7 +163,7 @@ def main():
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "source": API,
         "stations_retrieved": len(rows),
-        "pilot_stations": len(records),
+        "pilot_stations": args.count,\n        "reference_stations": 1,\n        "total_exported_stations": len(records),
         "selection": "deterministic geographic coverage, metropolitan coordinates",
         "zip_zich_verified": 0,
         "validated_flood_thresholds": 0,
