@@ -50,7 +50,7 @@ export class AdminPushService extends WorkerEntrypoint {
   if(last&&Date.now()-Number(last.last_sent)<30000)throw Error('Wait 30 seconds before testing this device again');
   const sub=JSON.parse(row.subscription_json),en=sub.language==='en',mm={orange:50,red:90,purple:120}[data.level];
   const color=en?{orange:'Orange',red:'Red',purple:'Purple'}[data.level]:{orange:'orange',red:'rouge',purple:'violette'}[data.level];
-  const payload={title:({orange:'🟠 🌧️',red:'🔴 🌧️',purple:'🟣 ⛈️'}[data.level])+' Argens Alerte · SIMULATION',body:(en?'Rainfall test ':'Test pluie ')+color+' · '+mm+' mm / 24 h. '+(en?'TEST ONLY — no real weather warning or thunderstorm forecast.':'TEST UNIQUEMENT — aucune alerte météo réelle ni prévision d’orage.'),tag:'argens-admin-rain-test-'+data.level};
+  const payload={title:({orange:'🟠 🌧️',red:'🔴 🌧️🌧️',purple:'🟣 ⛈️'}[data.level])+' Argens Alerte · SIMULATION',body:(en?'Rainfall test ':'Test pluie ')+color+' · '+mm+' mm / 24 h. '+(en?'TEST ONLY — no real weather warning or thunderstorm forecast.':'TEST UNIQUEMENT — aucune alerte météo réelle ni prévision d’orage.'),tag:'argens-admin-rain-test-'+data.level};
   const result=await deliver(sub,payload,this.env);
   if(!result.ok){
    if(result.status===404||result.status===410)await db.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(data.endpoint).run();
@@ -179,7 +179,7 @@ async function checkRainForecast(env){
    const sub=JSON.parse(row.subscription_json),en=sub.language==='en';
    const name=en?({orange:'Orange',red:'Red',purple:'Purple'}[current]):({orange:'orange',red:'rouge',purple:'violette'}[current]);
    const amount=max.toLocaleString(en?'en-GB':'fr-FR',{maximumFractionDigits:1});
-   const payload={title:({orange:'🟠 🌧️',red:'🔴 🌧️',purple:'🟣 ⛈️'}[current])+' Argens Alerte · '+(en?'Rain alert '+name:'Alerte pluie '+name),body:en?'Roquebrune-sur-Argens · up to '+amount+' mm / 24 h forecast. Indicative forecast, not an official flood or thunderstorm warning.':'Roquebrune-sur-Argens · jusqu’à '+amount+' mm / 24 h prévus. Prévision indicative, pas une alerte officielle de crue ou d’orage.',tag:'argens-rain-'+current};
+   const payload={title:({orange:'🟠 🌧️',red:'🔴 🌧️🌧️',purple:'🟣 ⛈️'}[current])+' Argens Alerte · '+(en?'Rain alert '+name:'Alerte pluie '+name),body:en?'Roquebrune-sur-Argens · up to '+amount+' mm / 24 h forecast. Indicative forecast, not an official flood or thunderstorm warning.':'Roquebrune-sur-Argens · jusqu’à '+amount+' mm / 24 h prévus. Prévision indicative, pas une alerte officielle de crue ou d’orage.',tag:'argens-rain-'+current};
    const result=await deliver(sub,payload,env);
    if(result.ok)sent++;
    else if(result.status===404||result.status===410)await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(row.endpoint).run();
