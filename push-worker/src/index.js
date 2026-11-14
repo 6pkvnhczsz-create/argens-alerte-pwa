@@ -279,7 +279,7 @@ async function checkPersonalStations(env){
     const name=u.station_name||u.station_code;
     const threshold=level==='red'?u.red_m:u.orange_m;
     const {title,body}=personalPushMessage({station:name,metres:obs.metres,threshold,rate:obs.rate,level,rapid:rapidTriggered||rapidCause,settingsUpdate:false,en});
-    const response=await deliver(subscription,{title,body,tag:'personal-+u.station_code+'-'+level},env);
+    const response=await deliver(subscription,{title,body,tag:'personal-'+u.station_code+'-'+level},env);
     if(!response.ok&&[404,410].includes(response.status))await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(d.endpoint).run();
     else if(!response.ok)failed++;
    }catch(e){failed++;console.error('Personal push failed',String(e))}
