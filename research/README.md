@@ -4,8 +4,9 @@ This research workflow **does not alter the live app**, alerts, or user settings
 
 ## What it currently does
 - Downloads Hub'Eau's hydrometric station reference via its public API.
-- Picks 30 stations across metropolitan France using deterministic spatial spread.
-- Produces `stations.csv` and `summary.json` as a GitHub Actions artifact.
+- Picks 30 stations across metropolitan France using deterministic spatial spread, plus the fixed Roquebrune-sur-Argens reference station.
+- Produces `stations.csv`, `source_review.csv`, and `summary.json` as a GitHub Actions artifact.
+- `source_review.csv` is an auditable manual verification queue with station-specific HydroPortail links, empty evidence fields and `threshold_usable=no`. A portal link is **not** proof that ZIP/ZICH data exist for the station.
 - Marks ZIP/ZICH coverage and local flood impact **unverified** until independently checked.
 
 ## How to run
@@ -19,7 +20,7 @@ Download the artifact `france-station-pilot` from the run.
 - National flood-impact maps / VIGInond: scenario documentation and geodata from official producers
 - HydroPortail for station reference levels and historical events: https://www.hydro.eaufrance.fr/
 
-## Next validation stage (not implemented)
+## Next validation stage (official ZIP/ZICH retrieval and verification not yet implemented)
 1. Obtain documented machine-readable ZIP/ZICH dataset endpoints, licenses and schema.
 2. Map station identifiers to scenarios; verify local gauge datum and scenario height units.
 3. Inspect scenario footprint and documentation; distinguish a mapped scenario from the **first overflow**.
