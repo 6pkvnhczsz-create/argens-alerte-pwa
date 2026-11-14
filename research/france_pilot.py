@@ -10,6 +10,10 @@ import math
 import pathlib
 import urllib.parse
 import urllib.request
+import urllib.error
+import time
+import http.client
+import socket
 from datetime import datetime, timezone
 
 API = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations"
@@ -17,11 +21,30 @@ FIELDS = ["station_code", "station_name", "river", "department", "latitude", "lo
           "zip_zich_status", "scenario_height_m", "scenario_source_url",
           "documented_local_impact", "review_status", "review_notes"]
 # Important: no default orange/red heights are inferred from station readings.
-def fetch_page(page, size=1000):
+def fetch_page(page, size=100):
     params = urllib.parse.urlencode({"page": page, "size": size, "format": "json"})
-    request = urllib.request.Request(API + "?" + params, headers={"User-Agent": "RiviereAlerteResearch/0.1", "Accept": "application/json"})
-    with urllib.request.urlopen(request, timeout=45) as response:
-        return json.load(response)
+    url = API + "?" + params
+    errors = []
+    for attempt in range(5):
+        request = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; RiviereAlerteResearch/0.2)",
+            "Accept": "application/json",
+            "Connection": "close"
+        })
+        try:
+            with urllib.request.urlopen(request, timeout=35) as response:
+                return json.load(response)
+        except (urllib.error.URLError, http.client.HTTPException, TimeoutError,
+                ConnectionError, OSError, ValueError) as exc:
+            errors.append(f"{type(exc).__name__}: {exc}")
+            if isinstance(exc, urllib.error.HTTPError) and exc.code not in (429, 500, 502, 503, 504):
+                raise RuntimeError(f"Hub'Eau HTTP {exc.code} at {url}") from exc
+            if attempt < 4:
+                delay = min(2 ** attempt * 2, 20)
+                print(f"Page {page}: API connection failed; retry {attempt + 1}/4 in {delay}s ({type(exc).__name__})", flush=True)
+                time.sleep(delay)
+    raise RuntimeError(f"Hub'Eau API unreachable after 5 attempts on page {page}: {errors[-1]}")
+
 
 def value(row, *keys):
     for key in keys:
@@ -68,7 +91,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default="research/output")
     parser.add_argument("--count", type=int, default=30)
-    parser.add_argument("--max-pages", type=int, default=50)
+    parser.add_argument("--max-pages", type=int, default=100)
     args = parser.parse_args()
     if not 1 <= args.count <= 100:
         parser.error("--count must be 1..100")
@@ -81,6 +104,7 @@ def main():
         if not isinstance(batch, list):
             raise RuntimeError("Unexpected Hub'Eau API response")
         rows.extend(batch)
+        print(f"Fetched page {page}: {len(batch)} stations (total {len(rows)})", flush=True)
         if not payload.get("next") or not batch:
             break
     if not rows:
