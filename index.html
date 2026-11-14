@@ -250,7 +250,21 @@ const CUSTOM_DEFAULTS={orange:3,red:4.5};let personalThresholds=null;
 function activeThresholds(code){return personalThresholds&&personalThresholds.code===code?personalThresholds:CUSTOM_DEFAULTS}
 function renderThresholdLabels(code){const t=activeThresholds(code),fr=document.documentElement.lang!=='en',fmt=n=>n.toLocaleString(fr?'fr-FR':'en-GB',{maximumFractionDigits:2,minimumFractionDigits:2});const chips=document.querySelectorAll('[data-threshold]');if(chips.length===3){chips[0].textContent='< '+fmt(t.orange)+' m';chips[1].textContent=fmt(t.orange)+'–'+fmt(t.red)+' m';chips[2].textContent='≥ '+fmt(t.red)+' m'}const labels=document.querySelectorAll('#forecastResults .card small');if(labels.length===2){labels[0].textContent=(fr?'🟠 Seuil ':'🟠 Threshold ')+fmt(t.orange)+' m';labels[1].textContent=(fr?'🔴 Seuil ':'🔴 Threshold ')+fmt(t.red)+' m'}}
 function renderAlertRules(code){const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code),en=document.documentElement.lang==='en',fmt=n=>n.toLocaleString(en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});document.querySelector('#alertStationName').textContent=(en?'Flood thresholds · ':'Seuils de crue · ')+(custom?stationTitle.textContent:'Roquebrune-sur-Argens');document.querySelector('#alertGreenRule').textContent='< '+fmt(t.orange)+' m'+(en?' and rise < 30 cm/h':' et hausse < 30 cm/h');document.querySelector('#alertOrangeRule').textContent=fmt(t.orange)+(en?' to below ':' à moins de ')+fmt(t.red)+' m';document.querySelector('#alertRedRule').textContent='≥ '+fmt(t.red)+' m';document.querySelectorAll('[data-rapid-rule]').forEach(el=>el.hidden=false)}
-function applyPersonalThresholds(){renderThresholdLabels(activeStation);renderAlertRules(activeStation);if(chartReadings.length)loadMeasurements(activeStation,{silent:true}).catch(console.warn)}
+function refreshThresholdAppearance(code){
+ const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code),local=code==='Y531201001'||custom;
+ const latest=chartReadings[0],reference=latest&&chartReadings.find(x=>{const minutes=(latest.date-x.date)/60000;return minutes>=30&&minutes<=180});
+ const riseRate=reference?(latest.value-reference.value)/10/((latest.date-reference.date)/3600000):null;
+ const rapidRise=riseRate!==null&&riseRate>=RAPID_RISE_CM_PER_HOUR;
+ const metres=latest?latest.value/1000:null,stale=!latest||Date.now()-latest.date.getTime()>3*3600000||Date.now()-latest.date.getTime()< -15*60000;
+ const band=metres===null?'unknown':metres>=t.red||(riseRate!==null&&riseRate>=50)?'red':metres>=t.orange||rapidRise?'orange':'green';
+ document.querySelector('.threshold-row').hidden=!local;
+ document.querySelector('#thresholdNotice').hidden=local;
+ document.querySelector('.hero').dataset.alert=stale||!local?'unknown':band;
+ document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.toggle('is-current',!stale&&local&&x.dataset.threshold===band));
+ const statusEl=document.querySelector('#status');statusEl.className='threshold-message';
+ statusEl.textContent=stale?mapText('● Mesure ancienne · statut non fiable','● Outdated reading · status unreliable'):!local?'':rapidRise&&metres<t.orange?mapText('● Montée rapide (≥ 30 cm/h)','● Rapid rise (≥ 30 cm/h)'):'';
+}
+function applyPersonalThresholds(){renderThresholdLabels(activeStation);renderAlertRules(activeStation);refreshThresholdAppearance(activeStation);if(chartReadings.length)loadMeasurements(activeStation,{silent:true}).catch(console.warn)}
 const RAPID_RISE_CM_PER_HOUR=30; // Seuil indicatif à valider localement.
 let activeStation='Y531201001',loadSequence=0;let chartHours=1,chartReadings=[];document.querySelectorAll('[data-hours]').forEach(b=>b.addEventListener('click',()=>{chartHours=Number(b.dataset.hours);document.querySelectorAll('[data-hours]').forEach(x=>x.setAttribute('aria-pressed',String(Number(x.dataset.hours)===chartHours)));drawChart(chartReadings)}));
 // Client-side service checks: reachability is not proof of scheduled push delivery.
