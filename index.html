@@ -808,30 +808,36 @@ accountRestore();
 setLanguage(lang);
 })();
 
-// Align the connector to the *rendered* centers of the level glass and green pill.
-// Recalculate after fonts, translations, threshold changes and responsive reflows.
+// Connect the measured water level to the currently active threshold band.
+// Use the same active-state class as the alert UI; never derive a second threshold.
 (function(){
   const hero=document.querySelector('#overview .hero');
   const connector=hero?.querySelector('.level-connector');
   const glass=hero?.querySelector('.level-glass');
-  const pill=hero?.querySelector('.threshold-green');
   const row=hero?.querySelector('.threshold-row');
-  if(!connector||!glass||!pill||!row)return;
+  if(!connector||!glass||!row)return;
+  const svg=connector.querySelector('svg');
+  const path=connector.querySelector('path');
+  const colors={green:'#a4ffe0',orange:'#ffbf69',red:'#ff8991'};
   let pending=false;
   function align(){
     pending=false;
+    const band=hero.dataset.alert;
+    const pill=row.querySelector('.threshold.is-current');
+    if(!pill||!colors[band]||pill.dataset.threshold!==band){
+      connector.style.visibility='hidden';
+      return;
+    }
     const bounds=connector.getBoundingClientRect();
     const g=glass.getBoundingClientRect();
     const p=pill.getBoundingClientRect();
     if(!bounds.width||!g.width||!p.width)return;
-    // CSS pixel coordinates relative to the connector; both endpoints are measured.
     const start=g.left+g.width/2-bounds.left;
-    const end=p.left+p.width/2-bounds.left;
-    const svg=connector.querySelector('svg');
-    const path=connector.querySelector('path');
-    if(!svg||!path)return;
+    const finish=p.left+p.width/2-bounds.left;
     svg.setAttribute('viewBox',`0 0 ${bounds.width} 44`);
-    path.setAttribute('d',`M${start} 0 V23 H${end} V44`);
+    path.setAttribute('d',`M${start} 0 V23 H${finish} V44`);
+    path.style.stroke=colors[band];
+    connector.style.visibility='visible';
   }
   function schedule(){
     if(pending)return;
@@ -843,11 +849,12 @@ setLanguage(lang);
   if(document.fonts?.ready)document.fonts.ready.then(schedule);
   if(typeof ResizeObserver!=='undefined'){
     const observer=new ResizeObserver(schedule);
-    [connector,glass,pill,row].forEach(el=>observer.observe(el));
+    [connector,glass,row].forEach(el=>observer.observe(el));
   }
   if(typeof MutationObserver!=='undefined'){
     const observer=new MutationObserver(schedule);
-    observer.observe(pill,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['class','style']});
+    observer.observe(row,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','style']});
+    observer.observe(hero,{attributes:true,attributeFilter:['data-alert']});
     observer.observe(glass,{childList:true,characterData:true,subtree:true});
   }
   schedule();
