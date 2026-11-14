@@ -203,7 +203,9 @@ async function personalStationObservation(code){
  const points=(data.data||[]).map(x=>({mm:Number(x.resultat_obs),time:new Date(x.date_obs).getTime()})).filter(x=>Number.isFinite(x.mm)&&Number.isFinite(x.time)).sort((a,b)=>b.time-a.time);
  if(!points.length)throw Error('No observations for '+code);
  const age=Date.now()-points[0].time;if(age>3*3600000||age< -15*60000)throw Error('Stale observations for '+code);
- return {metres:points[0].mm/1000,observedAt:new Date(points[0].time).toISOString()};
+ const reference=points.find(x=>points[0].time-x.time>=30*60000&&points[0].time-x.time<=180*60000);
+ const rate=reference?(points[0].mm-reference.mm)/10/((points[0].time-reference.time)/3600000):null;
+ return {metres:points[0].mm/1000,rate,observedAt:new Date(points[0].time).toISOString()};
 }
 async function checkPersonalStations(env){
  await env.DB.prepare('CREATE TABLE IF NOT EXISTS user_station_settings (user_id TEXT PRIMARY KEY,station_code TEXT NOT NULL,station_name TEXT NOT NULL,orange_m REAL NOT NULL,red_m REAL NOT NULL,updated_at INTEGER NOT NULL)').run();
@@ -215,7 +217,11 @@ async function checkPersonalStations(env){
  }
  for(const u of users){
   const obs=await observations.get(u.station_code);if(!obs)continue;
-  const level=obs.metres>=u.red_m?'red':obs.metres>=u.orange_m?'orange':'green';
+  const heightLevel=obs.metres>=u.red_m?'red':obs.metres>=u.orange_m?'orange':'green';
+  const rapidLevel=obs.rate!==null&&obs.rate>=50?'red':obs.rate!==null&&obs.rate>=30?'orange':'green';
+  const rank={green:0,orange:1,red:2};
+  const level=rank[rapidLevel]>rank[heightLevel]?rapidLevel:heightLevel;
+  const rapidCause=rank[rapidLevel]>=rank[heightLevel]&&rapidLevel!=='green';
   const previous=await env.DB.prepare('SELECT station_code,alert_level,updated_at FROM user_station_alert_state WHERE user_id=?').bind(u.user_id).first();
   // New settings are a new baseline, not an immediate alarm.
   if(!previous||previous.station_code!==u.station_code||previous.updated_at<u.updated_at){
@@ -230,10 +236,11 @@ async function checkPersonalStations(env){
    try{
     const subscription=JSON.parse(d.subscription_json),en=subscription.language==='en';
     const name=u.station_name||u.station_code;
-    const label=en?{green:'Back to green',orange:'Orange alert',red:'Red alert'}[level]:{green:'Retour au vert',orange:'Alerte orange',red:'Alerte rouge'}[level];
+    const label=rapidCause?(en?'Rapid water-level rise':'Montée rapide du niveau'):en?{green:'Back to green',orange:'Orange alert',red:'Red alert'}[level]:{green:'Retour au vert',orange:'Alerte orange',red:'Alerte rouge'}[level];
     const icon={green:'🟢',orange:'🟠',red:'🔴'}[level];
     const threshold=level==='red'?u.red_m:u.orange_m;
-    const body=name+' · '+obs.metres.toFixed(2)+' m · '+(en?'Personal threshold: ':'Seuil personnel : ')+threshold.toFixed(2)+' m. '+(en?'Unofficial alert.':'Alerte non officielle.');
+    const reason=rapidCause?(en?'Rapid rise: ':'Montée rapide : ')+(obs.rate>=0?'+':'')+obs.rate.toFixed(1)+' cm/h':level==='green'?(en?'Below personal orange threshold':'Sous le seuil orange personnel'):(en?'Personal threshold: ':'Seuil personnel : ')+threshold.toFixed(2)+' m';
+    const body=name+' · '+obs.metres.toFixed(2)+' m · '+reason+'. '+(en?'Unofficial alert.':'Alerte non officielle.');
     const response=await deliver(subscription,{title:icon+' Rivière Alerte · '+label,body,tag:'personal-'+u.station_code+'-'+level},env);
     if(!response.ok&&[404,410].includes(response.status))await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(d.endpoint).run();
     else if(!response.ok)failed++;
