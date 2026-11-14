@@ -670,7 +670,7 @@ const patterns=[
 ];
 let lang=localStorage.getItem('argens-language')==='en'?'en':'fr';
 const original=new WeakMap(),rendered=new WeakMap();
-function translate(text){if(translations[text])return translations[text];const trimmed=text.trim();if(trimmed&&translations[trimmed])return text.slice(0,text.indexOf(trimmed))+translations[trimmed]+text.slice(text.indexOf(trimmed)+trimmed.length);for(const [re,to] of patterns)if(re.test(text))return text.replace(re,to);return text
+function translate(text){const chartTrend=text.match(/^([↗↘→]) Niveau (en hausse|en baisse|stable) sur (\d+) h(\s*:\s*[+−-]?[\d.,]+\s*cm.*)$/);if(chartTrend){const words=chartTrend[2]==='en hausse'?'Water level rising':chartTrend[2]==='en baisse'?'Water level falling':'Water level stable';return chartTrend[1]+' '+words+' over '+chartTrend[3]+' h'+chartTrend[4].replace(/(\d),(\d)/g,'$1.$2').replace(' · données potentiellement anciennes',' · readings may be outdated')}if(translations[text])return translations[text];const trimmed=text.trim();if(trimmed&&translations[trimmed])return text.slice(0,text.indexOf(trimmed))+translations[trimmed]+text.slice(text.indexOf(trimmed)+trimmed.length);for(const [re,to] of patterns)if(re.test(text))return text.replace(re,to);return text
  .replace(/^([↗↘→] Niveau (?:en hausse|en baisse|stable)) sur (\\d+) min/,(_,label,n)=>translate(label)+' over '+n+' min')
  .replace(' · données potentiellement anciennes',' · readings may be outdated')
  .replace(' cm/h (estimation)',' cm/h (estimated)');}
