@@ -499,7 +499,8 @@ function selectMapStation(station,button,marker){
  message.textContent=mapText('Station sélectionnée : ','Selected station: ')+code+'. '+mapText('Chargement des mesures officielles…','Loading official readings…');
  loadMeasurements(code);
  document.querySelectorAll('#stations button').forEach(b=>b.classList.toggle('selected',b===button));
- if(marker&&stationMap){stationMap.panTo(marker.getLatLng());marker.openPopup()}
+ if(marker&&stationMap){stationMap.panTo(marker.getLatLng());marker.closePopup()}
+ document.querySelector('[data-tab="overview"]').click();
 }
 async function findStations(lat,lon){
  message.textContent=mapText('Recherche des stations à proximité…','Searching for nearby stations…');stationsEl.replaceChildren();
