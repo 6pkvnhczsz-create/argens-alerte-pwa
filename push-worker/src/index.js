@@ -222,7 +222,7 @@ async function scheduledCheck(env){
 const authBytes=n=>crypto.getRandomValues(new Uint8Array(n));
 const authHex=a=>Array.from(a,b=>b.toString(16).padStart(2,'0')).join('');
 const authHash=async v=>authHex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v))));
-const authEmail=v=>typeof v==='string'&&v.trim().length<=254&&/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(v.trim())?v.trim().toLowerCase():null;
+const authEmail=v=>typeof v==='string'&&v.trim().length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())?v.trim().toLowerCase():null;
 async function authTables(db){
  await db.prepare('CREATE TABLE IF NOT EXISTS app_users (id TEXT PRIMARY KEY,email TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,last_login_at INTEGER NOT NULL,status TEXT NOT NULL DEFAULT \'active\')').run();
  await db.prepare('CREATE TABLE IF NOT EXISTS auth_codes (email TEXT PRIMARY KEY,code_hash TEXT NOT NULL,expires_at INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,last_sent_at INTEGER NOT NULL)').run();
@@ -275,7 +275,7 @@ async function accountRoute(request,env,url){
  }
  if(url.pathname==='/auth/verify'){
   if(!await authLimit(db,ipKey+':verify',30,3600000)||!await authLimit(db,emailKey+':verify',10,3600000))return json(request,{error:'Too many attempts'},429);
-  if(typeof body.code!=='string'||!/^\\d{6}$/.test(body.code))return json(request,{error:'Invalid code'},400);
+  if(typeof body.code!=='string'||!/^\d{6}$/.test(body.code))return json(request,{error:'Invalid code'},400);
   const row=await db.prepare('SELECT * FROM auth_codes WHERE email=?').bind(email).first();
   if(!row||row.expires_at<=now||row.attempts>=5)return json(request,{error:'Code expired or invalid'},401);
   await db.prepare('UPDATE auth_codes SET attempts=attempts+1 WHERE email=?').bind(email).run();
