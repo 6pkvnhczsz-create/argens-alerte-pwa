@@ -807,4 +807,26 @@ accountRestore();
 
 setLanguage(lang);
 })();
+
+// Keep the decorative connector aligned with the actual first threshold pill,
+// regardless of translations, responsive widths, or user-defined threshold text.
+function alignLevelConnector(){
+  const hero=document.querySelector('#overview .hero');
+  const connector=hero?.querySelector('.level-connector');
+  const pill=hero?.querySelector('.threshold-green');
+  if(!connector||!pill)return;
+  const bounds=connector.getBoundingClientRect();
+  const target=pill.getBoundingClientRect();
+  if(!bounds.width)return;
+  const x=Math.max(0,Math.min(bounds.width,target.left+target.width/2-bounds.left));
+  const svg=connector.querySelector('svg');
+  const path=connector.querySelector('path');
+  if(!svg||!path)return;
+  svg.setAttribute('viewBox','0 0 '+bounds.width+' 44');
+  path.setAttribute('d','M'+(bounds.width/2)+' 0 V23 H'+x+' V44');
+}
+window.addEventListener('resize',alignLevelConnector);
+window.addEventListener('load',alignLevelConnector);
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',alignLevelConnector);
+else alignLevelConnector();
 </script></body></html>
