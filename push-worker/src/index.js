@@ -15,7 +15,7 @@ export class AdminPushService extends WorkerEntrypoint {
   const rows=await db.prepare('SELECT endpoint,subscription_json FROM push_subscriptions').all();
   let accepted=0,failed=0,expired=0;
   const payload={title:data.title.trim(),body:data.body.trim(),tag:'argens-admin-'+data.kind};
-  for(const row of rows.results||[]){try{const result=await deliver(JSON.parse(row.subscription_json),payload,this.env);if(result.ok)accepted++;else if(result.status===404||result.status===410){expired++;await db.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(row.endpoint).run()}else{failed++;console.error('Admin push rejected',result.status)}}catch(e){failed++;console.error('Admin push error',String(e))}}
+  for(const row of rows.results||[]){try{const result=await deliver(JSON.parse(row.subscription_json),payload,this.env);if(result.ok)accepted++;else if(result.status===404||result.status===410){expired++;await db.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(row.endpoint).run()}else{failed++;const detail=(await result.text().catch(()=>'' )).slice(0,500);console.error('Admin push rejected',result.status,'provider:',new URL(row.endpoint).host,'details:',detail)}}catch(e){failed++;console.error('Admin push error',String(e))}}
   await db.prepare('UPDATE admin_send_log SET accepted=?,failed=?,expired=? WHERE id=?').bind(accepted,failed,expired,record.meta.last_row_id).run();
   return {accepted,failed,expired};
  }
