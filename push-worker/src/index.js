@@ -217,10 +217,86 @@ async function scheduledCheck(env){
  if(failed===0){await env.DB.prepare('INSERT INTO alert_state(station_code,alert_level,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(station_code) DO UPDATE SET alert_level=excluded.alert_level,updated_at=CURRENT_TIMESTAMP').bind(STATION,obs.level).run()}
  console.log('Argens alert transition',previous,obs.level,'sent',sent,'failed',failed);
 }
+
+/* Account sign-in: one-time email codes, opaque sessions, per-address/IP throttling. */
+const authBytes=n=>crypto.getRandomValues(new Uint8Array(n));
+const authHex=a=>Array.from(a,b=>b.toString(16).padStart(2,'0')).join('');
+const authHash=async v=>authHex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v))));
+const authEmail=v=>typeof v==='string'&&v.trim().length<=254&&/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(v.trim())?v.trim().toLowerCase():null;
+async function authTables(db){
+ await db.prepare('CREATE TABLE IF NOT EXISTS app_users (id TEXT PRIMARY KEY,email TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,last_login_at INTEGER NOT NULL,status TEXT NOT NULL DEFAULT \'active\')').run();
+ await db.prepare('CREATE TABLE IF NOT EXISTS auth_codes (email TEXT PRIMARY KEY,code_hash TEXT NOT NULL,expires_at INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,last_sent_at INTEGER NOT NULL)').run();
+ await db.prepare('CREATE TABLE IF NOT EXISTS auth_sessions (token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires_at INTEGER NOT NULL,created_at INTEGER NOT NULL)').run();
+ await db.prepare('CREATE TABLE IF NOT EXISTS auth_limits (key TEXT PRIMARY KEY,window_start INTEGER NOT NULL,count INTEGER NOT NULL)').run();
+}
+async function authLimit(db,key,max,period){
+ const now=Date.now(),row=await db.prepare('SELECT window_start,count FROM auth_limits WHERE key=?').bind(key).first();
+ if(row&&now-row.window_start<period&&row.count>=max)return false;
+ if(!row||now-row.window_start>=period)await db.prepare('INSERT INTO auth_limits(key,window_start,count) VALUES(?,?,1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start,count=1').bind(key,now).run();
+ else await db.prepare('UPDATE auth_limits SET count=count+1 WHERE key=?').bind(key).run();
+ return true;
+}
+async function authUser(request,db){
+ const token=(request.headers.get('Authorization')||'').match(/^Bearer ([A-Za-z0-9_-]{32,128})$/)?.[1];
+ if(!token)return null;
+ const hash=await authHash(token);
+ return db.prepare('SELECT u.id,u.email,u.created_at,u.last_login_at FROM auth_sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.status=\'active\'').bind(hash,Date.now()).first();
+}
+async function accountRoute(request,env,url){
+ if(request.headers.get('Origin')!==ORIGIN)return json(request,{error:'Origin not allowed'},403);
+ if(!env.DB)return json(request,{error:'Database unavailable'},503);
+ if(!env.RESEND_API_KEY||!env.AUTH_EMAIL_FROM)return json(request,{error:'Email sign-in is not configured yet'},503);
+ const db=env.DB,now=Date.now(),ip=request.headers.get('CF-Connecting-IP')||'unknown';
+ await authTables(db);
+ if(url.pathname==='/auth/me'&&request.method==='GET'){
+  const user=await authUser(request,db);return user?json(request,{user}):json(request,{error:'Unauthorized'},401);
+ }
+ if(url.pathname==='/auth/logout'&&request.method==='POST'){
+  const token=(request.headers.get('Authorization')||'').replace(/^Bearer /,'');
+  if(token)await db.prepare('DELETE FROM auth_sessions WHERE token_hash=?').bind(await authHash(token)).run();
+  return json(request,{ok:true});
+ }
+ if(request.method!=='POST')return json(request,{error:'Not found'},404);
+ const raw=await request.text();if(raw.length>1024)return json(request,{error:'Request too large'},413);
+ let body;try{body=JSON.parse(raw)}catch{return json(request,{error:'Invalid JSON'},400)}
+ const email=authEmail(body.email);if(!email)return json(request,{error:'Invalid email'},400);
+ const ipKey='ip:'+await authHash(ip),emailKey='email:'+await authHash(email);
+ if(url.pathname==='/auth/request'){
+  if(!await authLimit(db,ipKey+':request',12,3600000)||!await authLimit(db,emailKey+':request',4,3600000))return json(request,{error:'Too many requests. Try later.'},429);
+  const prev=await db.prepare('SELECT last_sent_at FROM auth_codes WHERE email=?').bind(email).first();
+  if(prev&&now-prev.last_sent_at<60000)return json(request,{ok:true});
+  const code=String(crypto.getRandomValues(new Uint32Array(1))[0]%1000000).padStart(6,'0');
+  const hash=await authHash(email+':'+code+':'+env.AUTH_CODE_PEPPER);
+  if(!env.AUTH_CODE_PEPPER)return json(request,{error:'Authentication not configured'},503);
+  const sent=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({from:env.AUTH_EMAIL_FROM,to:[email],subject:'Argens Alerte · Code de connexion',text:'Votre code Argens Alerte : '+code+'\\nValable 5 minutes. / Your sign-in code (valid for 5 minutes). Si vous n’avez pas demandé ce code, ignorez cet e-mail.'})});
+  if(!sent.ok){console.error('Email delivery failed',sent.status);return json(request,{error:'Email delivery unavailable'},502)}
+  await db.prepare('INSERT INTO auth_codes(email,code_hash,expires_at,attempts,last_sent_at) VALUES(?,?,?,0,?) ON CONFLICT(email) DO UPDATE SET code_hash=excluded.code_hash,expires_at=excluded.expires_at,attempts=0,last_sent_at=excluded.last_sent_at').bind(email,hash,now+300000,now).run();
+  return json(request,{ok:true});
+ }
+ if(url.pathname==='/auth/verify'){
+  if(!await authLimit(db,ipKey+':verify',30,3600000)||!await authLimit(db,emailKey+':verify',10,3600000))return json(request,{error:'Too many attempts'},429);
+  if(typeof body.code!=='string'||!/^\\d{6}$/.test(body.code))return json(request,{error:'Invalid code'},400);
+  const row=await db.prepare('SELECT * FROM auth_codes WHERE email=?').bind(email).first();
+  if(!row||row.expires_at<=now||row.attempts>=5)return json(request,{error:'Code expired or invalid'},401);
+  await db.prepare('UPDATE auth_codes SET attempts=attempts+1 WHERE email=?').bind(email).run();
+  if(row.code_hash!==await authHash(email+':'+body.code+':'+env.AUTH_CODE_PEPPER))return json(request,{error:'Code expired or invalid'},401);
+  await db.prepare('DELETE FROM auth_codes WHERE email=?').bind(email).run();
+  const id=crypto.randomUUID();
+  await db.prepare('INSERT INTO app_users(id,email,created_at,last_login_at) VALUES(?,?,?,?) ON CONFLICT(email) DO UPDATE SET last_login_at=excluded.last_login_at').bind(id,email,now,now).run();
+  const user=await db.prepare('SELECT id,email,created_at,last_login_at FROM app_users WHERE email=? AND status=\'active\'').bind(email).first();
+  if(!user)return json(request,{error:'Account unavailable'},403);
+  const token=b64url(authBytes(32));
+  await db.prepare('INSERT INTO auth_sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)').bind(await authHash(token),user.id,now+30*86400000,now).run();
+  return json(request,{token,user,expires_at:now+30*86400000});
+ }
+ return json(request,{error:'Not found'},404);
+}
+
 export default {
  async fetch(request,env){
   const url=new URL(request.url);
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors(request)});
+  if(url.pathname.startsWith('/auth/')){try{return await accountRoute(request,env,url)}catch(e){console.error('Auth error',String(e));return json(request,{error:'Authentication unavailable'},500)}}
   if(url.pathname==='/health'&&request.method==='GET')return json(request,{ok:true,service:'argens-alerte-push',pushConfigured:Boolean(env.VAPID_PRIVATE_KEY&&env.VAPID_PUBLIC_KEY&&env.VAPID_SUBJECT)});
   if(url.pathname==='/subscribe'&&request.method==='POST'){
    if(request.headers.get('Origin')!==ORIGIN)return json(request,{error:'Origin not allowed'},403);
