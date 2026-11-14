@@ -195,6 +195,53 @@ async function checkRainForecast(env){
  console.log('Rain alert',saved.level,'->',current,'max mm',max,'window start',new Date(peakStart).toISOString(),'sent',sent,'failed',failures);
 }
 
+async function personalStationObservation(code){
+ const url=API+'?code_entite='+encodeURIComponent(code)+'&grandeur_hydro=H&size=10&sort=desc&format=json';
+ const response=await fetch(url,{headers:{Accept:'application/json'},cf:{cacheTtl:0}});
+ if(!response.ok)throw Error('Station '+code+' HTTP '+response.status);
+ const data=await response.json();
+ const points=(data.data||[]).map(x=>({mm:Number(x.resultat_obs),time:new Date(x.date_obs).getTime()})).filter(x=>Number.isFinite(x.mm)&&Number.isFinite(x.time)).sort((a,b)=>b.time-a.time);
+ if(!points.length)throw Error('No observations for '+code);
+ const age=Date.now()-points[0].time;if(age>3*3600000||age< -15*60000)throw Error('Stale observations for '+code);
+ return {metres:points[0].mm/1000,observedAt:new Date(points[0].time).toISOString()};
+}
+async function checkPersonalStations(env){
+ await env.DB.prepare('CREATE TABLE IF NOT EXISTS user_station_settings (user_id TEXT PRIMARY KEY,station_code TEXT NOT NULL,station_name TEXT NOT NULL,orange_m REAL NOT NULL,red_m REAL NOT NULL,updated_at INTEGER NOT NULL)').run();
+ await env.DB.prepare('CREATE TABLE IF NOT EXISTS user_station_alert_state (user_id TEXT PRIMARY KEY,station_code TEXT NOT NULL,alert_level TEXT NOT NULL,updated_at INTEGER NOT NULL)').run();
+ const rows=await env.DB.prepare("SELECT p.user_id,p.station_code,p.station_name,p.orange_m,p.red_m,p.updated_at FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE u.status='active'").all();
+ const users=rows.results||[];const observations=new Map();
+ for(const u of users){
+  if(!observations.has(u.station_code))observations.set(u.station_code,personalStationObservation(u.station_code).catch(e=>{console.error('Personal station read failed',u.station_code,String(e));return null}));
+ }
+ for(const u of users){
+  const obs=await observations.get(u.station_code);if(!obs)continue;
+  const level=obs.metres>=u.red_m?'red':obs.metres>=u.orange_m?'orange':'green';
+  const previous=await env.DB.prepare('SELECT station_code,alert_level,updated_at FROM user_station_alert_state WHERE user_id=?').bind(u.user_id).first();
+  // New settings are a new baseline, not an immediate alarm.
+  if(!previous||previous.station_code!==u.station_code||previous.updated_at<u.updated_at){
+   await env.DB.prepare('INSERT INTO user_station_alert_state(user_id,station_code,alert_level,updated_at) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET station_code=excluded.station_code,alert_level=excluded.alert_level,updated_at=excluded.updated_at').bind(u.user_id,u.station_code,level,Date.now()).run();
+   continue;
+  }
+  if(previous.alert_level===level)continue;
+  const linked=await env.DB.prepare('SELECT s.endpoint,s.subscription_json FROM push_user_devices d JOIN push_subscriptions s ON s.endpoint=d.endpoint WHERE d.user_id=?').bind(u.user_id).all();
+  const devices=linked.results||[];if(!devices.length)continue;
+  let failed=0;
+  for(const d of devices){
+   try{
+    const subscription=JSON.parse(d.subscription_json),en=subscription.language==='en';
+    const name=u.station_name||u.station_code;
+    const label=en?{green:'Back to green',orange:'Orange alert',red:'Red alert'}[level]:{green:'Retour au vert',orange:'Alerte orange',red:'Alerte rouge'}[level];
+    const icon={green:'🟢',orange:'🟠',red:'🔴'}[level];
+    const threshold=level==='red'?u.red_m:u.orange_m;
+    const body=name+' · '+obs.metres.toFixed(2)+' m · '+(en?'Personal threshold: ':'Seuil personnel : ')+threshold.toFixed(2)+' m. '+(en?'Unofficial alert.':'Alerte non officielle.');
+    const response=await deliver(subscription,{title:icon+' Rivière Alerte · '+label,body,tag:'personal-'+u.station_code+'-'+level},env);
+    if(!response.ok&&[404,410].includes(response.status))await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(d.endpoint).run();
+    else if(!response.ok)failed++;
+   }catch(e){failed++;console.error('Personal push failed',String(e))}
+  }
+  if(!failed)await env.DB.prepare('UPDATE user_station_alert_state SET alert_level=?,updated_at=? WHERE user_id=?').bind(level,Date.now(),u.user_id).run();
+ }
+}
 async function scheduledCheck(env){
  const obs=await currentObservation();
  await recordMonitorStatus(env,true,obs);
@@ -203,7 +250,7 @@ async function scheduledCheck(env){
  // Initialize without sending a surprise notification to existing subscribers.
  if(previous==='unknown'){await env.DB.prepare('INSERT INTO alert_state(station_code,alert_level,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(station_code) DO UPDATE SET alert_level=excluded.alert_level,updated_at=CURRENT_TIMESTAMP').bind(STATION,obs.level).run();return}
  if(previous===obs.level)return;
- const subs=await env.DB.prepare('SELECT endpoint, subscription_json FROM push_subscriptions WHERE station_code=?').bind(STATION).all();
+ const subs=await env.DB.prepare('SELECT s.endpoint,s.subscription_json FROM push_subscriptions s LEFT JOIN push_user_devices d ON d.endpoint=s.endpoint LEFT JOIN user_station_settings p ON p.user_id=d.user_id WHERE s.station_code=? AND p.user_id IS NULL').bind(STATION).all();
  let sent=0,failed=0;
  for(const row of subs.results||[]){
   try{
@@ -231,6 +278,7 @@ async function authTables(db){
  await db.prepare('CREATE TABLE IF NOT EXISTS auth_sessions (token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires_at INTEGER NOT NULL,created_at INTEGER NOT NULL)').run();
  await db.prepare('CREATE TABLE IF NOT EXISTS auth_limits (key TEXT PRIMARY KEY,window_start INTEGER NOT NULL,count INTEGER NOT NULL)').run();
  await db.prepare('CREATE TABLE IF NOT EXISTS user_station_settings (user_id TEXT PRIMARY KEY,station_code TEXT NOT NULL,station_name TEXT NOT NULL,orange_m REAL NOT NULL,red_m REAL NOT NULL,updated_at INTEGER NOT NULL)').run();
+ await db.prepare('CREATE TABLE IF NOT EXISTS user_station_alert_state (user_id TEXT PRIMARY KEY,station_code TEXT NOT NULL,alert_level TEXT NOT NULL,updated_at INTEGER NOT NULL)').run();
 }
 async function authLimit(db,key,max,period){
  const now=Date.now(),row=await db.prepare('SELECT window_start,count FROM auth_limits WHERE key=?').bind(key).first();
@@ -414,5 +462,5 @@ export default {
   }
   return json(request,{error:'Not found'},404);
  },
- async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))))}
+ async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));ctx.waitUntil(checkPersonalStations(env).catch(e=>console.error('Personal stations check failed',String(e))))}
 };
