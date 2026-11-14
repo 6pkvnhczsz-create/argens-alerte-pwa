@@ -113,7 +113,7 @@ async function deliver(sub,payload,env){
  const authorization=await vapidHeader(sub.endpoint,env);
  return fetch(sub.endpoint,{method:'POST',headers:{'Content-Type':'application/octet-stream','Content-Encoding':'aes128gcm','TTL':'3600','Authorization':authorization},body:bytes});
 }
-function cors(request){const origin=request.headers.get('Origin');return {'Access-Control-Allow-Origin':ALLOWED_ORIGINS.has(origin)?origin:'null','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Vary':'Origin'}}
+function cors(request){const origin=request.headers.get('Origin');return {'Access-Control-Allow-Origin':ALLOWED_ORIGINS.has(origin)?origin:'null','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization','Vary':'Origin'}}
 function json(request,value,status=200){return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8',...cors(request),'Cache-Control':'no-store'}})}
 function levelFor(metres,rate){return metres>=4.5?'red':metres>=3||(rate!==null&&rate>=30)?'orange':'green'}
 async function currentObservation(){
@@ -312,6 +312,22 @@ export default {
   const url=new URL(request.url);
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors(request)});
   if(url.pathname.startsWith('/auth/')){try{return await accountRoute(request,env,url)}catch(e){console.error('Auth error',String(e));return json(request,{error:'Authentication unavailable'},500)}}
+  if(url.pathname==='/devices/link'&&request.method==='POST'){
+   if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
+   if(!env.DB)return json(request,{error:'Database unavailable'},503);
+   const user=await authUser(request,env.DB);
+   if(!user)return json(request,{error:'Unauthorized'},401);
+   try{
+    const raw=await request.text();if(raw.length>2500)return json(request,{error:'Too large'},413);
+    const body=JSON.parse(raw);
+    if(typeof body.endpoint!=='string'||body.endpoint.length>2048)return json(request,{error:'Invalid endpoint'},400);
+    const subscribed=await env.DB.prepare('SELECT endpoint FROM push_subscriptions WHERE endpoint=?').bind(body.endpoint).first();
+    if(!subscribed)return json(request,{error:'Subscription not found'},404);
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS push_user_devices (endpoint TEXT PRIMARY KEY,user_id TEXT NOT NULL,linked_at INTEGER NOT NULL)').run();
+    await env.DB.prepare('INSERT INTO push_user_devices(endpoint,user_id,linked_at) VALUES(?,?,?) ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id,linked_at=excluded.linked_at').bind(body.endpoint,user.id,Date.now()).run();
+    return json(request,{ok:true});
+   }catch(e){console.error('Device link failed',String(e));return json(request,{error:'Unable to link device'},500)}
+  }
   if(url.pathname==='/health'&&request.method==='GET')return json(request,{ok:true,service:'argens-alerte-push',pushConfigured:Boolean(env.VAPID_PRIVATE_KEY&&env.VAPID_PUBLIC_KEY&&env.VAPID_SUBJECT)});
   if(url.pathname==='/subscribe'&&request.method==='POST'){
    if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
