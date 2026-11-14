@@ -219,7 +219,7 @@ def main():
             })
     with (output / "missing_target_rivers.txt").open("w", encoding="utf-8") as stream:
         matched = {item[0] for item in river_candidates}
-        stream.write("\\n".join(river for river in TARGET_RIVERS if river not in matched) + "\\n")
+        stream.write("\n".join(river for river in TARGET_RIVERS if river not in matched) + "\n")
 
     with (output / "stations.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=FIELDS)
