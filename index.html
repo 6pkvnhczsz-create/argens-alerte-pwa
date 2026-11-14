@@ -273,7 +273,7 @@ async function loadMeasurements(code,{silent=false}={}){
   document.querySelector('.hero').dataset.stale=String(stale);
   drawChart(chartReadings);
   renderForecast(chartReadings,code);
- }catch(e){if(seq===loadSequence){if(!silent)noReading('Service de mesures temporairement indisponible.');else console.warn('Background refresh failed',e)}throw e}
+ }catch(e){if(seq===loadSequence){healthState.river='bad';renderSystemHealth();if(!silent)noReading('Service de mesures temporairement indisponible.');else console.warn('Background refresh failed',e)}throw e}
 }
 slider.addEventListener('input',()=>{const n=Number(slider.value),s=document.querySelector('#simulation');s.className='status '+(n<2?'green':n<3?'orange':'red');s.textContent='Aperçu : '+(n<2?'vert':n<3?'orange':'rouge')+' · '+n.toFixed(2).replace('.',',')+' m'});
 loadMeasurements(activeStation).catch(()=>{});
