@@ -98,7 +98,13 @@ TARGET_RIVERS = (
 
 def normalize_name(text):
     text = unicodedata.normalize("NFKD", str(text or ""))
-    return "".join(ch for ch in text if not unicodedata.combining(ch)).casefold().strip()
+    text = "".join(ch for ch in text if not unicodedata.combining(ch)).casefold().strip()
+    # Hub'Eau labels commonly include French articles: "La Seine", "Le Rhone", "L'Argens".
+    # Strip only leading articles, not arbitrary substrings or river qualifiers.
+    for prefix in ("la ", "le ", "les ", "l'", "l’"):
+        if text.startswith(prefix):
+            return text[len(prefix):].strip()
+    return text
 
 def select_river_review_candidates(rows, excluded_codes):
     """Select one eligible station per named river; NOT a hydrological suitability test."""
