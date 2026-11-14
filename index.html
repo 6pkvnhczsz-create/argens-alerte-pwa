@@ -137,6 +137,13 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .map-station-option .note{margin:4px 0 0}
 .map-popup-select{display:block;margin-top:9px;border:0;background:#087f91;color:white;border-radius:7px;padding:8px 10px;font:inherit;cursor:pointer}
 #stationMap .leaflet-popup-content{line-height:1.5}
+
+.swarm-head,.swarm-group-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.swarm-premium{font-size:10px;border-radius:20px;padding:5px 8px;background:#e5edf3;color:#536a78}
+.swarm-create{display:flex;gap:7px;margin:12px 0}.swarm-create input{min-width:0;flex:1;border:1px solid #cbdce4;border-radius:9px;padding:10px;font:inherit;font-size:13px}.swarm-create button{border:0;border-radius:9px;background:#087f91;color:white;padding:9px;font:inherit;font-size:12px}
+.swarm-group{border:1px solid #d9e8ee;border-radius:12px;padding:12px;margin:10px 0;background:#f7fafb}.swarm-group-head button{border:0;background:transparent;color:#9c3b3b;font-size:11px;padding:5px}.swarm-group .note{margin:5px 0;font-size:11px}
+.swarm-station{display:flex;justify-content:space-between;gap:8px;align-items:center;border-top:1px solid #e1ebef;padding:8px 0;font-size:12px}.swarm-station span{overflow-wrap:anywhere}.swarm-station button{border:0;background:#e9eef2;border-radius:7px;padding:4px 10px;font-size:18px}
+.map-add-swarm{display:block;margin-top:9px;border:1px solid #087f91;border-radius:8px;padding:7px 9px;background:white;color:#087f91;font-size:11px;font-weight:700}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button></div></div>
@@ -195,7 +202,12 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 </div>
 
 <p class="note" style="margin:15px 5px">⚠️ Seuils indicatifs, non officiels. Consultez Vigicrues et suivez les consignes des autorités. Ne comptez pas uniquement sur cette application.</p>
-</div><div id="mapPage" class="hidden"><div class="section-title">Explorer les stations</div><div class="panel station-panel"><strong>📍 Trouver une station près de chez moi</strong><p class="note">Entrez une commune française ou autorisez votre position. Les stations sont classées par distance à vol d’oiseau.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="place" placeholder="Ville ou code postal" aria-label="Ville ou code postal" style="flex:1;min-width:160px;border:1px solid #cbdce4;border-radius:10px;padding:12px;font:inherit"><button id="findPlace" style="border:0;background:#087f91;color:white;border-radius:10px;padding:11px">Rechercher</button><button id="gps" style="border:1px solid #cbdce4;background:white;border-radius:10px;padding:11px">⌖ Ma position</button></div><p id="stationMessage" class="note" role="status"></p><div id="stationMap" role="region" aria-label="Carte des stations hydrométriques"></div><p class="note map-source">Fond de carte © OpenStreetMap · Stations : Hub’Eau</p><div id="stations"></div></div></div><div id="settingsPage" class="hidden"><div class="section-title" id="settingsPageTitle">Réglages</div><section class="panel" id="systemHealthPanel" style="margin-top:15px" aria-label="État des services">
+</div><div id="mapPage" class="hidden"><div class="section-title">Explorer les stations</div><div class="panel station-panel"><strong>📍 Trouver une station près de chez moi</strong><p class="note">Entrez une commune française ou autorisez votre position. Les stations sont classées par distance à vol d’oiseau.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="place" placeholder="Ville ou code postal" aria-label="Ville ou code postal" style="flex:1;min-width:160px;border:1px solid #cbdce4;border-radius:10px;padding:12px;font:inherit"><button id="findPlace" style="border:0;background:#087f91;color:white;border-radius:10px;padding:11px">Rechercher</button><button id="gps" style="border:1px solid #cbdce4;background:white;border-radius:10px;padding:11px">⌖ Ma position</button></div><p id="stationMessage" class="note" role="status"></p><div id="stationMap" role="region" aria-label="Carte des stations hydrométriques"></div><p class="note map-source">Fond de carte © OpenStreetMap · Stations : Hub’Eau</p><p id="mapSwarmHint" class="note">Sélectionnez une station pour l'ajouter à un groupe dans Réglages.</p><div id="stations"></div></div></div><div id="settingsPage" class="hidden"><div class="section-title" id="settingsPageTitle">Réglages</div><section class="panel" id="swarmPanel" style="margin-top:15px">
+<div class="swarm-head"><strong id="swarmTitle">🌊 Mes groupes de stations</strong><span class="swarm-premium">Premium · bientôt</span></div>
+<p id="swarmIntro" class="note">Regroupez plusieurs stations dans un même groupe. Les groupes sont enregistrés sur cet appareil ; les alertes personnalisées seront disponibles ultérieurement.</p>
+<div class="swarm-create"><input id="swarmName" maxlength="60" placeholder="Nom du groupe (ex. Mon Argens)" aria-label="Nom du groupe"><button id="swarmCreate" type="button">+ Créer</button></div>
+<p id="swarmMessage" class="note" role="status"></p><div id="swarmGroups"></div>
+</section><section class="panel" id="systemHealthPanel" style="margin-top:15px" aria-label="État des services">
 <strong id="systemHealthTitle">🛡 État des services</strong>
 <div style="display:grid;gap:10px;margin-top:12px;font-size:14px">
 <div style="display:flex;justify-content:space-between;gap:10px"><span id="healthRiverLabel">Mesures du fleuve</span><strong id="healthRiver">⏳ Vérification…</strong></div>
@@ -419,6 +431,47 @@ preparePush().catch(()=>{pushMessage.textContent='Service de notifications indis
 // Recherche de stations via les données publiques Hub'Eau (prototype isolé).
 const message=document.querySelector('#stationMessage'),stationsEl=document.querySelector('#stations');
 function km(a,b,c,d){const r=Math.PI/180,x=(c-a)*r,y=(d-b)*r;const h=Math.sin(x/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)**2;return 12742*Math.asin(Math.sqrt(h))}
+
+const SWARM_KEY='argens-alerte-station-groups-v1';
+function readSwarms(){try{const v=JSON.parse(localStorage.getItem(SWARM_KEY)||'[]');return Array.isArray(v)?v.filter(x=>x&&typeof x.id==='string'&&Array.isArray(x.stations)):[]}catch(e){return []}}
+function saveSwarms(groups){try{localStorage.setItem(SWARM_KEY,JSON.stringify(groups));return true}catch(e){document.querySelector('#swarmMessage').textContent=mapText('Enregistrement impossible sur cet appareil.','Could not save on this device.');return false}}
+function swarmNotice(fr,en){document.querySelector('#swarmMessage').textContent=mapText(fr,en)}
+function renderSwarms(){
+ const root=document.querySelector('#swarmGroups');root.replaceChildren();
+ const groups=readSwarms();
+ if(!groups.length){const p=document.createElement('p');p.className='note';p.textContent=mapText('Aucun groupe pour le moment. Créez-en un, puis ajoutez des stations depuis la carte.','No groups yet. Create one, then add stations from the map.');root.append(p);return}
+ for(const group of groups){
+  const section=document.createElement('div');section.className='swarm-group';
+  const head=document.createElement('div');head.className='swarm-group-head';
+  const title=document.createElement('strong');title.textContent=group.name;
+  const remove=document.createElement('button');remove.type='button';remove.textContent=mapText('Supprimer le groupe','Delete group');remove.addEventListener('click',()=>{if(!confirm(mapText('Supprimer ce groupe et ses stations ?','Delete this group and its stations?')))return;const updated=readSwarms().filter(x=>x.id!==group.id);if(saveSwarms(updated))renderSwarms()});
+  head.append(title,remove);section.append(head);
+  const count=document.createElement('p');count.className='note';count.textContent=group.stations.length+' '+mapText('station(s)','station(s)');section.append(count);
+  for(const station of group.stations){
+   const line=document.createElement('div');line.className='swarm-station';const label=document.createElement('span');label.textContent=(station.name||station.code)+' · '+station.code;
+   const del=document.createElement('button');del.type='button';del.textContent='×';del.setAttribute('aria-label',mapText('Retirer la station','Remove station'));del.addEventListener('click',()=>{const updated=readSwarms();const target=updated.find(x=>x.id===group.id);if(target){target.stations=target.stations.filter(x=>x.code!==station.code);if(saveSwarms(updated))renderSwarms()}});
+   line.append(label,del);section.append(line);
+  }
+  root.append(section);
+ }
+}
+document.querySelector('#swarmCreate').addEventListener('click',()=>{
+ const input=document.querySelector('#swarmName'),name=input.value.trim();if(!name){swarmNotice('Saisissez un nom de groupe.','Enter a group name.');return}
+ const groups=readSwarms();if(groups.length>=20){swarmNotice('Maximum 20 groupes.','Maximum 20 groups.');return}
+ groups.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(36).slice(2),name,stations:[]});
+ if(saveSwarms(groups)){input.value='';swarmNotice('Groupe créé. Ajoutez des stations depuis la carte.','Group created. Add stations from the map.');renderSwarms()}
+});
+function addStationToSwarm(station){
+ const groups=readSwarms();if(!groups.length){swarmNotice('Créez d’abord un groupe.','Create a group first.');document.querySelector('[data-tab="Réglages"]').click();return}
+ const answer=prompt(mapText('Dans quel groupe ajouter cette station ? Saisissez le numéro :','Which group should contain this station? Enter its number:')+'\n'+groups.map((g,i)=>(i+1)+'. '+g.name).join('\n'),'1');
+ if(answer===null)return;const index=Number(answer)-1;if(!Number.isInteger(index)||!groups[index]){alert(mapText('Numéro de groupe invalide.','Invalid group number.'));return}
+ const group=groups[index];if(group.stations.some(x=>x.code===station.code)){alert(mapText('Cette station est déjà dans ce groupe.','This station is already in this group.'));return}
+ if(group.stations.length>=30){alert(mapText('Maximum 30 stations par groupe.','Maximum 30 stations per group.'));return}
+ group.stations.push({code:station.code_station,name:station.libelle_station||station.libelle_site||station.code_station});
+ if(saveSwarms(groups)){renderSwarms();alert(mapText('Station ajoutée au groupe : ','Station added to group: ')+group.name)}
+}
+renderSwarms();
+
 let stationMap=null,stationMarkers=null,mapLoading=null,initialMapSearch=false;
 function mapText(fr,en){return document.documentElement.lang==='en'?en:fr}
 function loadMapLibrary(){
@@ -478,6 +531,7 @@ async function findStations(lat,lon){
     const popup=document.createElement('div');const heading=document.createElement('strong');heading.textContent=name;const code=document.createElement('div');code.textContent=station.code_station;const select=document.createElement('button');select.type='button';select.className='map-popup-select';select.textContent=mapText('Voir les mesures','View readings');select.addEventListener('click',()=>selectMapStation(station,btn,marker));popup.append(heading,code,select);marker.bindPopup(popup);
     marker.on('click',()=>{document.querySelectorAll('#stations button').forEach(b=>b.classList.toggle('selected',b===btn))});
    }
+   const add=document.createElement('button');add.type='button';add.className='map-add-swarm';add.textContent=mapText('+ Ajouter à un groupe','+ Add to group');add.addEventListener('click',e=>{e.stopPropagation();addStationToSwarm(station)});btn.append(add);
    btn.addEventListener('click',()=>selectMapStation(station,btn,marker));stationsEl.append(btn);
   }
   if(stationMap){if(bounds.length)stationMap.fitBounds(bounds,{padding:[24,24],maxZoom:12});else stationMap.setView([lat,lon],10);setTimeout(()=>stationMap.invalidateSize(),100)}
