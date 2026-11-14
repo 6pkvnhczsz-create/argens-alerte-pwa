@@ -1,0 +1,20 @@
+{
+  "name": "argens-alerte-admin",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-14",
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "argens-alerte-db",
+      "database_id": "2333f322-e49e-412f-bcf6-d12b9b49256f"
+    }
+  ],
+  "services": [
+    {
+      "binding": "PUSH_SERVICE",
+      "service": "argens-alerte-push",
+      "entrypoint": "AdminPushService"
+    }
+  ]
+}
