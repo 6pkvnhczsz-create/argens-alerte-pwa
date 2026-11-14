@@ -256,12 +256,23 @@ document.querySelector('#healthRefresh').addEventListener('click',()=>{healthSta
 document.addEventListener('argens-language-changed',renderSystemHealth);
 checkPushHealth();
 setInterval(()=>{if(!document.hidden){checkPushHealth();renderSystemHealth()}},5*60*1000);
+// Weather follows the station selected on the map; this does not change server-side alerts.
+let weatherLocation={lat:43.44,lon:6.64,name:'Roquebrune-sur-Argens'},weatherRequestId=0;
+function setWeatherStation(station){
+ const lat=Number(station.latitude_station),lon=Number(station.longitude_station);
+ if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
+ weatherLocation={lat,lon,name:station.libelle_station||station.libelle_site||station.code_station};
+ const frame=document.querySelector('#weatherPanel iframe');
+ if(frame){const url=new URL('https://embed.windy.com/embed2.html');url.searchParams.set('lat',lat.toFixed(4));url.searchParams.set('lon',lon.toFixed(4));url.searchParams.set('detailLat',lat.toFixed(4));url.searchParams.set('detailLon',lon.toFixed(4));url.searchParams.set('width','650');url.searchParams.set('height','360');url.searchParams.set('zoom','8');url.searchParams.set('level','surface');url.searchParams.set('overlay','radar');url.searchParams.set('product','radar');frame.src=url.toString()}
+ loadLocalWeather();
+}
 // Informational weather widget; intentionally independent of flood alerts and push subscriptions.
 async function loadLocalWeather(){
+ const requestId=++weatherRequestId,location={...weatherLocation};
  const en=document.documentElement.lang==='en';
  const summary=document.querySelector('#weatherSummary'),numbers=document.querySelector('#weatherNumbers');
  const heading=document.querySelector('#weatherHeading'),note=document.querySelector('#weatherNote');
- heading.textContent=en?'🌧 Rain and weather · Roquebrune-sur-Argens':'🌧 Pluie et météo · Roquebrune-sur-Argens';
+ heading.textContent=(en?'🌧 Rain and weather · ':'🌧 Pluie et météo · ')+location.name;
  document.querySelector('#weatherSixLabel').textContent=en?'Forecast rain · 6 h':'Pluie prévue · 6 h';
  document.querySelector('#weatherDayLabel').textContent=en?'Forecast rain · 24 h':'Pluie prévue · 24 h';
  document.querySelector('#radarToggle').textContent=en?'🗺 Show rain radar':'🗺 Afficher le radar de pluie';
@@ -269,10 +280,11 @@ async function loadLocalWeather(){
  document.querySelector('#radarLink').textContent=en?'Open radar in Windy':'Ouvrir le radar dans Windy';
  note.textContent=en?'Indicative local forecast (Open-Meteo), not rainfall measured across the whole river catchment. This is not a flood forecast.':'Prévisions locales indicatives (Open-Meteo), pas une mesure des précipitations sur tout le bassin versant. Aucune prévision de crue n’en découle.';
  try{
-  const url='https://api.open-meteo.com/v1/forecast?latitude=43.44&longitude=6.64&current=temperature_2m&hourly=precipitation&forecast_days=3&timezone=Europe%2FParis';
+  const url='https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(location.lat)+'&longitude='+encodeURIComponent(location.lon)+'&current=temperature_2m&hourly=precipitation&forecast_days=3&timezone=auto';
   const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(12000)});
   if(!response.ok)throw Error('weather unavailable');
-  const data=await response.json(),times=data.hourly?.time||[],rain=data.hourly?.precipitation||[];
+  const data=await response.json();if(requestId!==weatherRequestId)return;
+  const times=data.hourly?.time||[],rain=data.hourly?.precipitation||[];
   const now=Date.now(),start=Math.floor(now/3600000)*3600000;
   // Open-Meteo local timestamps use the forecast timezone, which can switch between CET and CEST.
   // Use utc_offset_seconds to convert local wall-clock times to absolute instants.
@@ -287,7 +299,7 @@ async function loadLocalWeather(){
   const temp=data.current?.temperature_2m;
   summary.textContent=(en?'Current temperature: ':'Température actuelle : ')+(Number.isFinite(temp)?temp.toLocaleString(en?'en-GB':'fr-FR',{maximumFractionDigits:1})+' °C':en?'not available':'indisponible');
   numbers.classList.remove('hidden');healthState.weather='good';renderSystemHealth();
- }catch(err){healthState.weather='bad';renderSystemHealth();numbers.classList.add('hidden');summary.textContent=en?'Weather data temporarily unavailable. Radar may still be accessible.':'Données météo temporairement indisponibles. Le radar reste éventuellement accessible.';console.warn('Weather panel',err)}
+ }catch(err){if(requestId!==weatherRequestId)return;healthState.weather='bad';renderSystemHealth();numbers.classList.add('hidden');summary.textContent=en?'Weather data temporarily unavailable. Radar may still be accessible.':'Données météo temporairement indisponibles. Le radar reste éventuellement accessible.';console.warn('Weather panel',err)}
 }
 loadLocalWeather();
 setInterval(()=>{if(!document.hidden)loadLocalWeather()},30*60*1000);
@@ -498,6 +510,7 @@ function selectMapStation(station,button,marker){
  stationTitle.textContent=station.libelle_station||station.libelle_site||code;
  message.textContent=mapText('Station sélectionnée : ','Selected station: ')+code+'. '+mapText('Chargement des mesures officielles…','Loading official readings…');
  loadMeasurements(code);
+ setWeatherStation(station);
  document.querySelectorAll('#stations button').forEach(b=>b.classList.toggle('selected',b===button));
  if(marker&&stationMap){stationMap.panTo(marker.getLatLng());marker.closePopup()}
  document.querySelector('[data-tab="overview"]').click();
