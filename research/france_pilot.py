@@ -143,7 +143,7 @@ REFERENCE = {
     "zip_zich_status": "not_checked",
     "scenario_height_m": "",
     "scenario_source_url": "",
-    "documented_local_impact": "User-reported March 2024 local observations: ~5.40 m river overtops banks in observed area; ~5.90 m water reaches property; 6.22 m water at front door. User estimates approximately 1-2 hours between 5.40 m and 6.22 m, uncertain recollection; implied average rise ~41-82 cm/h, not a verified gauge time series.",
+    "documented_local_impact": "User-reported March 2024 local observations: around 5.40 m river overtopped banks in the observed area; around 5.90 m water reached the property; near the 6.22 m event peak water reached the house entrance but did not enter. Timing and exact local onset unverified; not official thresholds.",
     "review_status": "local_eyewitness_observations_not_officially_validated",
     "review_notes": "HydroPortail historical flood peaks: 2010-06-16 7.71m; 2019-11-23 7.12m (tolerance 0.10m); 2024-03-10 6.22m. These are NOT first-overflow levels. Archived 2024 gauge measurements first exceed 5.40m at 05:30 and reach 6.22m at 12:30 (7 hours; measurement timezone unverified). https://www.hydro.eaufrance.fr/sitehydro/Y5312010/seuils"
 }
