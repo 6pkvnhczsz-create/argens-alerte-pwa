@@ -476,7 +476,7 @@ enablePush.addEventListener('click',async()=>{
   if(response.status===401||response.status===403){localStorage.removeItem('argens-account-token-v1');accountView(null);openPushRegistration();return}
   if(!response.ok){const detail=await response.json().catch(()=>({}));throw Error((detail.error?detail.error+' · ':'')+'HTTP '+response.status)}
   showPushActive(mapText('Notifications activées pour cette station','Notifications enabled for this station'));
-  linkCurrentPushDevice().catch(console.warn);
+  // /subscribe already links the subscription to the authenticated account atomically.
  }catch(e){pushMessage.textContent=mapText('Activation impossible : ','Unable to enable notifications: ')+e.message}
  finally{enablePush.disabled=false}
 });
