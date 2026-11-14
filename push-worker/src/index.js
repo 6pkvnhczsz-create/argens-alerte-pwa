@@ -207,6 +207,31 @@ async function personalStationObservation(code){
  const rate=reference?(points[0].mm-reference.mm)/10/((points[0].time-reference.time)/3600000):null;
  return {metres:points[0].mm/1000,rate,observedAt:new Date(points[0].time).toISOString()};
 }
+async function notifyUpdatedStationSettings(env,user,settings,obs){
+ const level=obs.metres>=settings.red_m?'red':obs.metres>=settings.orange_m?'orange':'green';
+ const rapid=obs.rate!==null&&obs.rate>=50?'red':obs.rate!==null&&obs.rate>=30?'orange':'green';
+ const rank={green:0,orange:1,red:2};
+ const effective=rank[rapid]>rank[level]?rapid:level;
+ // Only notify if a warning is active. Never claim an observed rise caused a settings change.
+ const linked=await env.DB.prepare('SELECT s.endpoint,s.subscription_json FROM push_user_devices d JOIN push_subscriptions s ON s.endpoint=d.endpoint WHERE d.user_id=?').bind(user.id).all();
+ const devices=linked.results||[];
+ let sent=0,failed=0;
+ if(effective!=='green')for(const device of devices){
+  try{
+   const sub=JSON.parse(device.subscription_json),en=sub.language==='en';
+   const threshold=effective==='red'?settings.red_m:settings.orange_m;
+   const rapidCause=rank[rapid]>=rank[level]&&rapid!=='green';
+   const reason=rapidCause?(en?'Rapid rise: ':'Montée rapide : ')+(obs.rate>=0?'+':'')+obs.rate.toFixed(1)+' cm/h':(en?'Configured threshold: ':'Seuil configuré : ')+threshold.toFixed(2)+' m';
+   const title=(effective==='red'?'🔴':'🟠')+' Rivière Alerte · '+(en?'Threshold reached after settings update':'Seuil atteint après modification des réglages');
+   const body=settings.station_name+' · '+obs.metres.toFixed(2)+' m · '+reason+'. '+(en?'Unofficial alert.':'Alerte non officielle.');
+   const response=await deliver(sub,{title,body,tag:'settings-'+settings.station_code+'-'+effective},env);
+   if(response.ok)sent++;
+   else if([404,410].includes(response.status))await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(device.endpoint).run();
+   else failed++;
+  }catch(e){failed++;console.error('Settings push failed',String(e))}
+ }
+ return {level:effective,rapid_level:rapid,sent,failed,devices:devices.length};
+}
 async function checkPersonalStations(env){
  await env.DB.prepare('CREATE TABLE IF NOT EXISTS user_station_settings (user_id TEXT PRIMARY KEY,station_code TEXT NOT NULL,station_name TEXT NOT NULL,orange_m REAL NOT NULL,red_m REAL NOT NULL,updated_at INTEGER NOT NULL)').run();
  await env.DB.prepare('CREATE TABLE IF NOT EXISTS user_station_alert_state (user_id TEXT PRIMARY KEY,station_code TEXT NOT NULL,alert_level TEXT NOT NULL,updated_at INTEGER NOT NULL)').run();
@@ -224,8 +249,15 @@ async function checkPersonalStations(env){
   const level=rank[rapidLevel]>rank[heightLevel]?rapidLevel:heightLevel;
   const rapidCause=rank[rapidLevel]>=rank[heightLevel]&&rapidLevel!=='green';
   const previous=await env.DB.prepare('SELECT station_code,alert_level,rapid_level,updated_at FROM user_station_alert_state WHERE user_id=?').bind(u.user_id).first();
-  // New settings are a new baseline, not an immediate alarm.
+  // Settings PUT sends an immediate warning. If it could not, retry at the next scheduled check.
   if(!previous||previous.station_code!==u.station_code||previous.updated_at<u.updated_at){
+   if(level!=='green'){
+    const devices=await env.DB.prepare('SELECT s.endpoint,s.subscription_json FROM push_user_devices d JOIN push_subscriptions s ON s.endpoint=d.endpoint WHERE d.user_id=?').bind(u.user_id).all();
+    if((devices.results||[]).length){
+     const result=await notifyUpdatedStationSettings(env,{id:u.user_id},{station_code:u.station_code,station_name:u.station_name,orange_m:u.orange_m,red_m:u.red_m},obs);
+     if(result.sent===0||result.failed>0)continue;
+    }else continue;
+   }
    await env.DB.prepare('INSERT INTO user_station_alert_state(user_id,station_code,alert_level,rapid_level,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET station_code=excluded.station_code,alert_level=excluded.alert_level,rapid_level=excluded.rapid_level,updated_at=excluded.updated_at').bind(u.user_id,u.station_code,level,rapidLevel,Date.now()).run();
    continue;
   }
@@ -324,8 +356,26 @@ async function accountRoute(request,env,url){
   const stationData=await verify.json();const station=(stationData.data||[]).find(x=>x.code_station===code);
   if(!station)return json(request,{error:'Unknown station'},400);
   const verifiedName=String(station.libelle_station||station.libelle_site||code).slice(0,160);
-  await db.prepare('INSERT INTO user_station_settings(user_id,station_code,station_name,orange_m,red_m,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET station_code=excluded.station_code,station_name=excluded.station_name,orange_m=excluded.orange_m,red_m=excluded.red_m,updated_at=excluded.updated_at').bind(user.id,code,verifiedName,orange,red,Date.now()).run();
-  return json(request,{ok:true,settings:{station_code:code,station_name:verifiedName,orange_m:orange,red_m:red}});
+  const oldSettings=await db.prepare('SELECT station_code,orange_m,red_m FROM user_station_settings WHERE user_id=?').bind(user.id).first();
+  const changed=!oldSettings||oldSettings.station_code!==code||oldSettings.orange_m!==orange||oldSettings.red_m!==red;
+  const updatedAt=Date.now();
+  await db.prepare('INSERT INTO user_station_settings(user_id,station_code,station_name,orange_m,red_m,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET station_code=excluded.station_code,station_name=excluded.station_name,orange_m=excluded.orange_m,red_m=excluded.red_m,updated_at=excluded.updated_at').bind(user.id,code,verifiedName,orange,red,updatedAt).run();
+  let notification={status:'unchanged'};
+  if(changed){
+   try{
+    const obs=await personalStationObservation(code);
+    const result=await notifyUpdatedStationSettings(env,user,{station_code:code,station_name:verifiedName,orange_m:orange,red_m:red},obs);
+    // Persist only after successful sends (or green). If push fails, allow the scheduler to retry.
+    if(result.level==='green'||(result.devices>0&&result.sent>0&&result.failed===0)){
+     await db.prepare('CREATE TABLE IF NOT EXISTS user_station_alert_state (user_id TEXT PRIMARY KEY,station_code TEXT NOT NULL,alert_level TEXT NOT NULL,updated_at INTEGER NOT NULL)').run();
+     const cols=await db.prepare('PRAGMA table_info(user_station_alert_state)').all();
+     if(!(cols.results||[]).some(c=>c.name==='rapid_level'))await db.prepare("ALTER TABLE user_station_alert_state ADD COLUMN rapid_level TEXT NOT NULL DEFAULT 'green'").run();
+     await db.prepare('INSERT INTO user_station_alert_state(user_id,station_code,alert_level,rapid_level,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET station_code=excluded.station_code,alert_level=excluded.alert_level,rapid_level=excluded.rapid_level,updated_at=excluded.updated_at').bind(user.id,code,result.level,result.rapid_level,updatedAt).run();
+    }
+    notification={status:result.level==='green'?'no_active_warning':result.sent>0?'sent':result.devices===0?'no_linked_device':'delivery_failed',sent:result.sent};
+   }catch(e){console.error('Settings warning evaluation failed',String(e));notification={status:'unavailable'}}
+  }
+  return json(request,{ok:true,settings:{station_code:code,station_name:verifiedName,orange_m:orange,red_m:red},notification});
  }
  if(url.pathname==='/auth/me'&&request.method==='GET'){
   const user=await authUser(request,db);return user?json(request,{user}):json(request,{error:'Unauthorized'},401);
