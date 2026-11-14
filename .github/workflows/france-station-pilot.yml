@@ -1,0 +1,26 @@
+name: France station data pilot
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'research/france_pilot.py'
+      - '.github/workflows/france-station-pilot.yml'
+permissions:
+  contents: read
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch 30 geographically distributed stations
+        run: python research/france_pilot.py --count 30
+      - name: Upload station list and audit summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: france-station-pilot
+          path: research/output/
+          retention-days: 30
