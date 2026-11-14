@@ -832,14 +832,16 @@ setLanguage(lang);
     const g=glass.getBoundingClientRect();
     const p=pill.getBoundingClientRect();
     if(!bounds.width||!g.width||!p.width)return;
-    const start=g.left+g.width/2-bounds.left;
-    const finish=p.left+p.width/2-bounds.left;
+    // A single perfectly vertical connector is preferable to tiny bends.
+    // Keep the top anchor centered; if necessary, allow the lower endpoint
+    // to be slightly off-center while remaining inside the active pill.
+    const topCenter=g.left+g.width/2-bounds.left;
+    const pillLeft=p.left-bounds.left;
+    const pillRight=p.right-bounds.left;
+    const inset=Math.min(8,p.width/4);
+    const x=Math.max(pillLeft+inset,Math.min(topCenter,pillRight-inset));
     svg.setAttribute('viewBox',`0 0 ${bounds.width} 44`);
-    // Straight for aligned centers; otherwise a clean right-angle route.
-    const d=Math.abs(start-finish)<12
-      ? `M${start} 0 L${finish} 44`
-      : `M${start} 0 V23 H${finish} V44`;
-    path.setAttribute('d',d);
+    path.setAttribute('d',`M${x} 0 V44`);
     path.style.stroke=colors[band];
     connector.style.visibility='visible';
   }
