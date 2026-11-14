@@ -252,6 +252,20 @@ def main():
                 "threshold_usable": "no",
                 "review_notes": "Station-specific ZIP/ZICH source, matching gauge/datum, scenario height and local impacts are NOT verified."
             })
+    # Include the second cohort in the same official-evidence review queue.
+    with (output / "source_review.csv").open("a", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=review_fields)
+        for target, code, row, lat, lon in river_candidates:
+            writer.writerow({
+                "station_code": code,
+                "station_name": value(row, "libelle_station"),
+                "department": value(row, "code_departement"),
+                "hydroportail_station_url": "https://www.hydro.eaufrance.fr/sitehydro/" + urllib.parse.quote(code[:-2], safe=""),
+                "vigicrues_portal_url": "https://www.vigicrues.gouv.fr/",
+                "evidence_status": "needs_official_source_check",
+                "threshold_usable": "no",
+                "review_notes": "Additional " + target + " research candidate; not an official risk designation. Verify station suitability and ZIP/ZICH mapping."
+            })
     summary = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "source": API,
@@ -262,7 +276,7 @@ def main():
         "selection": "deterministic geographic coverage, metropolitan coordinates",
         "zip_zich_verified": 0,
         "validated_flood_thresholds": 0,
-        "source_review_rows": len(records),
+        "source_review_rows": len(records) + len(river_candidates),
         "target_rivers": len(TARGET_RIVERS),
         "additional_river_candidates": len(river_candidates),
         "river_candidate_warning": "Research-only river-name matches. No verified flood history, floodplain coverage, or threshold.",
