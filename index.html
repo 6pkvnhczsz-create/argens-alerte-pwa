@@ -162,7 +162,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <p id="forecastDisclaimer" class="note" style="margin:12px 0 0">Extrapolation linéaire du niveau mesuré, limitée à 3 heures. Ni prévision hydrologique ni alerte officielle. Le débit peut évoluer rapidement.</p>
 </div>
 <section id="weatherPanel" class="panel" style="margin-top:15px;text-align:center" aria-label="Météo et pluie">
-<strong id="weatherHeading">🌧 Pluie et météo · Roquebrune-sur-Argens</strong>
+<strong id="weatherHeading" style="display:block;line-height:1.35"><span id="weatherHeadingTitle">🌦️ Pluie et météo ☀️</span><span id="weatherHeadingLocation" style="display:block;margin-top:4px">Roquebrune-sur-Argens</span></strong>
 <p id="weatherSummary" class="note" role="status" style="margin:12px 0">Chargement des données météo…</p>
 <div id="weatherNumbers" class="cards hidden" style="margin:12px 0;text-align:center">
 <div class="card" style="padding:13px"><small id="weatherSixLabel">Pluie prévue · 6 h</small><strong id="weatherSix" style="font-size:21px">—</strong></div>
@@ -295,7 +295,7 @@ async function loadLocalWeather(){
  const en=document.documentElement.lang==='en';
  const summary=document.querySelector('#weatherSummary'),numbers=document.querySelector('#weatherNumbers');
  const heading=document.querySelector('#weatherHeading'),note=document.querySelector('#weatherNote');
- heading.textContent=(en?'🌧 Rain and weather · ':'🌧 Pluie et météo · ')+location.name;
+ document.querySelector('#weatherHeadingTitle').textContent=en?'🌦️ Rain and weather ☀️':'🌦️ Pluie et météo ☀️';document.querySelector('#weatherHeadingLocation').textContent=location.name;
  document.querySelector('#weatherSixLabel').textContent=en?'Forecast rain · 6 h':'Pluie prévue · 6 h';
  document.querySelector('#weatherDayLabel').textContent=en?'Forecast rain · 24 h':'Pluie prévue · 24 h';
  document.querySelector('#radarToggle').textContent=en?'🗺 Show rain radar':'🗺 Afficher le radar de pluie';
