@@ -832,16 +832,16 @@ setLanguage(lang);
     const g=glass.getBoundingClientRect();
     const p=pill.getBoundingClientRect();
     if(!bounds.width||!g.width||!p.width)return;
-    // A single perfectly vertical connector is preferable to tiny bends.
-    // Keep the top anchor centered; if necessary, allow the lower endpoint
-    // to be slightly off-center while remaining inside the active pill.
+    // Orange is centered under the reading: one straight vertical segment.
+    // Green and red are offset: start at the upper card center, bend once,
+    // and finish exactly at the center of the active threshold pill.
     const topCenter=g.left+g.width/2-bounds.left;
-    const pillLeft=p.left-bounds.left;
-    const pillRight=p.right-bounds.left;
-    const inset=Math.min(8,p.width/4);
-    const x=Math.max(pillLeft+inset,Math.min(topCenter,pillRight-inset));
+    const pillCenter=p.left+p.width/2-bounds.left;
     svg.setAttribute('viewBox',`0 0 ${bounds.width} 44`);
-    path.setAttribute('d',`M${x} 0 V44`);
+    const d=band==='orange'
+      ? `M${pillCenter} 0 V44`
+      : `M${topCenter} 0 V23 H${pillCenter} V44`;
+    path.setAttribute('d',d);
     path.style.stroke=colors[band];
     connector.style.visibility='visible';
   }
