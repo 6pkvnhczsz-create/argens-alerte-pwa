@@ -40,3 +40,13 @@ Research date: 2026-11-15. **Research-only. No live alert thresholds or UI modif
 3. Obtain scenario-specific PDF/documentation and capture source, version, model assumptions, mapped extent, uncertainty and station relation.
 4. Repeat on selected major-river stations only after verifying river identity and operational relevance.
 5. No automatic alert threshold should be derived from PPRI colors or a lowest ZIP/ZICH scenario. Obtain expert validation first.
+
+
+## Follow-up: direct station cross-check (2026-11-15)
+
+- Official HydroPortail station identity: https://hydro.eaufrance.fr/stationhydro/Y531201001/fiche — code Y531201001, L'Argens à Roquebrune-sur-Argens, station standard, surveillée; gauge-zero altitude listed as **5.82 m**, reference updated 2022-09-01. This is the gauge zero altitude, **not** a flood-warning threshold. Check altimetric reference system and historical changes before converting gauge height to absolute elevation.
+- Official Sandre flood vigilance station listing: https://www.sandre.eaufrance.fr/Rechercher-une-donnee-d-un-jeu?ss_lbref_sandre=Station+de+vigilance+crues — Roquebrune-sur-Argens Y531201001 appears as validated vigilance station.
+- Direct Vigicrues station page: https://www.vigicrues.gouv.fr/station/Y531201001 — generic ZIP/ZICH section and 'Télécharger les PDF des cartes ZIP/ZICH à la station' heading present, **but no specific scenario PDF, gauge height, scenario identifier or download URL exposed in publicly retrieved HTML**. This does **not** prove that no scenarios exist; JavaScript-driven station content may require further inspection.
+- SPC Méditerranée-Est RIC: https://www.vigicrues.gouv.fr/uploads/RIC/RIC_SPC_ME.pdf — Roquebrune Y531201001 listed for Argens Aval. This is station context, not evidence of ZIP/ZICH availability.
+
+**Next verification:** inspect the Vigicrues station interface or authoritative API for actual downloadable scenario records, capture their provenance, model version, reference gauge, height and geographic coverage; if none can be verified, request confirmation from SPC Méditerranée-Est. No automated threshold changes.
