@@ -80,12 +80,12 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button></div></div>
 <div id="overview"><div class="hero"><div class="hero-orb" aria-hidden="true"></div><div class="live-row"><span class="live-dot"></span><span>DONNÉES HYDROMÉTRIQUES</span><span class="live-source">HUB’EAU</span></div><small>STATION SUIVIE</small><div class="station-heading"><span id="stationTitle">Roquebrune-sur-Argens</span><span id="stationUpdated" class="station-updated" aria-label="Date et heure de la dernière mesure"></span></div><div class="level"><span id="level">—</span><span style="font-size:25px;letter-spacing:0"> m</span></div><div class="threshold-row" aria-label="Seuils indicatifs"><span class="threshold threshold-green" data-threshold="green">0–3 m</span><span class="threshold threshold-orange" data-threshold="orange">3–4,5 m</span><span class="threshold threshold-red" data-threshold="red">≥ 4,5 m</span></div><div id="status" class="threshold-message" role="status">Données en attente</div><div id="thresholdNotice" class="threshold-notice" hidden>Les seuils d’alerte ne sont pas encore définis pour cette station. Ils seront ajoutés progressivement à l’avenir.</div><div class="sub" id="trend">Chargement des mesures</div><div class="hero-chart-head"><div class="hero-chart-label">ÉVOLUTION DU NIVEAU</div><div class="range-switch" role="group" aria-label="Période du graphique"><button type="button" data-hours="1" aria-pressed="true">1 h</button><button type="button" data-hours="6">6 h</button><button type="button" data-hours="12">12 h</button><button type="button" data-hours="24">24 h</button><button type="button" data-hours="48">48 h</button></div></div><div class="range-info" id="rangeInfo"></div><div class="chart-with-scale"><div class="height-scale height-scale-left" id="heightScaleLeft" aria-label="Hauteurs en mètres"></div><svg class="chart" id="chart" viewBox="0 0 340 110" preserveAspectRatio="none" aria-label="Évolution des dernières mesures"><path d="M0 106 H340" stroke="#456476" stroke-dasharray="5 5"/></svg><div class="height-scale height-scale-right" id="heightScaleRight" aria-hidden="true"></div></div><div class="chart-times" id="chartTimes" aria-label="Heures des mesures"></div><div class="hidden"><span id="readingTime"></span></div></div>
-<div id="forecastPanel" class="panel" style="margin-top:15px" aria-live="polite">
+<div id="forecastPanel" class="panel" style="margin-top:15px;text-align:center" aria-live="polite">
 <strong id="forecastHeading">🔎 Projection des seuils</strong>
 <p id="forecastStatus" class="note" style="margin:10px 0">Calcul en attente de mesures récentes…</p>
-<div id="forecastResults" class="cards hidden" style="margin-top:12px">
-<div class="card" style="padding:14px"><small>🟠 Seuil 3,00 m</small><strong id="forecastOrange" style="font-size:19px">—</strong></div>
-<div class="card" style="padding:14px"><small>🔴 Seuil 4,50 m</small><strong id="forecastRed" style="font-size:19px">—</strong></div>
+<div id="forecastResults" class="cards hidden" style="margin-top:12px;text-align:center">
+<div class="card" style="padding:14px"><small>Seuil 3,00 m</small><strong id="forecastOrange" style="font-size:19px">—</strong></div>
+<div class="card" style="padding:14px"><small>Seuil 4,50 m</small><strong id="forecastRed" style="font-size:19px">—</strong></div>
 </div>
 <p id="forecastDisclaimer" class="note" style="margin:12px 0 0">Extrapolation linéaire du niveau mesuré, limitée à 3 heures. Ni prévision hydrologique ni alerte officielle. Le débit peut évoluer rapidement.</p>
 </div>
@@ -103,7 +103,7 @@ function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
  const en=document.documentElement.lang==='en';
  box.classList.toggle('hidden',code!=='Y531201001');out.classList.add('hidden');
- document.querySelector('#forecastHeading').textContent=en?'🔎 6-hour water-level trend':'🔎 Tendance du niveau sur 6 h';
+ document.querySelector('#forecastHeading').textContent=en?'6-hour water-level trend':'Tendance du niveau sur 6 h';
  document.querySelector('#forecastDisclaimer').textContent=en?'Indicative linear extrapolation over 6 hours, not a hydrological forecast or official warning. The trend may change suddenly; uncertainty increases with time.':'Extrapolation linéaire indicative sur 6 heures, ni prévision hydrologique ni alerte officielle. La tendance peut changer brutalement ; l’incertitude augmente avec le temps.';
  if(code!=='Y531201001')return;
  const unavailable=(msg)=>{statusEl.textContent=msg||(en?'Insufficient recent measurements for a trend.':'Mesures récentes insuffisantes pour établir une tendance.')};
@@ -119,7 +119,7 @@ function renderForecast(items,code){
  // Allow rising, falling and stable trends. A strongly changing slope is too unreliable to extrapolate.
  if(Math.abs(r1-r2)>Math.max(15,Math.max(Math.abs(r1),Math.abs(r2))*.75)){unavailable(en?'Trend changing too quickly for extrapolation.':'Tendance trop variable pour une extrapolation.');return}
  const rate=(r1+r2)/2,metres=last.value/1000,rateM=rate/100;
- const direction=rate>2?(en?'↗ Rising':'↗ En hausse'):rate< -2?(en?'↘ Falling':'↘ En baisse'):(en?'→ Stable':'→ Stable');
+ const direction=rate>2?(en?'Rising':'En hausse'):rate< -2?(en?'Falling':'En baisse'):(en?'Stable':'Stable');
  const projected=metres+rateM*6;
  const num=n=>n.toLocaleString(en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
  const fmt=hours=>{const minutes=Math.ceil(hours*60/5)*5;return (en?'about ':'env. ')+(minutes>=60?Math.floor(minutes/60)+' h'+(minutes%60?' '+minutes%60+' min':''):minutes+' min')};
