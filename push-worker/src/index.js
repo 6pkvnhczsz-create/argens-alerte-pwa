@@ -95,8 +95,15 @@ function notification(obs,previous,lang='fr'){
  }
  return {title:'Argens Alerte · '+change,body:'Roquebrune-sur-Argens : '+obs.metres.toFixed(2).replace('.',',')+' m'+trend+'. Seuil indicatif non officiel.',tag:'argens-'+obs.level};
 }
+async function recordMonitorStatus(env,ok,detail){
+ try{
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS monitor_status (station_code TEXT PRIMARY KEY, last_check_at TEXT, last_success_at TEXT, last_error TEXT, last_level TEXT, last_metres REAL, last_observed_at TEXT)').run();
+  await env.DB.prepare("INSERT INTO monitor_status(station_code,last_check_at,last_success_at,last_error,last_level,last_metres,last_observed_at) VALUES(?,CURRENT_TIMESTAMP,CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END,?,NULL,NULL,NULL) ON CONFLICT(station_code) DO UPDATE SET last_check_at=CURRENT_TIMESTAMP,last_success_at=CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE monitor_status.last_success_at END,last_error=excluded.last_error,last_level=CASE WHEN ? THEN ? ELSE monitor_status.last_level END,last_metres=CASE WHEN ? THEN ? ELSE monitor_status.last_metres END,last_observed_at=CASE WHEN ? THEN ? ELSE monitor_status.last_observed_at END").bind(STATION,ok?1:0,ok?null:String(detail).slice(0,240),ok?1:0,ok?1:0,ok?detail.level:null,ok?1:0,ok?detail.metres:null,ok?1:0,ok?detail.observedAt:null).run();
+ }catch(e){console.error('Monitoring status write failed',String(e))}
+}
 async function scheduledCheck(env){
  const obs=await currentObservation();
+ await recordMonitorStatus(env,true,obs);
  const row=await env.DB.prepare('SELECT alert_level FROM alert_state WHERE station_code = ?').bind(STATION).first();
  const previous=row?.alert_level||'unknown';
  // Initialize without sending a surprise notification to existing subscribers.
@@ -172,5 +179,5 @@ export default {
   }
   return json(request,{error:'Not found'},404);
  },
- async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(e=>console.error('Scheduled check failed',String(e))))}
+ async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}))}
 };
