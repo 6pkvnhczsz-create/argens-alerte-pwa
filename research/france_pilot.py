@@ -159,6 +159,33 @@ def main():
         writer = csv.DictWriter(stream, fieldnames=FIELDS)
         writer.writeheader()
         writer.writerows(records)
+    # Source-review queue: no inferred flood thresholds and no fabricated ZIP/ZICH coverage.
+    review_fields = [
+        "station_code", "station_name", "department",
+        "hydroportail_station_url", "vigicrues_portal_url",
+        "zip_zich_source_url", "zip_zich_document_title",
+        "scenario_gauge_station_code", "scenario_gauge_datum",
+        "scenario_height_m", "scenario_date_or_version",
+        "impact_source_url", "impact_description",
+        "source_checked_at_utc", "reviewer",
+        "evidence_status", "threshold_usable", "review_notes"
+    ]
+    with (output / "source_review.csv").open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=review_fields)
+        writer.writeheader()
+        for record in records:
+            code = record["station_code"]
+            site_code = code[:-2] if len(code) > 2 else code
+            writer.writerow({
+                "station_code": code,
+                "station_name": record["station_name"],
+                "department": record["department"],
+                "hydroportail_station_url": "https://www.hydro.eaufrance.fr/sitehydro/" + urllib.parse.quote(site_code, safe=""),
+                "vigicrues_portal_url": "https://www.vigicrues.gouv.fr/",
+                "evidence_status": "needs_official_source_check",
+                "threshold_usable": "no",
+                "review_notes": "Station-specific ZIP/ZICH source, matching gauge/datum, scenario height and local impacts are NOT verified."
+            })
     summary = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "source": API,
@@ -169,6 +196,7 @@ def main():
         "selection": "deterministic geographic coverage, metropolitan coordinates",
         "zip_zich_verified": 0,
         "validated_flood_thresholds": 0,
+        "source_review_rows": len(records),
         "warning": "No ZIP/ZICH bulk import or local flooding threshold validation has been performed. Do not use these rows for alerts."
     }
     (output / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
