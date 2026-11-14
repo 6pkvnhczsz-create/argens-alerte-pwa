@@ -1,5 +1,25 @@
 // Argens Alerte — independent Cloudflare Worker backend
 // Requires DB D1 binding, VAPID_PRIVATE_KEY secret, VAPID_PUBLIC_KEY and VAPID_SUBJECT vars.
+
+// Private Worker-to-Worker RPC; not exposed as a public HTTP route.
+import { WorkerEntrypoint } from 'cloudflare:workers';
+export class AdminPushService extends WorkerEntrypoint {
+ async broadcastAdmin(data){
+  if(!['test','maintenance','incident','custom'].includes(data?.kind)||typeof data.title!=='string'||typeof data.body!=='string'||!data.title.trim()||!data.body.trim()||data.title.length>90||data.body.length>400)throw Error('Invalid admin message');
+  const db=this.env.DB;
+  await db.prepare('CREATE TABLE IF NOT EXISTS admin_send_log (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT, accepted INTEGER, failed INTEGER, expired INTEGER, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)').run();
+  const last=await db.prepare('SELECT updated_at FROM admin_send_log ORDER BY id DESC LIMIT 1').first();
+  if(last&&Date.now()-Date.parse(last.updated_at.replace(' ','T')+'Z')<60000)throw Error('Wait at least 60 seconds between broadcasts');
+  // Record the attempt BEFORE sending to avoid overlapping broadcasts.
+  const record=await db.prepare('INSERT INTO admin_send_log(kind,accepted,failed,expired) VALUES(?,0,0,0)').bind(data.kind).run();
+  const rows=await db.prepare('SELECT endpoint,subscription_json FROM push_subscriptions').all();
+  let accepted=0,failed=0,expired=0;
+  const payload={title:data.title.trim(),body:data.body.trim(),tag:'argens-admin-'+data.kind};
+  for(const row of rows.results||[]){try{const result=await deliver(JSON.parse(row.subscription_json),payload,this.env);if(result.ok)accepted++;else if(result.status===404||result.status===410){expired++;await db.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(row.endpoint).run()}else{failed++;console.error('Admin push rejected',result.status)}}catch(e){failed++;console.error('Admin push error',String(e))}}
+  await db.prepare('UPDATE admin_send_log SET accepted=?,failed=?,expired=? WHERE id=?').bind(accepted,failed,expired,record.meta.last_row_id).run();
+  return {accepted,failed,expired};
+ }
+}
 const STATION='Y531201001';
 const ORIGIN='https://6pkvnhczsz-create.github.io';
 const API='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr';
