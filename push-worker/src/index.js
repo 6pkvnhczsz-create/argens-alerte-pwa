@@ -207,6 +207,15 @@ async function personalStationObservation(code){
  const rate=reference?(points[0].mm-reference.mm)/10/((points[0].time-reference.time)/3600000):null;
  return {metres:points[0].mm/1000,rate,observedAt:new Date(points[0].time).toISOString()};
 }
+function personalPushMessage({station,metres,threshold,rate,level,rapid,settingsUpdate,en}){
+ const fmt=n=>Number(n).toFixed(2).replace('.',en?'.':',');
+ const icon={green:'🟢',orange:'🟠',red:'🔴'}[level];
+ const label=rapid?(en?'Rapid rise':'Montée rapide'):level==='green'?(en?'Back to green':'Retour au vert'):level==='red'?(en?'Red threshold reached':'Seuil rouge atteint'):(en?'Orange threshold reached':'Seuil orange atteint');
+ const title=icon+' Rivière Alerte · '+label;
+ const detail=rapid?'📈 '+(en?'Rise':'Hausse')+' : '+(rate>=0?'+':'')+Number(rate).toFixed(1).replace('.',en?'.':',')+' cm/h':level==='green'?'🟢 '+(en?'Below your orange threshold':'Sous votre seuil orange'):'🎯 '+(en?'Your threshold':'Votre seuil')+' : '+fmt(threshold)+' m';
+ const body='📍 '+station+'\n🌊 '+(en?'Water level':'Niveau')+' : '+fmt(metres)+' m\n'+detail+(settingsUpdate?'\n⚙️ '+(en?'Thresholds just saved':'Seuils enregistrés'):'')+'\nℹ️ '+(en?'Personal, unofficial alert':'Alerte personnelle non officielle');
+ return {title,body};
+}
 async function notifyUpdatedStationSettings(env,user,settings,obs){
  const level=obs.metres>=settings.red_m?'red':obs.metres>=settings.orange_m?'orange':'green';
  const rapid=obs.rate!==null&&obs.rate>=50?'red':obs.rate!==null&&obs.rate>=30?'orange':'green';
@@ -221,9 +230,7 @@ async function notifyUpdatedStationSettings(env,user,settings,obs){
    const sub=JSON.parse(device.subscription_json),en=sub.language==='en';
    const threshold=effective==='red'?settings.red_m:settings.orange_m;
    const rapidCause=rank[rapid]>=rank[level]&&rapid!=='green';
-   const reason=rapidCause?(en?'Rapid rise: ':'Montée rapide : ')+(obs.rate>=0?'+':'')+obs.rate.toFixed(1)+' cm/h':(en?'Configured threshold: ':'Seuil configuré : ')+threshold.toFixed(2)+' m';
-   const title=(effective==='red'?'🔴':'🟠')+' Rivière Alerte · '+(en?'Threshold reached after settings update':'Seuil atteint après modification des réglages');
-   const body=settings.station_name+' · '+obs.metres.toFixed(2)+' m · '+reason+'. '+(en?'Unofficial alert.':'Alerte non officielle.');
+   const {title,body}=personalPushMessage({station:settings.station_name||settings.station_code,metres:obs.metres,threshold,rate:obs.rate,level:effective,rapid:rapidCause,settingsUpdate:true,en});
    const response=await deliver(sub,{title,body,tag:'settings-'+settings.station_code+'-'+effective},env);
    if(response.ok)sent++;
    else if([404,410].includes(response.status))await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(device.endpoint).run();
@@ -270,12 +277,9 @@ async function checkPersonalStations(env){
    try{
     const subscription=JSON.parse(d.subscription_json),en=subscription.language==='en';
     const name=u.station_name||u.station_code;
-    const label=rapidTriggered||rapidCause?(en?'Rapid water-level rise':'Montée rapide du niveau'):en?{green:'Back to green',orange:'Orange alert',red:'Red alert'}[level]:{green:'Retour au vert',orange:'Alerte orange',red:'Alerte rouge'}[level];
-    const icon={green:'🟢',orange:'🟠',red:'🔴'}[level];
     const threshold=level==='red'?u.red_m:u.orange_m;
-    const reason=rapidTriggered||rapidCause?(en?'Rapid rise: ':'Montée rapide : ')+(obs.rate>=0?'+':'')+obs.rate.toFixed(1)+' cm/h':level==='green'?(en?'Below personal orange threshold':'Sous le seuil orange personnel'):(en?'Personal threshold: ':'Seuil personnel : ')+threshold.toFixed(2)+' m';
-    const body=name+' · '+obs.metres.toFixed(2)+' m · '+reason+'. '+(en?'Unofficial alert.':'Alerte non officielle.');
-    const response=await deliver(subscription,{title:icon+' Rivière Alerte · '+label,body,tag:'personal-'+u.station_code+'-'+level},env);
+    const {title,body}=personalPushMessage({station:name,metres:obs.metres,threshold,rate:obs.rate,level,rapid:rapidTriggered||rapidCause,settingsUpdate:false,en});
+    const response=await deliver(subscription,{title,body,tag:'personal-+u.station_code+'-'+level},env);
     if(!response.ok&&[404,410].includes(response.status))await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(d.endpoint).run();
     else if(!response.ok)failed++;
    }catch(e){failed++;console.error('Personal push failed',String(e))}
