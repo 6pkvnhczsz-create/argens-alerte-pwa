@@ -89,6 +89,20 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 </div>
 <p id="forecastDisclaimer" class="note" style="margin:12px 0 0">Extrapolation linéaire du niveau mesuré, limitée à 3 heures. Ni prévision hydrologique ni alerte officielle. Le débit peut évoluer rapidement.</p>
 </div>
+<section id="weatherPanel" class="panel" style="margin-top:15px;text-align:center" aria-label="Météo et pluie">
+<strong id="weatherHeading">🌧 Pluie et météo · Roquebrune-sur-Argens</strong>
+<p id="weatherSummary" class="note" role="status" style="margin:12px 0">Chargement des données météo…</p>
+<div id="weatherNumbers" class="cards hidden" style="margin:12px 0;text-align:center">
+<div class="card" style="padding:13px"><small id="weatherSixLabel">Pluie prévue · 6 h</small><strong id="weatherSix" style="font-size:21px">—</strong></div>
+<div class="card" style="padding:13px"><small id="weatherDayLabel">Pluie prévue · 24 h</small><strong id="weatherDay" style="font-size:21px">—</strong></div>
+</div>
+<p id="weatherNote" class="note" style="margin:10px 0">Prévisions locales indicatives (Open-Meteo), pas une mesure des précipitations sur tout le bassin versant. Aucune prévision de crue n’en découle.</p>
+<details style="margin-top:13px;text-align:left"><summary id="radarToggle" style="cursor:pointer;font-weight:700;text-align:center">🗺 Afficher le radar de pluie</summary>
+<iframe title="Radar de pluie · région de l’Argens" loading="lazy" referrerpolicy="no-referrer" src="https://embed.windy.com/embed2.html?lat=43.44&amp;lon=6.64&amp;detailLat=43.44&amp;detailLon=6.64&amp;width=650&amp;height=360&amp;zoom=8&amp;level=surface&amp;overlay=radar&amp;product=radar&amp;menu=&amp;message=&amp;marker=&amp;calendar=&amp;pressure=&amp;type=map&amp;location=coordinates&amp;detail=&amp;metricWind=km%2Fh&amp;metricTemp=%C2%B0C" style="display:block;width:100%;height:310px;border:0;border-radius:13px;margin-top:12px" allowfullscreen></iframe>
+<p class="note" id="radarNote" style="margin-top:8px">Radar fourni par Windy (service externe). La carte peut nécessiter une connexion Internet.</p>
+<a href="https://www.windy.com/?radar,43.44,6.64,8" target="_blank" rel="noopener noreferrer" id="radarLink">Ouvrir le radar dans Windy</a>
+</details>
+</section>
 <div class="section-title">Explorer les stations</div><div class="panel station-panel"><strong>📍 Trouver une station près de chez moi</strong><p class="note">Entrez une commune française ou autorisez votre position. Les stations sont classées par distance à vol d’oiseau.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="place" placeholder="Ville ou code postal" aria-label="Ville ou code postal" style="flex:1;min-width:160px;border:1px solid #cbdce4;border-radius:10px;padding:12px;font:inherit"><button id="findPlace" style="border:0;background:#087f91;color:white;border-radius:10px;padding:11px">Rechercher</button><button id="gps" style="border:1px solid #cbdce4;background:white;border-radius:10px;padding:11px">⌖ Ma position</button></div><p id="stationMessage" class="note" role="status"></p><div id="stations"></div></div><div class="hidden" aria-hidden="true"><span id="delta"></span><span id="deltaPeriod"></span></div><div class="panel simulation-panel hidden"><strong>Tester les couleurs d’alerte (simulation uniquement)</strong><p class="note">Déplacez le curseur pour prévisualiser les couleurs. Les données réelles restent distinctes. Aperçu uniquement : les seuils réels sont configurés séparément.</p><div id="simulation" class="status green">Aperçu : vert</div><input type="range" min="1" max="4" step=".05" value="1.56" id="slider"><div class="muted" style="display:flex;justify-content:space-between"><span>1,00 m</span><span>4,00 m</span></div></div>
 <p class="note safety-note">Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez <a href="https://www.vigicrues.gouv.fr/" target="_blank" rel="noopener noreferrer">Vigicrues</a> et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.</p></div>
 <div id="pushSettings" class="hidden"><div class="section-title">Notifications</div><div class="panel"><strong>🔔 Alertes sur votre iPhone</strong><p class="note">Recevez une notification lors du passage en orange (3 m ou hausse ≥ 30 cm/h), en rouge (4,5 m), et lors du retour à un niveau inférieur. Seuils indicatifs non officiels.</p><p id="pushMessage" class="note" role="status" aria-live="polite">Vérification du service de notifications…</p><button id="testPush" class="hidden" style="border:1px solid #087f91;background:white;color:#087f91;border-radius:10px;padding:12px;font:inherit;margin-top:10px">Envoyer une notification test</button><button id="enablePush" disabled style="border:0;background:#087f91;color:white;border-radius:10px;padding:12px;font:inherit">Activer les notifications</button><p class="note">Sur iPhone, ouvrez l’application depuis l’écran d’accueil. Les notifications sont envoyées par notre serveur Cloudflare. Les seuils sont indicatifs et non officiels.</p></div></div><div id="other" class="hidden"><div class="section-title" id="otherTitle"></div><div class="panel">Cette rubrique sera développée dans la prochaine étape.</div></div>
@@ -99,6 +113,42 @@ const stationTitle=document.querySelector('#stationTitle');
 const trend=document.querySelector('#trend'),readingTime=document.querySelector('#readingTime'),period=document.querySelector('#deltaPeriod');
 const RAPID_RISE_CM_PER_HOUR=30; // Seuil indicatif à valider localement.
 let activeStation='Y531201001',loadSequence=0;let chartHours=1,chartReadings=[];document.querySelectorAll('[data-hours]').forEach(b=>b.addEventListener('click',()=>{chartHours=Number(b.dataset.hours);document.querySelectorAll('[data-hours]').forEach(x=>x.setAttribute('aria-pressed',String(Number(x.dataset.hours)===chartHours)));drawChart(chartReadings)}));
+// Informational weather widget; intentionally independent of flood alerts and push subscriptions.
+async function loadLocalWeather(){
+ const en=document.documentElement.lang==='en';
+ const summary=document.querySelector('#weatherSummary'),numbers=document.querySelector('#weatherNumbers');
+ const heading=document.querySelector('#weatherHeading'),note=document.querySelector('#weatherNote');
+ heading.textContent=en?'🌧 Rain and weather · Roquebrune-sur-Argens':'🌧 Pluie et météo · Roquebrune-sur-Argens';
+ document.querySelector('#weatherSixLabel').textContent=en?'Forecast rain · 6 h':'Pluie prévue · 6 h';
+ document.querySelector('#weatherDayLabel').textContent=en?'Forecast rain · 24 h':'Pluie prévue · 24 h';
+ document.querySelector('#radarToggle').textContent=en?'🗺 Show rain radar':'🗺 Afficher le radar de pluie';
+ document.querySelector('#radarNote').textContent=en?'Radar by Windy (external service). Internet connection required.':'Radar fourni par Windy (service externe). La carte peut nécessiter une connexion Internet.';
+ document.querySelector('#radarLink').textContent=en?'Open radar in Windy':'Ouvrir le radar dans Windy';
+ note.textContent=en?'Indicative local forecast (Open-Meteo), not rainfall measured across the whole river catchment. This is not a flood forecast.':'Prévisions locales indicatives (Open-Meteo), pas une mesure des précipitations sur tout le bassin versant. Aucune prévision de crue n’en découle.';
+ try{
+  const url='https://api.open-meteo.com/v1/forecast?latitude=43.44&longitude=6.64&current=temperature_2m&hourly=precipitation&forecast_days=3&timezone=Europe%2FParis';
+  const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(12000)});
+  if(!response.ok)throw Error('weather unavailable');
+  const data=await response.json(),times=data.hourly?.time||[],rain=data.hourly?.precipitation||[];
+  const now=Date.now(),start=now-3600000;
+  const upcoming=times.map((t,i)=>({t:new Date(t+'+01:00').getTime(),v:rain[i]}));
+  // Open-Meteo local timestamps use the forecast timezone, which can switch between CET and CEST.
+  // Use utc_offset_seconds to convert local wall-clock times to absolute instants.
+  const offset=Number(data.utc_offset_seconds||0)*1000;
+  const points=times.map((t,i)=>({t:Date.parse(t+'Z')-offset,v:Number(rain[i])}));
+  const future=points.filter(p=>p.t>=start&&Number.isFinite(p.v));
+  if(!future.length)throw Error('no forecast');
+  const sum=hours=>future.filter(p=>p.t<now+hours*3600000).reduce((a,p)=>a+p.v,0);
+  const fmt=n=>n.toLocaleString(en?'en-GB':'fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})+' mm';
+  document.querySelector('#weatherSix').textContent=fmt(sum(6));
+  document.querySelector('#weatherDay').textContent=fmt(sum(24));
+  const temp=data.current?.temperature_2m;
+  summary.textContent=(en?'Current temperature: ':'Température actuelle : ')+(Number.isFinite(temp)?temp.toLocaleString(en?'en-GB':'fr-FR',{maximumFractionDigits:1})+' °C':en?'not available':'indisponible');
+  numbers.classList.remove('hidden');
+ }catch(err){numbers.classList.add('hidden');summary.textContent=en?'Weather data temporarily unavailable. Radar may still be accessible.':'Données météo temporairement indisponibles. Le radar reste éventuellement accessible.';console.warn('Weather panel',err)}
+}
+loadLocalWeather();
+document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>loadLocalWeather()));
 function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
  const en=document.documentElement.lang==='en';
