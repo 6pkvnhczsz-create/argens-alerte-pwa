@@ -458,7 +458,8 @@ async function preparePush(){const token=localStorage.getItem('argens-account-to
 function openPushRegistration(){document.querySelector('[data-tab="Réglages"]').click();document.querySelector('#accountPanel').scrollIntoView({block:'start',behavior:'smooth'});accountMessage.textContent=mapText('Inscrivez-vous gratuitement avec votre e-mail pour recevoir les alertes.','Sign up for free with your email to receive alerts.')}
 enablePush.addEventListener('click',async()=>{
  const token=localStorage.getItem('argens-account-token-v1');
- if(!token){openPushRegistration();return}
+ // A stored token alone is not proof of a signed-in account (e.g. after admin test-data cleanup).
+ if(!token||document.querySelector('#accountSignedIn').classList.contains('hidden')){openPushRegistration();return}
  enablePush.disabled=true;
  try{
   const auth=await fetch(PUSH_API_URL+'/auth/me',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
