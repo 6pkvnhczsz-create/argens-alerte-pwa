@@ -190,10 +190,10 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 
 <div class="alert-cards-grid">
 <div class="panel alert-info-card">
-<div class="alert-section-heading"><span class="alert-heading-icon">🌊</span><div><strong>Niveau de l’Argens</strong><div class="note">Seuils de crue · Roquebrune-sur-Argens</div></div></div>
-<div class="alert-tier"><span class="alert-tier-icon">🟢</span><div><strong>Vert</strong><div class="alert-rule">&lt; 3,00 m et hausse &lt; 30 cm/h</div></div></div>
-<div class="alert-tier"><span class="alert-tier-icon">🟠</span><div><strong>Orange</strong><div class="alert-rule"><span class="alert-rule-line">3,00 à 4,50 m</span><span class="alert-rule-line"><span class="alert-or">OU</span> hausse ≥ 30 cm/h</span></div></div></div>
-<div class="alert-tier"><span class="alert-tier-icon">🔴</span><div><strong>Rouge</strong><div class="alert-rule"><span class="alert-rule-line">≥ 4,50 m</span><span class="alert-rule-line"><span class="alert-or">OU</span> hausse ≥ 50 cm/h</span></div></div></div>
+<div class="alert-section-heading"><span class="alert-heading-icon">🌊</span><div><strong>Niveau de l’Argens</strong><div class="note" id="alertStationName">Seuils de crue · Roquebrune-sur-Argens</div></div></div>
+<div class="alert-tier"><span class="alert-tier-icon">🟢</span><div><strong>Vert</strong><div class="alert-rule" id="alertGreenRule">&lt; 3,00 m et hausse &lt; 30 cm/h</div></div></div>
+<div class="alert-tier"><span class="alert-tier-icon">🟠</span><div><strong>Orange</strong><div class="alert-rule"><span class="alert-rule-line" id="alertOrangeRule">3,00 à 4,50 m</span><span class="alert-rule-line" data-rapid-rule><span class="alert-or">OU</span> hausse ≥ 30 cm/h</span></div></div></div>
+<div class="alert-tier"><span class="alert-tier-icon">🔴</span><div><strong>Rouge</strong><div class="alert-rule"><span class="alert-rule-line" id="alertRedRule">≥ 4,50 m</span><span class="alert-rule-line" data-rapid-rule><span class="alert-or">OU</span> hausse ≥ 50 cm/h</span></div></div></div>
 <p class="alert-explain">↘ Notification à chaque changement de niveau d’alerte, y compris lors du retour au vert.</p>
 </div>
 <div class="panel alert-info-card">
@@ -248,7 +248,8 @@ const trend=document.querySelector('#trend'),readingTime=document.querySelector(
 const CUSTOM_DEFAULTS={orange:3,red:4.5};let personalThresholds=null;
 function activeThresholds(code){return personalThresholds&&personalThresholds.code===code?personalThresholds:CUSTOM_DEFAULTS}
 function renderThresholdLabels(code){const t=activeThresholds(code),fr=document.documentElement.lang!=='en',fmt=n=>n.toLocaleString(fr?'fr-FR':'en-GB',{maximumFractionDigits:2,minimumFractionDigits:2});const chips=document.querySelectorAll('[data-threshold]');if(chips.length===3){chips[0].textContent='< '+fmt(t.orange)+' m';chips[1].textContent=fmt(t.orange)+'–'+fmt(t.red)+' m';chips[2].textContent='≥ '+fmt(t.red)+' m'}const labels=document.querySelectorAll('#forecastResults .card small');if(labels.length===2){labels[0].textContent=(fr?'🟠 Seuil ':'🟠 Threshold ')+fmt(t.orange)+' m';labels[1].textContent=(fr?'🔴 Seuil ':'🔴 Threshold ')+fmt(t.red)+' m'}}
-function applyPersonalThresholds(){renderThresholdLabels(activeStation);if(chartReadings.length)loadMeasurements(activeStation,{silent:true}).catch(console.warn)}
+function renderAlertRules(code){const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code),en=document.documentElement.lang==='en',fmt=n=>n.toLocaleString(en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});document.querySelector('#alertStationName').textContent=(en?'Flood thresholds · ':'Seuils de crue · ')+(custom?personalStation.name:'Roquebrune-sur-Argens');document.querySelector('#alertGreenRule').textContent='< '+fmt(t.orange)+' m'+(custom?'':en?' and rise < 30 cm/h':' et hausse < 30 cm/h');document.querySelector('#alertOrangeRule').textContent=fmt(t.orange)+(en?' to below ':' à moins de ')+fmt(t.red)+' m';document.querySelector('#alertRedRule').textContent='≥ '+fmt(t.red)+' m';document.querySelectorAll('[data-rapid-rule]').forEach(el=>el.hidden=custom)}
+function applyPersonalThresholds(){renderThresholdLabels(activeStation);renderAlertRules(activeStation);if(chartReadings.length)loadMeasurements(activeStation,{silent:true}).catch(console.warn)}
 const RAPID_RISE_CM_PER_HOUR=30; // Seuil indicatif à valider localement.
 let activeStation='Y531201001',loadSequence=0;let chartHours=1,chartReadings=[];document.querySelectorAll('[data-hours]').forEach(b=>b.addEventListener('click',()=>{chartHours=Number(b.dataset.hours);document.querySelectorAll('[data-hours]').forEach(x=>x.setAttribute('aria-pressed',String(Number(x.dataset.hours)===chartHours)));drawChart(chartReadings)}));
 // Client-side service checks: reachability is not proof of scheduled push delivery.
@@ -413,7 +414,7 @@ async function loadMeasurements(code,{silent=false}={}){
   const metres=last.value/1000,t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code);const band=metres>=t.red||(!custom&&riseRate!==null&&riseRate>=50)?'red':metres>=t.orange||(!custom&&rapidRise)?'orange':'green';const local=code==='Y531201001'||custom;document.querySelector('.threshold-row').hidden=!local;document.querySelector('#thresholdNotice').hidden=local;document.querySelector('.hero').dataset.alert=stale||!local?'unknown':band;document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.toggle('is-current',!stale&&local&&x.dataset.threshold===band));status.className='threshold-message';status.textContent=stale?'● Mesure ancienne · statut non fiable':!local?'':!custom&&rapidRise&&metres<t.orange?'● Montée rapide (≥ 30 cm/h)':'';
   document.querySelector('.hero').dataset.stale=String(stale);
   drawChart(chartReadings);
-  renderThresholdLabels(code);
+  renderThresholdLabels(code);renderAlertRules(code);
   renderForecast(chartReadings,code);
  }catch(e){if(seq===loadSequence){healthState.river='bad';renderSystemHealth();if(!silent)noReading('Service de mesures temporairement indisponible.');else console.warn('Background refresh failed',e)}throw e}
 }
