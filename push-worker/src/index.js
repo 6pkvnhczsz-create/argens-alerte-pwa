@@ -230,6 +230,7 @@ async function authTables(db){
  await db.prepare('CREATE TABLE IF NOT EXISTS auth_codes (email TEXT PRIMARY KEY,code_hash TEXT NOT NULL,expires_at INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,last_sent_at INTEGER NOT NULL)').run();
  await db.prepare('CREATE TABLE IF NOT EXISTS auth_sessions (token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires_at INTEGER NOT NULL,created_at INTEGER NOT NULL)').run();
  await db.prepare('CREATE TABLE IF NOT EXISTS auth_limits (key TEXT PRIMARY KEY,window_start INTEGER NOT NULL,count INTEGER NOT NULL)').run();
+ await db.prepare('CREATE TABLE IF NOT EXISTS user_station_settings (user_id TEXT PRIMARY KEY,station_code TEXT NOT NULL,station_name TEXT NOT NULL,orange_m REAL NOT NULL,red_m REAL NOT NULL,updated_at INTEGER NOT NULL)').run();
 }
 async function authLimit(db,key,max,period){
  const now=Date.now(),row=await db.prepare('SELECT window_start,count FROM auth_limits WHERE key=?').bind(key).first();
@@ -249,6 +250,26 @@ async function accountRoute(request,env,url){
  if(!env.DB)return json(request,{error:'Database unavailable'},503);
  const db=env.DB,now=Date.now(),ip=request.headers.get('CF-Connecting-IP')||'unknown';
  await authTables(db);
+ if(url.pathname==='/user/station'){
+  const user=await authUser(request,db);if(!user)return json(request,{error:'Unauthorized'},401);
+  if(request.method==='GET'){
+   const settings=await db.prepare('SELECT station_code,station_name,orange_m,red_m,updated_at FROM user_station_settings WHERE user_id=?').bind(user.id).first();
+   return json(request,{settings:settings||null});
+  }
+  if(request.method!=='PUT')return json(request,{error:'Method not allowed'},405);
+  const raw=await request.text();if(raw.length>2048)return json(request,{error:'Request too large'},413);
+  let body;try{body=JSON.parse(raw)}catch{return json(request,{error:'Invalid JSON'},400)}
+  const code=String(body.station_code||'').trim(),name=String(body.station_name||'').trim();
+  const orange=Number(body.orange_m),red=Number(body.red_m);
+  if(!/^([A-Z][0-9]{8,12})$/.test(code)||!name||name.length>160||!Number.isFinite(orange)||!Number.isFinite(red)||orange<0||red>100||orange>=red)return json(request,{error:'Invalid station or thresholds'},400);
+  const verify=await fetch('https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?code_station='+encodeURIComponent(code)+'&size=1&format=json');
+  if(!verify.ok)return json(request,{error:'Unable to verify station'},503);
+  const stationData=await verify.json();const station=(stationData.data||[]).find(x=>x.code_station===code);
+  if(!station)return json(request,{error:'Unknown station'},400);
+  const verifiedName=String(station.libelle_station||station.libelle_site||code).slice(0,160);
+  await db.prepare('INSERT INTO user_station_settings(user_id,station_code,station_name,orange_m,red_m,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET station_code=excluded.station_code,station_name=excluded.station_name,orange_m=excluded.orange_m,red_m=excluded.red_m,updated_at=excluded.updated_at').bind(user.id,code,verifiedName,orange,red,Date.now()).run();
+  return json(request,{ok:true,settings:{station_code:code,station_name:verifiedName,orange_m:orange,red_m:red}});
+ }
  if(url.pathname==='/auth/me'&&request.method==='GET'){
   const user=await authUser(request,db);return user?json(request,{user}):json(request,{error:'Unauthorized'},401);
  }
