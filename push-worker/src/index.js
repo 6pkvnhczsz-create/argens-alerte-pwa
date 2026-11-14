@@ -268,7 +268,22 @@ async function accountRoute(request,env,url){
   const code=String(crypto.getRandomValues(new Uint32Array(1))[0]%1000000).padStart(6,'0');
   const hash=await authHash(email+':'+code+':'+env.AUTH_CODE_PEPPER);
   if(!env.AUTH_CODE_PEPPER)return json(request,{error:'Authentication not configured'},503);
-  const sent=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({from:env.AUTH_EMAIL_FROM,to:[email],subject:'Argens Alerte · Code de connexion',text:'Votre code Argens Alerte : '+code+'\\nValable 5 minutes. / Your sign-in code (valid for 5 minutes). Si vous n’avez pas demandé ce code, ignorez cet e-mail.'})});
+  const safeCode=code.replace(/[^0-9]/g,'');
+  const emailHtml=`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:32px 12px;background:#eef3f6;font-family:Arial,Helvetica,sans-serif;color:#173447"><div style="max-width:520px;margin:auto;background:#fff;border-radius:18px;overflow:hidden;border:1px solid #dbe6ec"><div style="padding:26px 32px;background:#10384b;color:#fff"><div style="font-size:23px;font-weight:800;letter-spacing:.2px">🌊 Argens Alerte</div><div style="margin-top:6px;font-size:13px;color:#bcd5df">Rivière Alerte · Accès sécurisé / Secure sign-in</div></div><div style="padding:30px 32px"><h1 style="font-size:23px;line-height:1.3;margin:0 0 12px">Votre code de connexion</h1><p style="font-size:15px;line-height:1.6;color:#496675;margin:0">Saisissez ce code dans l'application pour vous connecter.</p><div style="margin:24px 0;padding:20px 12px;background:#eef7f8;border:1px solid #c9e4e8;border-radius:12px;text-align:center;font-size:36px;letter-spacing:9px;font-weight:800;color:#0d687a">${safeCode}</div><p style="font-size:14px;color:#496675;line-height:1.6">Ce code expire dans <strong>5 minutes</strong>. Si vous n'avez pas demandé ce code, ignorez cet e-mail.</p><div style="border-top:1px solid #e2eaee;margin:24px 0"></div><h2 style="font-size:19px;margin:0 0 10px">Your sign-in code</h2><p style="font-size:14px;line-height:1.6;color:#496675">Enter the code above in the app. It expires in <strong>5 minutes</strong>. If you didn't request it, you can safely ignore this email.</p></div><div style="padding:16px 32px;background:#f5f8fa;font-size:12px;color:#78909e;text-align:center">Argens Alerte · riviere-alerte.fr</div></div></body></html>`;
+  const emailText=`ARGENS ALERTE
+
+FRANÇAIS
+Votre code de connexion : ${safeCode}
+Ce code expire dans 5 minutes.
+Si vous n'avez pas demandé ce code, ignorez cet e-mail.
+
+ENGLISH
+Your sign-in code: ${safeCode}
+This code expires in 5 minutes.
+If you didn't request this code, you can ignore this email.
+
+Rivière Alerte · riviere-alerte.fr`;
+  const sent=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({from:env.AUTH_EMAIL_FROM,to:[email],subject:'Argens Alerte · Code de connexion / Sign-in code',html:emailHtml,text:emailText})});
   if(!sent.ok){console.error('Email delivery failed',sent.status);return json(request,{error:'Email delivery unavailable'},502)}
   await db.prepare('INSERT INTO auth_codes(email,code_hash,expires_at,attempts,last_sent_at) VALUES(?,?,?,0,?) ON CONFLICT(email) DO UPDATE SET code_hash=excluded.code_hash,expires_at=excluded.expires_at,attempts=0,last_sent_at=excluded.last_sent_at').bind(email,hash,now+300000,now).run();
   return json(request,{ok:true});
