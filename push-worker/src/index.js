@@ -210,6 +210,7 @@ async function personalStationObservation(code){
 async function checkPersonalStations(env){
  await env.DB.prepare('CREATE TABLE IF NOT EXISTS user_station_settings (user_id TEXT PRIMARY KEY,station_code TEXT NOT NULL,station_name TEXT NOT NULL,orange_m REAL NOT NULL,red_m REAL NOT NULL,updated_at INTEGER NOT NULL)').run();
  await env.DB.prepare('CREATE TABLE IF NOT EXISTS user_station_alert_state (user_id TEXT PRIMARY KEY,station_code TEXT NOT NULL,alert_level TEXT NOT NULL,updated_at INTEGER NOT NULL)').run();
+ const stateCols=await env.DB.prepare('PRAGMA table_info(user_station_alert_state)').all();if(!(stateCols.results||[]).some(c=>c.name==='rapid_level'))await env.DB.prepare("ALTER TABLE user_station_alert_state ADD COLUMN rapid_level TEXT NOT NULL DEFAULT 'green'").run();
  const rows=await env.DB.prepare("SELECT p.user_id,p.station_code,p.station_name,p.orange_m,p.red_m,p.updated_at FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE u.status='active'").all();
  const users=rows.results||[];const observations=new Map();
  for(const u of users){
@@ -222,13 +223,14 @@ async function checkPersonalStations(env){
   const rank={green:0,orange:1,red:2};
   const level=rank[rapidLevel]>rank[heightLevel]?rapidLevel:heightLevel;
   const rapidCause=rank[rapidLevel]>=rank[heightLevel]&&rapidLevel!=='green';
-  const previous=await env.DB.prepare('SELECT station_code,alert_level,updated_at FROM user_station_alert_state WHERE user_id=?').bind(u.user_id).first();
+  const previous=await env.DB.prepare('SELECT station_code,alert_level,rapid_level,updated_at FROM user_station_alert_state WHERE user_id=?').bind(u.user_id).first();
   // New settings are a new baseline, not an immediate alarm.
   if(!previous||previous.station_code!==u.station_code||previous.updated_at<u.updated_at){
-   await env.DB.prepare('INSERT INTO user_station_alert_state(user_id,station_code,alert_level,updated_at) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET station_code=excluded.station_code,alert_level=excluded.alert_level,updated_at=excluded.updated_at').bind(u.user_id,u.station_code,level,Date.now()).run();
+   await env.DB.prepare('INSERT INTO user_station_alert_state(user_id,station_code,alert_level,rapid_level,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET station_code=excluded.station_code,alert_level=excluded.alert_level,rapid_level=excluded.rapid_level,updated_at=excluded.updated_at').bind(u.user_id,u.station_code,level,rapidLevel,Date.now()).run();
    continue;
   }
-  if(previous.alert_level===level)continue;
+  const rapidTriggered=rank[rapidLevel]>rank[previous.rapid_level||'green'];
+  if(previous.alert_level===level&&!rapidTriggered){if(previous.rapid_level!==rapidLevel)await env.DB.prepare('UPDATE user_station_alert_state SET rapid_level=? WHERE user_id=?').bind(rapidLevel,u.user_id).run();continue;}
   const linked=await env.DB.prepare('SELECT s.endpoint,s.subscription_json FROM push_user_devices d JOIN push_subscriptions s ON s.endpoint=d.endpoint WHERE d.user_id=?').bind(u.user_id).all();
   const devices=linked.results||[];if(!devices.length)continue;
   let failed=0;
@@ -236,17 +238,17 @@ async function checkPersonalStations(env){
    try{
     const subscription=JSON.parse(d.subscription_json),en=subscription.language==='en';
     const name=u.station_name||u.station_code;
-    const label=rapidCause?(en?'Rapid water-level rise':'Montée rapide du niveau'):en?{green:'Back to green',orange:'Orange alert',red:'Red alert'}[level]:{green:'Retour au vert',orange:'Alerte orange',red:'Alerte rouge'}[level];
+    const label=rapidTriggered||rapidCause?(en?'Rapid water-level rise':'Montée rapide du niveau'):en?{green:'Back to green',orange:'Orange alert',red:'Red alert'}[level]:{green:'Retour au vert',orange:'Alerte orange',red:'Alerte rouge'}[level];
     const icon={green:'🟢',orange:'🟠',red:'🔴'}[level];
     const threshold=level==='red'?u.red_m:u.orange_m;
-    const reason=rapidCause?(en?'Rapid rise: ':'Montée rapide : ')+(obs.rate>=0?'+':'')+obs.rate.toFixed(1)+' cm/h':level==='green'?(en?'Below personal orange threshold':'Sous le seuil orange personnel'):(en?'Personal threshold: ':'Seuil personnel : ')+threshold.toFixed(2)+' m';
+    const reason=rapidTriggered||rapidCause?(en?'Rapid rise: ':'Montée rapide : ')+(obs.rate>=0?'+':'')+obs.rate.toFixed(1)+' cm/h':level==='green'?(en?'Below personal orange threshold':'Sous le seuil orange personnel'):(en?'Personal threshold: ':'Seuil personnel : ')+threshold.toFixed(2)+' m';
     const body=name+' · '+obs.metres.toFixed(2)+' m · '+reason+'. '+(en?'Unofficial alert.':'Alerte non officielle.');
     const response=await deliver(subscription,{title:icon+' Rivière Alerte · '+label,body,tag:'personal-'+u.station_code+'-'+level},env);
     if(!response.ok&&[404,410].includes(response.status))await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(d.endpoint).run();
     else if(!response.ok)failed++;
    }catch(e){failed++;console.error('Personal push failed',String(e))}
   }
-  if(!failed)await env.DB.prepare('UPDATE user_station_alert_state SET alert_level=?,updated_at=? WHERE user_id=?').bind(level,Date.now(),u.user_id).run();
+  if(!failed)await env.DB.prepare('UPDATE user_station_alert_state SET alert_level=?,rapid_level=?,updated_at=? WHERE user_id=?').bind(level,rapidLevel,Date.now(),u.user_id).run();
  }
 }
 async function scheduledCheck(env){
