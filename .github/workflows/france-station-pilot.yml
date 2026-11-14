@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'research/france_pilot.py'
+      - 'research/test_france_pilot.py'
       - '.github/workflows/france-station-pilot.yml'
 permissions:
   contents: read
@@ -16,6 +17,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Run offline selection and safety tests
+        run: python -m unittest discover -s research -p 'test_france_pilot.py' -v
       - name: Fetch 30 geographically distributed stations
         run: python research/france_pilot.py --count 30
       - name: Upload station list and audit summary
