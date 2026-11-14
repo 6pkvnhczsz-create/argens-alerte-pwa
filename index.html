@@ -43,10 +43,10 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .chart-times{margin-left:54px;margin-right:54px}
 .hero #trend{white-space:pre-line;line-height:1.55}\n.hero-chart-head{display:flex;align-items:center;flex-direction:column;justify-content:center;gap:10px;margin-top:26px}.hero-chart-head .hero-chart-label{margin-top:0}.range-switch{display:inline-flex;width:max-content;max-width:100%;margin:0 auto;justify-content:center;gap:3px;background:#ffffff20;border:1px solid #ffffff2c;padding:3px;border-radius:12px;flex-shrink:0}.range-switch button{background:transparent;border:0;border-radius:9px;color:#ffffffcc;font-size:11px;font-weight:700;padding:7px 8px}.range-switch button[aria-pressed="true"]{background:#fff;color:#195469}.range-info{font-size:11px;color:#ffffffd8;margin-top:9px;font-variant-numeric:tabular-nums}@media(max-width:370px){.range-switch button{padding:7px 6px}}\n
 /* Three visible threshold bands; active state follows real station measurements. */
-.threshold-connector{display:block;width:100%;height:12px;margin:-10px 0 0;overflow:visible;pointer-events:none;opacity:0;transition:opacity .25s ease}
+.threshold-connector{position:absolute;inset:0;width:100%;height:100%;margin:0;overflow:visible;pointer-events:none;opacity:0;transition:opacity .25s ease;z-index:0}
 .threshold-connector.is-visible{opacity:1}
 .threshold-connector path{filter:drop-shadow(0 0 3px #ffffff77)}
-.threshold-row{display:flex;align-items:center;justify-content:center;gap:4px;margin:0;flex-wrap:nowrap}
+.threshold-row{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:4px;margin:0;flex-wrap:nowrap}
 .threshold{display:inline-flex;justify-content:center;align-items:center;width:auto;min-height:0;padding:7px 11px;border-radius:999px;color:#fff;font-size:12px;font-weight:700;letter-spacing:0;border:1px solid #ffffff60;background:#ffffff16;opacity:.72;white-space:nowrap;cursor:default;user-select:none;box-shadow:none;pointer-events:none}
 .threshold-green{background:#138b53;border-color:#8ae0b5}.threshold-orange{background:#ef7900;border-color:#ffb567}.threshold-red{background:#d62839;border-color:#ff8a94}
 .threshold.is-current{opacity:1;border-color:#ffffffd9;box-shadow:0 0 0 2px #ffffff3b,inset 0 0 0 1px #ffffff2b}
@@ -259,8 +259,11 @@ function updateThresholdConnector(){
  const a=svg.getBoundingClientRect(),c=chip.getBoundingClientRect(),g=glass.getBoundingClientRect();
  if(!a.width||!c.width||!g.width){svg.classList.remove('is-visible');return}
  const x1=g.left+g.width/2-a.left,x2=c.left+c.width/2-a.left,w=a.width,h=a.height;
+ const y1=g.bottom-a.top,y2=c.top-a.top;
  svg.setAttribute('viewBox','0 0 '+w+' '+h);
- path.setAttribute('d','M '+x1+' 0 V '+(h*.5)+' H '+x2+' V '+h);
+ if(y2<=y1){svg.classList.remove('is-visible');return}
+ const mid=y1+(y2-y1)*.5;
+ path.setAttribute('d','M '+x1+' '+y1+' V '+mid+' H '+x2+' V '+y2);
  path.setAttribute('stroke',chip.dataset.threshold==='red'?'#ff8a94':chip.dataset.threshold==='orange'?'#ffb567':'#a7f3d0');
  svg.classList.add('is-visible');
 }
