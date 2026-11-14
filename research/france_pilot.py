@@ -106,6 +106,11 @@ def normalize_name(text):
             return text[len(prefix):].strip()
     return text
 
+AMBIGUOUS_RIVER_CODES = {
+    "M036151501": "Rhone homonym in Eure-et-Loir, not the major Rhone river",
+    "K163301001": "Somme homonym near Bourbon-Lancy, not the Somme basin",
+}
+
 def select_river_review_candidates(rows, excluded_codes):
     """Select one eligible station per named river; NOT a hydrological suitability test."""
     result = []
@@ -115,7 +120,7 @@ def select_river_review_candidates(rows, excluded_codes):
             code = str(value(row, "code_station"))
             pos = coords(row)
             name = normalize_name(value(row, "libelle_cours_eau"))
-            if not code or code in excluded_codes or not pos:
+            if not code or code in excluded_codes or code in AMBIGUOUS_RIVER_CODES or not pos:
                 continue
             lat, lon = pos
             if not (41 <= lat <= 52 and -6 <= lon <= 10):
@@ -198,12 +203,6 @@ def main():
         records.append(reference)
     excluded_codes = {record["station_code"] for record in records}
     river_candidates = select_river_review_candidates(rows, excluded_codes)
-    # Known ambiguities found during the first run: name matching alone is not
-    # evidence that a station belongs to the intended major river.
-    ambiguous_codes = {
-        "M036151501": "Same-name Rhone in Eure-et-Loir, not the major Rhone river",
-        "K163301001": "Same-name Somme at Bourbon-Lancy, not the Somme basin",
-    }
     river_fields = [
         "target_river", "station_code", "station_name", "river",
         "department", "latitude", "longitude", "selection_method",
@@ -222,13 +221,13 @@ def main():
                 "department": value(row, "code_departement"),
                 "latitude": lat,
                 "longitude": lon,
-                "selection_method": "exact_normalized_river_name_and_lowest_station_code",
+                "selection_method": "exact_normalized_river_name_excluding_known_homonyms",
                 "official_flood_history_verified": "no",
                 "zip_zich_verified": "no",
                 "local_impact_verified": "no",
                 "threshold_usable": "no",
-                "manual_identity_check": "required" if code in ambiguous_codes else "pending",
-                "review_notes": ambiguous_codes.get(code, "Research candidate only; verify station activity, official flood history, gauge datum and mapped local impacts before use.")
+                "manual_identity_check": "pending",
+                "review_notes": ("Research candidate only; verify station activity, official flood history, gauge datum and mapped local impacts before use.")
             })
     with (output / "missing_target_rivers.txt").open("w", encoding="utf-8") as stream:
         matched = {item[0] for item in river_candidates}
@@ -277,7 +276,7 @@ def main():
                 "vigicrues_portal_url": "https://www.vigicrues.gouv.fr/",
                 "evidence_status": "needs_official_source_check",
                 "threshold_usable": "no",
-                "review_notes": ambiguous_codes.get(code, "Additional " + target + " research candidate; not an official risk designation. Verify station suitability and ZIP/ZICH mapping.")
+                "review_notes": ("Additional " + target + " research candidate; not an official risk designation. Verify station suitability and ZIP/ZICH mapping.")
             })
     summary = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -292,7 +291,9 @@ def main():
         "source_review_rows": len(records) + len(river_candidates),
         "target_rivers": len(TARGET_RIVERS),
         "additional_river_candidates": len(river_candidates),
-        "river_candidate_warning": "Research-only river-name matches. No verified flood history, floodplain coverage, or threshold.",
+        "river_candidate_warning": "Research-only name matches; known homonyms excluded, remaining basin identities and flood thresholds unverified.",
+        "excluded_known_homonym_station_codes": sorted(AMBIGUOUS_RIVER_CODES),
+        "missing_target_rivers": [river for river in TARGET_RIVERS if river not in {item[0] for item in river_candidates}],
         "warning": "No ZIP/ZICH bulk import or local flooding threshold validation has been performed. Do not use these rows for alerts."
     }
     (output / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
