@@ -86,9 +86,13 @@ async function currentObservation(){
  return {metres:last.mm/1000,rate,level:levelFor(last.mm/1000,rate),observedAt:new Date(last.time).toISOString()};
 }
 const labels={green:'Vert',orange:'Orange',red:'Rouge'};
-function notification(obs,previous){
+function notification(obs,previous,lang='fr'){
  const change=previous==='unknown'?'Niveau observé':obs.level==='green'?'Retour au vert':obs.level==='red'?'Alerte rouge':obs.level==='orange'?'Alerte orange':'Mise à jour';
  const trend=obs.rate===null?'':' · '+(obs.rate>=0?'+':'')+obs.rate.toFixed(1)+' cm/h';
+ if(lang==='en'){
+  const label=previous==='unknown'?'Water level update':obs.level==='green'?'Back to green':obs.level==='red'?'Red alert':obs.level==='orange'?'Orange alert':'Update';
+  return {title:'Argens Alerte · '+label,body:'Roquebrune-sur-Argens: '+obs.metres.toFixed(2)+' m'+trend+'. Indicative, unofficial threshold.',tag:'argens-'+obs.level};
+ }
  return {title:'Argens Alerte · '+change,body:'Roquebrune-sur-Argens : '+obs.metres.toFixed(2).replace('.',',')+' m'+trend+'. Seuil indicatif non officiel.',tag:'argens-'+obs.level};
 }
 async function scheduledCheck(env){
@@ -99,12 +103,11 @@ async function scheduledCheck(env){
  if(previous==='unknown'){await env.DB.prepare('INSERT INTO alert_state(station_code,alert_level,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(station_code) DO UPDATE SET alert_level=excluded.alert_level,updated_at=CURRENT_TIMESTAMP').bind(STATION,obs.level).run();return}
  if(previous===obs.level)return;
  const subs=await env.DB.prepare('SELECT endpoint, subscription_json FROM push_subscriptions WHERE station_code=?').bind(STATION).all();
- const payload=notification(obs,previous);
  let sent=0,failed=0;
  for(const row of subs.results||[]){
   try{
    const subscription=JSON.parse(row.subscription_json);
-   const response=await deliver(subscription,payload,env);
+   const response=await deliver(subscription,notification(obs,previous,subscription.language==='en'?'en':'fr'),env);
    if(response.ok)sent++;
    else if(response.status===404||response.status===410){await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(row.endpoint).run()}
    else{failed++;console.error('Push rejected',response.status)}
@@ -125,12 +128,27 @@ export default {
    try{
     const raw=await request.text();if(raw.length>5000)return json(request,{error:'Too large'},413);
     const body=JSON.parse(raw),sub=body.subscription;
+    if(body.language!==undefined&&!['fr','en'].includes(body.language))return json(request,{error:'Invalid language'},400);
     if(body.station!==STATION||!sub?.endpoint||!sub?.keys?.p256dh||!sub?.keys?.auth)return json(request,{error:'Invalid subscription'},400);
     const endpoint=new URL(sub.endpoint);if(endpoint.protocol!=='https:'||endpoint.href.length>2048)return json(request,{error:'Invalid endpoint'},400);
     if(unb64(sub.keys.p256dh).length!==65||unb64(sub.keys.auth).length<16)return json(request,{error:'Invalid keys'},400);
-    await env.DB.prepare('INSERT INTO push_subscriptions(endpoint,subscription_json,station_code) VALUES(?,?,?) ON CONFLICT(endpoint) DO UPDATE SET subscription_json=excluded.subscription_json,station_code=excluded.station_code').bind(sub.endpoint,JSON.stringify(sub),STATION).run();
+    await env.DB.prepare('INSERT INTO push_subscriptions(endpoint,subscription_json,station_code) VALUES(?,?,?) ON CONFLICT(endpoint) DO UPDATE SET subscription_json=excluded.subscription_json,station_code=excluded.station_code').bind(sub.endpoint,JSON.stringify({...sub,language:body.language==='en'?'en':'fr'}),STATION).run();
     return json(request,{ok:true});
    }catch(e){console.error('Subscription rejected',String(e));return json(request,{error:'Invalid subscription'},400)}
+  }
+  if(url.pathname==='/language'&&request.method==='POST'){
+   if(request.headers.get('Origin')!==ORIGIN)return json(request,{error:'Origin not allowed'},403);
+   if(!env.DB)return json(request,{error:'Database not configured'},503);
+   try{
+    const raw=await request.text();if(raw.length>2500)return json(request,{error:'Too large'},413);
+    const {endpoint,language}=JSON.parse(raw);
+    if(typeof endpoint!=='string'||endpoint.length>2048||!['fr','en'].includes(language))return json(request,{error:'Invalid request'},400);
+    const row=await env.DB.prepare('SELECT subscription_json FROM push_subscriptions WHERE endpoint=? AND station_code=?').bind(endpoint,STATION).first();
+    if(!row)return json(request,{error:'Subscription not found'},404);
+    const sub=JSON.parse(row.subscription_json);sub.language=language;
+    await env.DB.prepare('UPDATE push_subscriptions SET subscription_json=? WHERE endpoint=? AND station_code=?').bind(JSON.stringify(sub),endpoint,STATION).run();
+    return json(request,{ok:true,language});
+   }catch(e){console.error('Language update failed',String(e));return json(request,{error:'Unable to save language'},500)}
   }
   if(url.pathname==='/test'&&request.method==='POST'){
    if(request.headers.get('Origin')!==ORIGIN)return json(request,{error:'Origin not allowed'},403);
@@ -144,7 +162,9 @@ export default {
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS push_test_cooldown (endpoint TEXT PRIMARY KEY, last_sent INTEGER NOT NULL)').run();
     const last=await env.DB.prepare('SELECT last_sent FROM push_test_cooldown WHERE endpoint=?').bind(endpoint).first();
     if(last&&Date.now()-last.last_sent<15*60000)return json(request,{error:'Please wait 15 minutes before another test'},429);
-    const response=await deliver(JSON.parse(row.subscription_json),{title:'Argens Alerte · Test',body:'Les notifications de test fonctionnent. Ceci n’est pas une alerte de crue.',tag:'argens-test'},env);
+    const saved=JSON.parse(row.subscription_json);
+    const payload=saved.language==='en'?{title:'Argens Alerte · Test',body:'Test notifications are working. This is not a flood warning.',tag:'argens-test'}:{title:'Argens Alerte · Test',body:'Les notifications de test fonctionnent. Ceci n’est pas une alerte de crue.',tag:'argens-test'};
+    const response=await deliver(saved,payload,env);
     if(!response.ok){if(response.status===404||response.status===410)await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(endpoint).run();return json(request,{error:'Push provider rejected request',status:response.status},502)}
     await env.DB.prepare('INSERT INTO push_test_cooldown(endpoint,last_sent) VALUES(?,?) ON CONFLICT(endpoint) DO UPDATE SET last_sent=excluded.last_sent').bind(endpoint,Date.now()).run();
     return json(request,{ok:true});
