@@ -1,0 +1,19 @@
+{
+  "name": "Argens Alerte – Surveillance des crues",
+  "short_name": "Argens Alerte",
+  "description": "Prototype de suivi des niveaux des rivières en France",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f8fa",
+  "theme_color": "#102c40",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
