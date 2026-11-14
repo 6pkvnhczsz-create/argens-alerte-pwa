@@ -101,6 +101,53 @@ async function recordMonitorStatus(env,ok,detail){
   await env.DB.prepare("INSERT INTO monitor_status(station_code,last_check_at,last_success_at,last_error,last_level,last_metres,last_observed_at) VALUES(?,CURRENT_TIMESTAMP,CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END,?,NULL,NULL,NULL) ON CONFLICT(station_code) DO UPDATE SET last_check_at=CURRENT_TIMESTAMP,last_success_at=CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE monitor_status.last_success_at END,last_error=excluded.last_error,last_level=CASE WHEN ? THEN ? ELSE monitor_status.last_level END,last_metres=CASE WHEN ? THEN ? ELSE monitor_status.last_metres END,last_observed_at=CASE WHEN ? THEN ? ELSE monitor_status.last_observed_at END").bind(STATION,ok?1:0,ok?null:String(detail).slice(0,240),ok?1:0,ok?1:0,ok?detail.level:null,ok?1:0,ok?detail.metres:null,ok?1:0,ok?detail.observedAt:null).run();
  }catch(e){console.error('Monitoring status write failed',String(e))}
 }
+
+// Independent precipitation forecast alerts. Does not alter river-level alert state.
+const RAIN_COORDS={lat:43.44,lon:6.64};
+function rainLevel(mm){return mm>=120?'purple':mm>=90?'red':mm>=50?'orange':'green'}
+async function checkRainForecast(env){
+ const url='https://api.open-meteo.com/v1/forecast?latitude='+RAIN_COORDS.lat+'&longitude='+RAIN_COORDS.lon+'&hourly=precipitation&forecast_days=3&timezone=UTC';
+ const response=await fetch(url,{headers:{'Accept':'application/json'}});
+ if(!response.ok)throw Error('Rain forecast HTTP '+response.status);
+ const data=await response.json(),times=data.hourly?.time,values=data.hourly?.precipitation;
+ if(!Array.isArray(times)||!Array.isArray(values)||times.length!==values.length)throw Error('Invalid rain forecast');
+ const now=Date.now(),start=Math.ceil(now/3600000)*3600000;
+ const points=times.map((t,i)=>({time:Date.parse(t+'Z'),mm:values[i]})).filter(p=>Number.isFinite(p.time)&&p.time>=start&&p.time<start+48*3600000);
+ if(points.length<48||points.some(p=>!Number.isFinite(p.mm)||p.mm<0))throw Error('Incomplete rain forecast');
+ // Maximum rolling 24-hour precipitation across the next 48 hours, not a calendar-day total.
+ let max=0,peakStart=0;
+ for(let i=0;i<=24;i++){
+  const sum=points.slice(i,i+24).reduce((a,p)=>a+p.mm,0);
+  if(sum>max){max=sum;peakStart=points[i].time}
+ }
+ const current=rainLevel(max);
+ await env.DB.prepare('CREATE TABLE IF NOT EXISTS rain_alert_state (location TEXT PRIMARY KEY, level TEXT NOT NULL, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)').run();
+ const location='roquebrune-argens',saved=await env.DB.prepare('SELECT level FROM rain_alert_state WHERE location=?').bind(location).first();
+ if(!saved){await env.DB.prepare('INSERT INTO rain_alert_state(location,level) VALUES(?,?)').bind(location,current).run();console.log('Rain alert initialized',current,max);return}
+ if(saved.level===current)return;
+ // Lowering/clearing the alert updates state without an extra push; re-escalation can alert again.
+ if(current==='green'||(current==='orange'&&saved.level!=='green')||(current==='red'&&saved.level==='purple')){
+  await env.DB.prepare('UPDATE rain_alert_state SET level=?,updated_at=CURRENT_TIMESTAMP WHERE location=?').bind(current,location).run();
+  return;
+ }
+ const rows=await env.DB.prepare('SELECT endpoint,subscription_json FROM push_subscriptions WHERE station_code=?').bind(STATION).all();
+ let failures=0,sent=0;
+ for(const row of rows.results||[]){
+  try{
+   const sub=JSON.parse(row.subscription_json),en=sub.language==='en';
+   const name=en?({orange:'Orange',red:'Red',purple:'Purple'}[current]):({orange:'orange',red:'rouge',purple:'violette'}[current]);
+   const amount=max.toLocaleString(en?'en-GB':'fr-FR',{maximumFractionDigits:1});
+   const payload={title:'Argens Alerte · '+(en?'Rain alert '+name:'Alerte pluie '+name),body:en?'Roquebrune-sur-Argens: up to '+amount+' mm forecast within 24 h (rolling window). Indicative weather forecast, not an official flood warning.':'Roquebrune-sur-Argens : jusqu’à '+amount+' mm prévus sur 24 h (fenêtre glissante). Prévision indicative, pas une alerte de crue officielle.',tag:'argens-rain-'+current};
+   const result=await deliver(sub,payload,env);
+   if(result.ok)sent++;
+   else if(result.status===404||result.status===410)await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(row.endpoint).run();
+   else{failures++;console.error('Rain push rejected',result.status)}
+  }catch(e){failures++;console.error('Rain push failed',String(e))}
+ }
+ if(!failures)await env.DB.prepare('UPDATE rain_alert_state SET level=?,updated_at=CURRENT_TIMESTAMP WHERE location=?').bind(current,location).run();
+ console.log('Rain alert',saved.level,'->',current,'max mm',max,'window start',new Date(peakStart).toISOString(),'sent',sent,'failed',failures);
+}
+
 async function scheduledCheck(env){
  const obs=await currentObservation();
  await recordMonitorStatus(env,true,obs);
@@ -179,5 +226,5 @@ export default {
   }
   return json(request,{error:'Not found'},404);
  },
- async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}))}
+ async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))))}
 };
