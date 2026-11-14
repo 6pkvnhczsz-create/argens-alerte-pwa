@@ -97,8 +97,8 @@ REFERENCE = {
     "zip_zich_status": "not_checked",
     "scenario_height_m": "",
     "scenario_source_url": "",
-    "documented_local_impact": "",
-    "review_status": "historical_peaks_verified_not_overflow_threshold",
+    "documented_local_impact": "User-reported March 2024 local observations: ~5.40 m river overtops banks in observed area; ~5.90 m water reaches property; 6.22 m water at front door.",
+    "review_status": "local_eyewitness_observations_not_officially_validated",
     "review_notes": "HydroPortail historical flood peaks: 2010-06-16 7.71m; 2019-11-23 7.12m (tolerance 0.10m); 2024-03-10 6.22m. These are NOT first-overflow levels. https://www.hydro.eaufrance.fr/sitehydro/Y5312010/seuils"
 }
 
