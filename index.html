@@ -208,7 +208,21 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <p id="swarmIntro" class="note">Regroupez plusieurs stations dans un même groupe. Les groupes sont enregistrés sur cet appareil ; les alertes personnalisées seront disponibles ultérieurement.</p>
 <div class="swarm-create"><input id="swarmName" maxlength="60" placeholder="Nom du groupe (ex. Mon Argens)" aria-label="Nom du groupe"><button id="swarmCreate" type="button">+ Créer</button></div>
 <p id="swarmMessage" class="note" role="status"></p><div id="swarmGroups"></div>
-</section></div><div id="settingsPage" class="hidden"><div class="section-title" id="settingsPageTitle">Réglages</div><section class="panel" id="systemHealthPanel" style="margin-top:15px" aria-label="État des services">
+</section></div><div id="settingsPage" class="hidden"><div class="section-title" id="settingsPageTitle">Réglages</div><section class="panel" id="accountPanel" style="margin-top:15px">
+<strong id="accountTitle">👤 Mon compte / My account</strong>
+<p class="note" id="accountIntro">Connectez-vous pour retrouver bientôt vos groupes et alertes sur tous vos appareils. / Sign in to sync groups and alerts in a future update.</p>
+<div id="accountSignedOut">
+<label for="accountEmail" class="note">Adresse e-mail / Email</label>
+<input id="accountEmail" type="email" autocomplete="email" placeholder="nom@exemple.fr" style="margin:8px 0;padding:12px;border:1px solid #c7dbe3;border-radius:10px">
+<button id="accountRequest" type="button" style="padding:10px;border-radius:9px">Recevoir un code / Send code</button>
+<div id="accountVerifyArea" class="hidden" style="margin-top:12px">
+<label for="accountCode" class="note">Code à 6 chiffres / 6-digit code</label>
+<input id="accountCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="margin:8px 0;padding:12px;border:1px solid #c7dbe3;border-radius:10px">
+<button id="accountVerify" type="button" style="padding:10px;border-radius:9px">Valider / Verify</button>
+</div></div>
+<div id="accountSignedIn" class="hidden"><p id="accountIdentity"></p><button id="accountLogout" type="button">Déconnexion / Sign out</button></div>
+<p id="accountMessage" class="note" role="status"></p>
+</section><section class="panel" id="systemHealthPanel" style="margin-top:15px" aria-label="État des services">
 <strong id="systemHealthTitle">🛡 État des services</strong>
 <div style="display:grid;gap:10px;margin-top:12px;font-size:14px">
 <div style="display:flex;justify-content:space-between;gap:10px"><span id="healthRiverLabel">Mesures du fleuve</span><strong id="healthRiver">⏳ Vérification…</strong></div>
@@ -662,6 +676,38 @@ function walk(root){if(root.nodeType===3){applyNode(root);return}if(root.nodeTyp
 function setLanguage(next){lang=next;localStorage.setItem('argens-language',lang);syncPushLanguage(lang);document.documentElement.lang=lang;document.dispatchEvent(new Event('argens-language-changed'));document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===lang)));walk(document)}
 document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>setLanguage(b.dataset.lang)));
 let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;walk(document)})});observer.observe(document.body,{subtree:true,childList:true,characterData:true});
+
+/* Optional email-code sign-in. Never claim sync until server-side group storage exists. */
+const accountTokenKey='argens-account-token-v1';
+const accountEmail=document.querySelector('#accountEmail'),accountMessage=document.querySelector('#accountMessage');
+const accountRequest=document.querySelector('#accountRequest'),accountVerify=document.querySelector('#accountVerify');
+function accountView(user){document.querySelector('#accountSignedOut').classList.toggle('hidden',!!user);document.querySelector('#accountSignedIn').classList.toggle('hidden',!user);document.querySelector('#accountIdentity').textContent=user?.email||''}
+async function accountCall(path,body,token){
+ const res=await fetch(PUSH_API_URL+'/auth/'+path,{method:path==='me'?'GET':'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{})});
+ const data=await res.json().catch(()=>({}));if(!res.ok)throw Error(data.error||'Service unavailable');return data;
+}
+async function accountRestore(){
+ const token=localStorage.getItem(accountTokenKey);if(!token)return;
+ try{const data=await accountCall('me',null,token);accountView(data.user)}catch(e){if(e.message==='Unauthorized'){localStorage.removeItem(accountTokenKey);accountView(null)}}
+}
+accountRequest.addEventListener('click',async()=>{
+ accountRequest.disabled=true;accountMessage.textContent='…';
+ try{await accountCall('request',{email:accountEmail.value.trim()});document.querySelector('#accountVerifyArea').classList.remove('hidden');accountMessage.textContent='Code envoyé / Code sent. Check your email (also spam).'}
+ catch(e){accountMessage.textContent=e.message==='Email sign-in is not configured yet'?'Inscription bientôt disponible / Registration coming soon.':e.message}
+ finally{accountRequest.disabled=false}
+});
+accountVerify.addEventListener('click',async()=>{
+ accountVerify.disabled=true;accountMessage.textContent='…';
+ try{const data=await accountCall('verify',{email:accountEmail.value.trim(),code:document.querySelector('#accountCode').value.trim()});localStorage.setItem(accountTokenKey,data.token);accountView(data.user);accountMessage.textContent='Connecté / Signed in'}
+ catch(e){accountMessage.textContent=e.message}
+ finally{accountVerify.disabled=false}
+});
+document.querySelector('#accountLogout').addEventListener('click',async()=>{
+ const token=localStorage.getItem(accountTokenKey);localStorage.removeItem(accountTokenKey);accountView(null);accountMessage.textContent='Déconnecté / Signed out';
+ if(token)try{await accountCall('logout',{},token)}catch(e){}
+});
+accountRestore();
+
 setLanguage(lang);
 })();
 </script></body></html>
