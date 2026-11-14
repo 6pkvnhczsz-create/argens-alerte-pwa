@@ -60,9 +60,9 @@ export default {async fetch(request,env){
   const raw=await request.text();if(raw.length>1500)return response({error:'Too large'},413);
   let data;try{data=JSON.parse(raw)}catch{return response({error:'Invalid JSON'},400)}
   if(!['test','maintenance','incident','custom'].includes(data.kind)||typeof data.title!=='string'||typeof data.body!=='string'||!data.title.trim()||!data.body.trim()||data.title.length>90||data.body.length>400)return response({error:'Invalid message'},400);
-  const last=await env.DB.prepare('SELECT updated_at FROM admin_send_log ORDER BY id DESC LIMIT 1').first().catch(()=>null);
-  if(last&&Date.now()-Date.parse(last.updated_at+'Z')<60000)return response({error:'Wait at least 60 seconds between broadcasts'},429);
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS admin_send_log (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT, accepted INTEGER, failed INTEGER, expired INTEGER, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)').run();
+  const last=await env.DB.prepare('SELECT updated_at FROM admin_send_log ORDER BY id DESC LIMIT 1').first();
+  if(last&&Date.now()-Date.parse(last.updated_at.replace(' ','T')+'Z')<60000)return response({error:'Wait at least 60 seconds between broadcasts'},429);
   const rows=await env.DB.prepare('SELECT endpoint,subscription_json FROM push_subscriptions').all();let accepted=0,failed=0,expired=0;
   const payload={title:data.title.trim(),body:data.body.trim(),tag:'argens-admin-'+data.kind};
   for(const row of rows.results||[]){try{const r=await deliver(JSON.parse(row.subscription_json),payload,env);if(r.ok)accepted++;else if(r.status===404||r.status===410){expired++;await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(row.endpoint).run()}else{failed++;console.error('Admin push rejected',r.status)}}catch(e){failed++;console.error('Admin push error',String(e))}}
