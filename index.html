@@ -114,6 +114,14 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .alert-cards-grid .alert-explain{margin-top:auto;padding:10px 9px;font-size:10px;line-height:1.55;overflow-wrap:break-word}
 .push-cta-heading>div{min-width:0}.push-cta-heading strong{overflow-wrap:break-word}
 @media(min-width:650px){.alert-cards-grid .alert-info-card{padding:18px!important}.alert-cards-grid .alert-section-heading strong{font-size:16px}.alert-cards-grid .alert-section-heading{min-height:54px}}
+
+/* Align corresponding warning rows across both cards, even when FR/EN wraps differently. */
+.alert-cards-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto repeat(3,auto) auto;align-items:stretch;column-gap:12px;row-gap:0}
+.alert-cards-grid .alert-info-card{display:grid;grid-template-rows:subgrid;grid-row:span 5;align-content:stretch;min-height:0}
+.alert-cards-grid .alert-section-heading{min-height:0;margin-bottom:0;padding-bottom:10px}
+.alert-cards-grid .alert-tier{min-height:0;margin:0;align-self:stretch;align-items:center;padding:10px 0}
+.alert-cards-grid .alert-explain{margin:0;align-self:stretch;padding:10px 9px}
+@media(max-width:370px){.alert-cards-grid{column-gap:8px}.alert-cards-grid .alert-info-card{padding:11px 9px!important}.alert-cards-grid .alert-tier{gap:3px}.alert-cards-grid .alert-tier-icon{width:17px;font-size:16px}.alert-cards-grid .alert-rule{font-size:10px}}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button></div></div>
