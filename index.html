@@ -734,7 +734,7 @@ accountRequest.addEventListener('click',async()=>{
 });
 accountVerify.addEventListener('click',async()=>{
  accountVerify.disabled=true;accountMessage.textContent='…';
- try{const data=await accountCall('verify',{email:accountEmail.value.trim(),first_name:document.querySelector('#accountFirstName').value.trim(),last_name:document.querySelector('#accountLastName').value.trim(),code:document.querySelector('#accountCode').value.trim()});localStorage.setItem(accountTokenKey,data.token);accountView(data.user);preparePush().catch(console.warn);accountMessage.textContent=mapText('Compte confirmé ! Revenez dans Alertes pour activer les notifications.','Account confirmed! Go to Alerts to enable notifications.')}
+ try{const data=await accountCall('verify',{email:accountEmail.value.trim(),first_name:document.querySelector('#accountFirstName').value.trim(),last_name:document.querySelector('#accountLastName').value.trim(),code:document.querySelector('#accountCode').value.trim()});localStorage.setItem(accountTokenKey,data.token);accountView(data.user);preparePush().catch(console.warn);accountMessage.textContent=mapText('Compte confirmé ! Activez maintenant vos notifications dans Alertes.','Account confirmed! Enable your notifications in Alerts now.');document.querySelector('[data-tab="Alertes"]').click();pushMessage.textContent=mapText('Compte confirmé ! Appuyez sur le bouton pour activer vos notifications gratuites.','Account confirmed! Tap the button to enable your free notifications.')}
  catch(e){accountMessage.textContent=e.message}
  finally{accountVerify.disabled=false}
 });
