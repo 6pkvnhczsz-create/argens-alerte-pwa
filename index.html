@@ -95,10 +95,16 @@ function drawChart(items){
  const svg=document.querySelector('#chart'),axis=document.querySelector('#chartTimes'),info=document.querySelector('#rangeInfo');
  svg.replaceChildren();axis.replaceChildren();document.querySelector('#heightScaleLeft').replaceChildren();document.querySelector('#heightScaleRight').replaceChildren();
  const locale=document.documentElement.lang==='en'?'en-GB':'fr-FR',fmt=new Intl.DateTimeFormat(locale,{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'});
- if(!items.length){info.textContent='';return}
+ if(!items.length){info.textContent='';trend.textContent='Aucune mesure disponible';return}
  const newest=items[0].date.getTime(),start=newest-chartHours*3600000,points=items.filter(x=>x.date.getTime()>=start&&x.date.getTime()<=newest).slice().reverse();
  const labelDate=d=>fmt.format(new Date(d));info.textContent=labelDate(start)+' – '+labelDate(newest)+(chartHours>=24?' · '+new Intl.DateTimeFormat(locale,{day:'2-digit',month:'2-digit',timeZone:'Europe/Paris'}).format(new Date(newest)):'');
- if(points.length<2){info.textContent+=' · '+(locale==='en-GB'?'Not enough readings':'Mesures insuffisantes');return}
+ if(points.length<2){info.textContent+=' · '+(locale==='en-GB'?'Not enough readings':'Mesures insuffisantes');trend.textContent=locale==='en-GB'?'Not enough readings for this period':'Mesures insuffisantes sur cette période';return}
+ const changeCm=(points[points.length-1].value-points[0].value)/10;
+ const rounded=Number(changeCm.toFixed(1));
+ const periodLabel=chartHours+' h';
+ const changeLabel=(rounded>0?'+':'')+rounded.toFixed(1).replace('.',',')+' cm';
+ trend.textContent=(rounded>0?'↗ Niveau en hausse':rounded<0?'↘ Niveau en baisse':'→ Niveau stable')+' sur '+periodLabel+' : '+changeLabel;
+ if(document.querySelector('.hero').dataset.stale==='true')trend.textContent+=' · données potentiellement anciennes';
  const values=points.map(x=>x.value),rawMin=Math.min(...values),rawMax=Math.max(...values),padding=Math.max((rawMax-rawMin)*.18,20),min=rawMin-padding,max=rawMax+padding,range=max-min;
  for(const id of ['heightScaleLeft','heightScaleRight']){const el=document.getElementById(id);for(const v of [max,(max+min)/2,min]){const label=document.createElement('span');label.textContent=(v/1000).toLocaleString(locale,{minimumFractionDigits:2,maximumFractionDigits:2})+' m';el.append(label)}}
  const xAt=x=>((x.date.getTime()-start)/(newest-start)*340).toFixed(1),d=points.map((v,i)=>(i?'L':'M')+xAt(v)+' '+(94-(v.value-min)*77/range).toFixed(1)).join(' ');
@@ -125,8 +131,7 @@ async function loadMeasurements(code){
   const age=Date.now()-last.date.getTime(),stale=age>3*60*60*1000||age< -15*60*1000;
   if(previous){const change=last.value-previous.value;delta.textContent=(change>0?'+':'')+(change/10).toFixed(1).replace('.',',')+' cm';period.textContent='Depuis la mesure précédente ('+Math.round((last.date-previous.date)/60000)+' min)';trend.textContent=change>0?'↗ Niveau en hausse':change<0?'↘ Niveau en baisse':'→ Niveau stable'}else{delta.textContent='—';trend.textContent='Une seule mesure disponible'}
   const metres=last.value/1000;const band=metres>=4.5?'red':metres>=3||rapidRise?'orange':'green';const local=code==='Y531201001';document.querySelector('.threshold-row').hidden=!local;document.querySelector('#thresholdNotice').hidden=local;document.querySelector('.hero').dataset.alert=stale||!local?'unknown':band;document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.toggle('is-current',!stale&&local&&x.dataset.threshold===band));status.className='threshold-message';status.textContent=stale?'● Mesure ancienne · statut non fiable':!local?'':rapidRise&&metres<3?'● Montée rapide (≥ 30 cm/h)':'';
-  if(reference){const minutes=Math.round((last.date-reference.date)/60000),change=last.value-reference.value;period.textContent='Sur '+minutes+' min';delta.textContent=(change>0?'+':'')+(change/10).toFixed(1).replace('.',',')+' cm';trend.textContent=(change>0?'↗ Niveau en hausse':change<0?'↘ Niveau en baisse':'→ Niveau stable')+' sur '+minutes+' min : '+(change>0?'+':'')+(change/10).toFixed(1).replace('.',',')+' cm'}
-  if(stale)trend.textContent+=' · données potentiellement anciennes';
+  document.querySelector('.hero').dataset.stale=String(stale);
   drawChart(chartReadings);
  }catch(e){if(seq===loadSequence)noReading('Service de mesures temporairement indisponible.')}
 }
