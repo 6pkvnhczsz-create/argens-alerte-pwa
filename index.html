@@ -664,7 +664,7 @@ async function findStations(lat,lon){
    if(L&&stationMarkers){
     const coords=[Number(station.latitude_station),Number(station.longitude_station)];bounds.push(coords);
     marker=L.marker(coords).addTo(stationMarkers);
-    const popup=document.createElement('div');const heading=document.createElement('strong');heading.textContent=name;const code=document.createElement('div');code.textContent=station.code_station;const select=document.createElement('button');select.type='button';select.className='map-popup-select';select.textContent=mapText('Voir les mesures','View readings');select.addEventListener('click',()=>selectMapStation(station,btn,marker));popup.append(heading,code,select);marker.bindPopup(popup);
+    const popup=document.createElement('div');const heading=document.createElement('strong');heading.textContent=name;const code=document.createElement('div');code.textContent=station.code_station;const select=document.createElement('button');select.type='button';select.className='map-popup-select';select.textContent=mapText('Sélectionner cette station','Select this station');select.addEventListener('click',()=>selectMapStation(station,btn,marker));popup.append(heading,code,select);marker.bindPopup(popup);
     marker.on('click',()=>{document.querySelectorAll('#stations button').forEach(b=>b.classList.toggle('selected',b===btn))});
    }
    const add=document.createElement('button');add.type='button';add.className='map-add-swarm';add.textContent=mapText('+ Ajouter à un groupe','+ Add to group');add.addEventListener('click',e=>{e.stopPropagation();addStationToSwarm(station)});btn.append(add);
