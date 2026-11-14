@@ -808,25 +808,48 @@ accountRestore();
 setLanguage(lang);
 })();
 
-// Keep the decorative connector aligned with the actual first threshold pill,
-// regardless of translations, responsive widths, or user-defined threshold text.
-function alignLevelConnector(){
+// Align the connector to the *rendered* centers of the level glass and green pill.
+// Recalculate after fonts, translations, threshold changes and responsive reflows.
+(function(){
   const hero=document.querySelector('#overview .hero');
   const connector=hero?.querySelector('.level-connector');
+  const glass=hero?.querySelector('.level-glass');
   const pill=hero?.querySelector('.threshold-green');
-  if(!connector||!pill)return;
-  const bounds=connector.getBoundingClientRect();
-  const target=pill.getBoundingClientRect();
-  if(!bounds.width)return;
-  const x=Math.max(0,Math.min(bounds.width,target.left+target.width/2-bounds.left));
-  const svg=connector.querySelector('svg');
-  const path=connector.querySelector('path');
-  if(!svg||!path)return;
-  svg.setAttribute('viewBox','0 0 '+bounds.width+' 44');
-  path.setAttribute('d','M'+(bounds.width/2)+' 0 V23 H'+x+' V44');
-}
-window.addEventListener('resize',alignLevelConnector);
-window.addEventListener('load',alignLevelConnector);
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',alignLevelConnector);
-else alignLevelConnector();
+  const row=hero?.querySelector('.threshold-row');
+  if(!connector||!glass||!pill||!row)return;
+  let pending=false;
+  function align(){
+    pending=false;
+    const bounds=connector.getBoundingClientRect();
+    const g=glass.getBoundingClientRect();
+    const p=pill.getBoundingClientRect();
+    if(!bounds.width||!g.width||!p.width)return;
+    // CSS pixel coordinates relative to the connector; both endpoints are measured.
+    const start=g.left+g.width/2-bounds.left;
+    const end=p.left+p.width/2-bounds.left;
+    const svg=connector.querySelector('svg');
+    const path=connector.querySelector('path');
+    if(!svg||!path)return;
+    svg.setAttribute('viewBox',`0 0 ${bounds.width} 44`);
+    path.setAttribute('d',`M${start} 0 V23 H${end} V44`);
+  }
+  function schedule(){
+    if(pending)return;
+    pending=true;
+    requestAnimationFrame(align);
+  }
+  window.addEventListener('resize',schedule);
+  window.addEventListener('load',schedule);
+  if(document.fonts?.ready)document.fonts.ready.then(schedule);
+  if(typeof ResizeObserver!=='undefined'){
+    const observer=new ResizeObserver(schedule);
+    [connector,glass,pill,row].forEach(el=>observer.observe(el));
+  }
+  if(typeof MutationObserver!=='undefined'){
+    const observer=new MutationObserver(schedule);
+    observer.observe(pill,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['class','style']});
+    observer.observe(glass,{childList:true,characterData:true,subtree:true});
+  }
+  schedule();
+})();
 </script></body></html>
