@@ -59,6 +59,7 @@ async function vapidHeader(endpoint,env){
  const body=b64url(encoder.encode(JSON.stringify({aud,exp:now+3600,sub:env.VAPID_SUBJECT})));
  const signed=head+'.'+body;
  const sig=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},key,encoder.encode(signed)));
+ // WebCrypto ECDSA signatures are IEEE P1363 (r||s), matching ES256 JWT.
  return 'vapid t='+signed+'.'+b64url(sig)+', k='+env.VAPID_PUBLIC_KEY;
 }
 async function deliver(sub,payload,env){
