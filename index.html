@@ -818,7 +818,7 @@ setLanguage(lang);
   if(!connector||!glass||!row)return;
   const svg=connector.querySelector('svg');
   const path=connector.querySelector('path');
-  const colors={green:'#a4ffe0',orange:'#ffbf69',red:'#ff8991'};
+  const colors={green:'#50edb0',orange:'#ff9000',red:'#ff4558'};
   let pending=false;
   function align(){
     pending=false;
@@ -835,7 +835,7 @@ setLanguage(lang);
     const start=g.left+g.width/2-bounds.left;
     const finish=p.left+p.width/2-bounds.left;
     svg.setAttribute('viewBox',`0 0 ${bounds.width} 44`);
-    path.setAttribute('d',`M${start} 0 V23 H${finish} V44`);
+    // For nearly aligned centers, draw one clean line rather than a tiny step.\n    // Larger horizontal offsets retain the deliberate right-angle connector.\n    const d=Math.abs(start-finish)<12\n      ? `M${start} 0 L${finish} 44`\n      : `M${start} 0 V23 H${finish} V44`;\n    path.setAttribute('d',d);
     path.style.stroke=colors[band];
     connector.style.visibility='visible';
   }
