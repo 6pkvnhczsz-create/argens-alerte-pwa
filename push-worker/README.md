@@ -51,3 +51,6 @@ CREATE TABLE IF NOT EXISTS alert_state (
 - The Worker stores push endpoint and encryption keys in D1. Handle as personal data under applicable privacy law.
 - Do not put the VAPID private key in GitHub, a screenshot, or a chat.
 - Worker and app code are prepared but not yet deployed or verified end-to-end.
+
+
+Deployment note (2026-11-14): GitHub-connected Cloudflare Builds deploys the push Worker from the main branch using `npx wrangler deploy --config push-worker/wrangler.jsonc`. This documentation update also triggers the first connected build.
