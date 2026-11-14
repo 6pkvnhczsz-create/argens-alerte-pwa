@@ -140,7 +140,7 @@ REFERENCE = {
     "scenario_source_url": "",
     "documented_local_impact": "User-reported March 2024 local observations: ~5.40 m river overtops banks in observed area; ~5.90 m water reaches property; 6.22 m water at front door. User estimates approximately 1-2 hours between 5.40 m and 6.22 m, uncertain recollection; implied average rise ~41-82 cm/h, not a verified gauge time series.",
     "review_status": "local_eyewitness_observations_not_officially_validated",
-    "review_notes": "HydroPortail historical flood peaks: 2010-06-16 7.71m; 2019-11-23 7.12m (tolerance 0.10m); 2024-03-10 6.22m. These are NOT first-overflow levels. https://www.hydro.eaufrance.fr/sitehydro/Y5312010/seuils"
+    "review_notes": "HydroPortail historical flood peaks: 2010-06-16 7.71m; 2019-11-23 7.12m (tolerance 0.10m); 2024-03-10 6.22m. These are NOT first-overflow levels. Archived 2024 gauge measurements first exceed 5.40m at 05:30 and reach 6.22m at 12:30 (7 hours; measurement timezone unverified). https://www.hydro.eaufrance.fr/sitehydro/Y5312010/seuils"
 }
 
 def main():
@@ -198,11 +198,17 @@ def main():
         records.append(reference)
     excluded_codes = {record["station_code"] for record in records}
     river_candidates = select_river_review_candidates(rows, excluded_codes)
+    # Known ambiguities found during the first run: name matching alone is not
+    # evidence that a station belongs to the intended major river.
+    ambiguous_codes = {
+        "M036151501": "Same-name Rhone in Eure-et-Loir, not the major Rhone river",
+        "K163301001": "Same-name Somme at Bourbon-Lancy, not the Somme basin",
+    }
     river_fields = [
         "target_river", "station_code", "station_name", "river",
         "department", "latitude", "longitude", "selection_method",
         "official_flood_history_verified", "zip_zich_verified",
-        "local_impact_verified", "threshold_usable", "review_notes"
+        "local_impact_verified", "threshold_usable", "manual_identity_check", "review_notes"
     ]
     with (output / "flood_river_candidates.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=river_fields)
@@ -221,7 +227,8 @@ def main():
                 "zip_zich_verified": "no",
                 "local_impact_verified": "no",
                 "threshold_usable": "no",
-                "review_notes": "Research candidate only; verify station activity, official flood history, gauge datum and mapped local impacts before use."
+                "manual_identity_check": "required" if code in ambiguous_codes else "pending",
+                "review_notes": ambiguous_codes.get(code, "Research candidate only; verify station activity, official flood history, gauge datum and mapped local impacts before use.")
             })
     with (output / "missing_target_rivers.txt").open("w", encoding="utf-8") as stream:
         matched = {item[0] for item in river_candidates}
@@ -270,7 +277,7 @@ def main():
                 "vigicrues_portal_url": "https://www.vigicrues.gouv.fr/",
                 "evidence_status": "needs_official_source_check",
                 "threshold_usable": "no",
-                "review_notes": "Additional " + target + " research candidate; not an official risk designation. Verify station suitability and ZIP/ZICH mapping."
+                "review_notes": ambiguous_codes.get(code, "Additional " + target + " research candidate; not an official risk designation. Verify station suitability and ZIP/ZICH mapping.")
             })
     summary = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
