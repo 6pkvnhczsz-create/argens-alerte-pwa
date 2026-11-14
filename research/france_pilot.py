@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 import math
+import unicodedata
 import pathlib
 import urllib.parse
 import urllib.request
@@ -87,6 +88,40 @@ def choose_coverage(rows, count):
         candidates.remove(best)
     return selected
 
+# River-name shortlist for SOURCE REVIEW, not a flood-risk ranking.
+# Names are research targets; neither local exposure nor warning thresholds are verified.
+TARGET_RIVERS = (
+    "Seine", "Loire", "Garonne", "Rhone", "Saone",
+    "Meuse", "Moselle", "Somme", "Oise", "Marne",
+    "Dordogne", "Adour", "Aude", "Vilaine", "Argens",
+)
+
+def normalize_name(text):
+    text = unicodedata.normalize("NFKD", str(text or ""))
+    return "".join(ch for ch in text if not unicodedata.combining(ch)).casefold().strip()
+
+def select_river_review_candidates(rows, excluded_codes):
+    """Select one eligible station per named river; NOT a hydrological suitability test."""
+    result = []
+    for river in TARGET_RIVERS:
+        matches = []
+        for row in rows:
+            code = str(value(row, "code_station"))
+            pos = coords(row)
+            name = normalize_name(value(row, "libelle_cours_eau"))
+            if not code or code in excluded_codes or not pos:
+                continue
+            lat, lon = pos
+            if not (41 <= lat <= 52 and -6 <= lon <= 10):
+                continue
+            if name != normalize_name(river):
+                continue
+            matches.append((code, row, lat, lon))
+        # Deterministic choice; verify activity, data quality, catchment and local exposure later.
+        if matches:
+            result.append((river, *min(matches, key=lambda item: item[0])))
+    return result
+
 REFERENCE = {
     "station_code": "Y531201001",
     "station_name": "L'Argens à Roquebrune-sur-Argens",
@@ -155,6 +190,37 @@ def main():
             if pos:
                 reference["latitude"], reference["longitude"] = pos
         records.append(reference)
+    excluded_codes = {record["station_code"] for record in records}
+    river_candidates = select_river_review_candidates(rows, excluded_codes)
+    river_fields = [
+        "target_river", "station_code", "station_name", "river",
+        "department", "latitude", "longitude", "selection_method",
+        "official_flood_history_verified", "zip_zich_verified",
+        "local_impact_verified", "threshold_usable", "review_notes"
+    ]
+    with (output / "flood_river_candidates.csv").open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=river_fields)
+        writer.writeheader()
+        for target, code, row, lat, lon in river_candidates:
+            writer.writerow({
+                "target_river": target,
+                "station_code": code,
+                "station_name": value(row, "libelle_station"),
+                "river": value(row, "libelle_cours_eau"),
+                "department": value(row, "code_departement"),
+                "latitude": lat,
+                "longitude": lon,
+                "selection_method": "exact_normalized_river_name_and_lowest_station_code",
+                "official_flood_history_verified": "no",
+                "zip_zich_verified": "no",
+                "local_impact_verified": "no",
+                "threshold_usable": "no",
+                "review_notes": "Research candidate only; verify station activity, official flood history, gauge datum and mapped local impacts before use."
+            })
+    with (output / "missing_target_rivers.txt").open("w", encoding="utf-8") as stream:
+        matched = {item[0] for item in river_candidates}
+        stream.write("\\n".join(river for river in TARGET_RIVERS if river not in matched) + "\\n")
+
     with (output / "stations.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=FIELDS)
         writer.writeheader()
@@ -197,6 +263,9 @@ def main():
         "zip_zich_verified": 0,
         "validated_flood_thresholds": 0,
         "source_review_rows": len(records),
+        "target_rivers": len(TARGET_RIVERS),
+        "additional_river_candidates": len(river_candidates),
+        "river_candidate_warning": "Research-only river-name matches. No verified flood history, floodplain coverage, or threshold.",
         "warning": "No ZIP/ZICH bulk import or local flooding threshold validation has been performed. Do not use these rows for alerts."
     }
     (output / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
