@@ -113,14 +113,14 @@ function drawChart(items){
  const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke','#ffffff');p.setAttribute('stroke-width','3');p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');svg.append(p);
  for(let i=0;i<3;i++){const label=document.createElement('span'),t=start+(newest-start)*i/2;label.textContent=fmt.format(new Date(t));axis.append(label)}
 }
-async function loadMeasurements(code){
- const seq=++loadSequence;activeStation=code;chartReadings=[];noReading('Chargement des mesures…');
+async function loadMeasurements(code,{silent=false}={}){
+ const seq=++loadSequence;activeStation=code;if(!silent){chartReadings=[];noReading('Chargement des mesures…')}
  try{
   const startDate=new Date(Date.now()-52*3600000).toISOString();const url='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite='+encodeURIComponent(code)+'&grandeur_hydro=H&date_debut_obs='+encodeURIComponent(startDate)+'&size=1000&sort=desc&format=json';
   const response=await fetch(url,{cache:'no-store'});if(!response.ok)throw Error('API unavailable');
   const payload=await response.json();if(seq!==loadSequence)return;
   const items=(payload.data||[]).map(x=>({value:Number(x.resultat_obs),date:new Date(x.date_obs)})).filter(x=>Number.isFinite(x.value)&&Number.isFinite(x.date.getTime())).sort((a,b)=>b.date-a.date);
-  if(!items.length){noReading('Aucune mesure de hauteur disponible pour cette station.');return}chartReadings=items;
+  if(!items.length){if(!silent)noReading('Aucune mesure de hauteur disponible pour cette station.');throw Error('No readings')}chartReadings=items;
   const last=items[0],previous=items.find(x=>x.date<last.date);
   // Compare to a reading 30–180 minutes earlier; avoid extrapolating from tiny intervals.
   const reference=items.find(x=>{const minutes=(last.date-x.date)/60000;return minutes>=30&&minutes<=180});
@@ -133,10 +133,46 @@ async function loadMeasurements(code){
   const metres=last.value/1000;const band=metres>=4.5||(riseRate!==null&&riseRate>=50)?'red':metres>=3||rapidRise?'orange':'green';const local=code==='Y531201001';document.querySelector('.threshold-row').hidden=!local;document.querySelector('#thresholdNotice').hidden=local;document.querySelector('.hero').dataset.alert=stale||!local?'unknown':band;document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.toggle('is-current',!stale&&local&&x.dataset.threshold===band));status.className='threshold-message';status.textContent=stale?'● Mesure ancienne · statut non fiable':!local?'':rapidRise&&metres<3?'● Montée rapide (≥ 30 cm/h)':'';
   document.querySelector('.hero').dataset.stale=String(stale);
   drawChart(chartReadings);
- }catch(e){if(seq===loadSequence)noReading('Service de mesures temporairement indisponible.')}
+ }catch(e){if(seq===loadSequence){if(!silent)noReading('Service de mesures temporairement indisponible.');else console.warn('Background refresh failed',e)}throw e}
 }
 slider.addEventListener('input',()=>{const n=Number(slider.value),s=document.querySelector('#simulation');s.className='status '+(n<2?'green':n<3?'orange':'red');s.textContent='Aperçu : '+(n<2?'vert':n<3?'orange':'rouge')+' · '+n.toFixed(2).replace('.',',')+' m'});
-loadMeasurements(activeStation);
+loadMeasurements(activeStation).catch(()=>{});
+
+// Refresh visible readings once per minute and whenever the app returns to foreground.
+let lastRefreshAt=Date.now(),refreshBusy=false;
+async function refreshCurrentStation(){
+ if(refreshBusy||document.hidden)return;
+ refreshBusy=true;
+ try{await loadMeasurements(activeStation,{silent:true});lastRefreshAt=Date.now()}
+ catch(e){console.warn('Refresh unavailable',e)}
+ finally{refreshBusy=false}
+}
+setInterval(()=>{if(!document.hidden&&Date.now()-lastRefreshAt>=60000)refreshCurrentStation()},15000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-lastRefreshAt>=15000)refreshCurrentStation()});
+window.addEventListener('pageshow',e=>{if(e.persisted)refreshCurrentStation()});
+
+// iPhone-friendly pull-to-refresh on the overview only, when at the top.
+const pullIndicator=document.createElement('div');
+pullIndicator.setAttribute('role','status');
+pullIndicator.style.cssText='position:fixed;top:8px;left:50%;transform:translate(-50%,-130%);z-index:50;padding:9px 17px;border-radius:22px;background:#fff;color:#123e53;box-shadow:0 4px 18px #123e5330;font:600 13px system-ui;transition:transform .15s;pointer-events:none';
+document.body.append(pullIndicator);
+let pullStart=null,pullDistance=0;
+function pullAllowed(){return !document.hidden&&window.scrollY<=2&&!document.querySelector('#overview').classList.contains('hidden')}
+document.addEventListener('touchstart',e=>{pullStart=(e.touches.length===1&&pullAllowed())?e.touches[0].clientY:null;pullDistance=0},{passive:true});
+document.addEventListener('touchmove',e=>{
+ if(pullStart===null||!pullAllowed())return;
+ const dy=e.touches[0].clientY-pullStart;
+ if(dy<=0){pullDistance=0;return}
+ pullDistance=Math.min(110,dy);
+ if(pullDistance>=20){pullIndicator.textContent=pullDistance>=75?'↻ '+(document.documentElement.lang==='en'?'Release to refresh':'Relâcher pour actualiser'):'↓ '+(document.documentElement.lang==='en'?'Pull to refresh':'Tirer pour actualiser');pullIndicator.style.transform='translate(-50%,0)'}
+},{passive:true});
+document.addEventListener('touchend',async()=>{
+ const shouldRefresh=pullStart!==null&&pullDistance>=75&&pullAllowed();pullStart=null;pullDistance=0;
+ if(shouldRefresh){pullIndicator.textContent='↻ '+(document.documentElement.lang==='en'?'Refreshing…':'Actualisation…');await refreshCurrentStation()}
+ pullIndicator.style.transform='translate(-50%,-130%)';
+},{passive:true});
+document.addEventListener('touchcancel',()=>{pullStart=null;pullDistance=0;pullIndicator.style.transform='translate(-50%,-130%)'},{passive:true});
+
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{const tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector('#overview').classList.toggle('hidden',tab!=='overview');document.querySelector('#other').classList.toggle('hidden',tab==='overview'||tab==='Alertes');document.querySelector('#pushSettings').classList.toggle('hidden',tab!=='Alertes');document.querySelector('#otherTitle').textContent=tab}));
 
 // Web Push requires a deployed backend and a public VAPID key. Never request permission until configured.
