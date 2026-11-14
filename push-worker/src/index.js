@@ -337,7 +337,7 @@ export default {
  async fetch(request,env){
   const url=new URL(request.url);
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors(request)});
-  if(url.pathname.startsWith('/auth/')){try{return await accountRoute(request,env,url)}catch(e){console.error('Auth error',String(e));return json(request,{error:'Authentication unavailable'},500)}}
+  if(url.pathname.startsWith('/auth/')||url.pathname==='/user/station'){try{return await accountRoute(request,env,url)}catch(e){console.error('Auth error',String(e));return json(request,{error:'Authentication unavailable'},500)}}
   if(url.pathname==='/devices/link'&&request.method==='POST'){
    if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
    if(!env.DB)return json(request,{error:'Database unavailable'},503);
