@@ -226,6 +226,7 @@ const authHash=async v=>authHex(new Uint8Array(await crypto.subtle.digest('SHA-2
 const authEmail=v=>typeof v==='string'&&v.trim().length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())?v.trim().toLowerCase():null;
 async function authTables(db){
  await db.prepare('CREATE TABLE IF NOT EXISTS app_users (id TEXT PRIMARY KEY,email TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,last_login_at INTEGER NOT NULL,status TEXT NOT NULL DEFAULT \'active\')').run();
+ const cols=await db.prepare('PRAGMA table_info(app_users)').all();for(const name of ['first_name','last_name'])if(!(cols.results||[]).some(c=>c.name===name))await db.prepare('ALTER TABLE app_users ADD COLUMN '+name+' TEXT').run();
  await db.prepare('CREATE TABLE IF NOT EXISTS auth_codes (email TEXT PRIMARY KEY,code_hash TEXT NOT NULL,expires_at INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,last_sent_at INTEGER NOT NULL)').run();
  await db.prepare('CREATE TABLE IF NOT EXISTS auth_sessions (token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires_at INTEGER NOT NULL,created_at INTEGER NOT NULL)').run();
  await db.prepare('CREATE TABLE IF NOT EXISTS auth_limits (key TEXT PRIMARY KEY,window_start INTEGER NOT NULL,count INTEGER NOT NULL)').run();
@@ -241,7 +242,7 @@ async function authUser(request,db){
  const token=(request.headers.get('Authorization')||'').match(/^Bearer ([A-Za-z0-9_-]{32,128})$/)?.[1];
  if(!token)return null;
  const hash=await authHash(token);
- return db.prepare('SELECT u.id,u.email,u.created_at,u.last_login_at FROM auth_sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.status=\'active\'').bind(hash,Date.now()).first();
+ return db.prepare('SELECT u.id,u.email,u.first_name,u.last_name,u.created_at,u.last_login_at FROM auth_sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.status=\'active\'').bind(hash,Date.now()).first();
 }
 async function accountRoute(request,env,url){
  if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
@@ -296,10 +297,13 @@ Rivière Alerte · riviere-alerte.fr`;
   if(!row||row.expires_at<=now||row.attempts>=5)return json(request,{error:'Code expired or invalid'},401);
   await db.prepare('UPDATE auth_codes SET attempts=attempts+1 WHERE email=?').bind(email).run();
   if(row.code_hash!==await authHash(email+':'+body.code+':'+env.AUTH_CODE_PEPPER))return json(request,{error:'Code expired or invalid'},401);
+  const firstName=typeof body.first_name==='string'?body.first_name.trim():'';const lastName=typeof body.last_name==='string'?body.last_name.trim():'';
+  const existing=await db.prepare('SELECT id,first_name,last_name FROM app_users WHERE email=?').bind(email).first();
+  if((!existing||!existing.first_name||!existing.last_name)&&(!firstName||!lastName||firstName.length>80||lastName.length>80))return json(request,{error:'First name and last name are required'},400);
   await db.prepare('DELETE FROM auth_codes WHERE email=?').bind(email).run();
   const id=crypto.randomUUID();
-  await db.prepare('INSERT INTO app_users(id,email,created_at,last_login_at) VALUES(?,?,?,?) ON CONFLICT(email) DO UPDATE SET last_login_at=excluded.last_login_at').bind(id,email,now,now).run();
-  const user=await db.prepare('SELECT id,email,created_at,last_login_at FROM app_users WHERE email=? AND status=\'active\'').bind(email).first();
+  await db.prepare('INSERT INTO app_users(id,email,first_name,last_name,created_at,last_login_at) VALUES(?,?,?,?,?,?) ON CONFLICT(email) DO UPDATE SET last_login_at=excluded.last_login_at,first_name=COALESCE(NULLIF(app_users.first_name,\'\'),excluded.first_name),last_name=COALESCE(NULLIF(app_users.last_name,\'\'),excluded.last_name)').bind(id,email,firstName||null,lastName||null,now,now).run();
+  const user=await db.prepare('SELECT id,email,first_name,last_name,created_at,last_login_at FROM app_users WHERE email=? AND status=\'active\'').bind(email).first();
   if(!user)return json(request,{error:'Account unavailable'},403);
   const token=b64url(authBytes(32));
   await db.prepare('INSERT INTO auth_sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)').bind(await authHash(token),user.id,now+30*86400000,now).run();
