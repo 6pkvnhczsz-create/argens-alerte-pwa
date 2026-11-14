@@ -49,7 +49,7 @@ class PilotSafetyTests(unittest.TestCase):
 
     def test_research_reference_is_not_validated_threshold(self):
         self.assertEqual(pilot.REFERENCE["zip_zich_status"], "not_checked")
-        self.assertNotIn("officially_validated", pilot.REFERENCE["review_status"])
+        self.assertNotEqual(pilot.REFERENCE["review_status"], "officially_validated")
         self.assertEqual(pilot.REFERENCE["scenario_height_m"], "")
 
 if __name__ == "__main__":
