@@ -165,8 +165,9 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <section id="weatherPanel" class="panel" style="margin-top:15px;text-align:center" aria-label="Météo et pluie">
 <strong id="weatherHeading" style="display:block;line-height:1.35"><span id="weatherHeadingTitle">🌦️ Pluie et météo ☀️</span><span id="weatherHeadingLocation" style="display:block;margin-top:4px">Roquebrune-sur-Argens</span></strong>
 <p id="weatherSummary" class="note" role="status" style="margin:12px 0">Chargement des données météo…</p>
-<div id="weatherNumbers" class="cards hidden" style="margin:12px 0;text-align:center">
-<div class="card" style="padding:13px"><small id="weatherSixLabel">Pluie prévue · 6 h</small><strong id="weatherSix" style="font-size:21px">—</strong></div>
+<div id="weatherNumbers" class="cards hidden" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<div class="card" style="padding:10px 6px"><small id="weatherPastLabel">Pluie estimée · 24 h passées</small><strong id="weatherPast" style="font-size:21px">—</strong></div>
+<div class="card" style="padding:10px 6px"><small id="weatherSixLabel">Pluie prévue · 6 h</small><strong id="weatherSix" style="font-size:21px">—</strong></div>
 <div class="card" style="padding:13px"><small id="weatherDayLabel">Pluie prévue · 24 h</small><strong id="weatherDay" style="font-size:21px">—</strong></div>
 </div>
 <p id="weatherNote" class="note" style="margin:10px 0">Prévisions locales indicatives (Open-Meteo), pas une mesure des précipitations sur tout le bassin versant. Aucune prévision de crue n’en découle.</p>
@@ -301,14 +302,15 @@ async function loadLocalWeather(){
  const summary=document.querySelector('#weatherSummary'),numbers=document.querySelector('#weatherNumbers');
  const heading=document.querySelector('#weatherHeading'),note=document.querySelector('#weatherNote');
  document.querySelector('#weatherHeadingTitle').textContent=en?'🌦️ Rain and weather ☀️':'🌦️ Pluie et météo ☀️';document.querySelector('#weatherHeadingLocation').textContent=location.name;
+ document.querySelector('#weatherPastLabel').textContent=en?'Estimated rain · past 24 h':'Pluie estimée · 24 h passées';
  document.querySelector('#weatherSixLabel').textContent=en?'Forecast rain · 6 h':'Pluie prévue · 6 h';
  document.querySelector('#weatherDayLabel').textContent=en?'Forecast rain · 24 h':'Pluie prévue · 24 h';
  document.querySelector('#radarToggle').textContent=en?'🗺 Show rain radar':'🗺 Afficher le radar de pluie';
  document.querySelector('#radarNote').textContent=en?'Radar by Windy (external service). Internet connection required.':'Radar fourni par Windy (service externe). La carte peut nécessiter une connexion Internet.';
  document.querySelector('#radarLink').textContent=en?'Open radar in Windy':'Ouvrir le radar dans Windy';
- note.textContent=en?'Indicative local forecast (Open-Meteo), not rainfall measured across the whole river catchment. This is not a flood forecast.':'Prévisions locales indicatives (Open-Meteo), pas une mesure des précipitations sur tout le bassin versant. Aucune prévision de crue n’en découle.';
+ note.textContent=en?'Local Open-Meteo model estimates: past rainfall is not a rain-gauge measurement, and future rainfall is a forecast. Neither represents the whole river catchment or constitutes a flood forecast.':'Estimations locales du modèle Open-Meteo : la pluie passée ne provient pas d’un pluviomètre et la pluie future est une prévision. Ces valeurs ne représentent pas tout le bassin versant et ne constituent pas une prévision de crue.';
  try{
-  const url='https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(location.lat)+'&longitude='+encodeURIComponent(location.lon)+'&current=temperature_2m&hourly=precipitation&forecast_days=3&timezone=auto';
+  const url='https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(location.lat)+'&longitude='+encodeURIComponent(location.lon)+'&current=temperature_2m&hourly=precipitation&past_days=2&forecast_days=3&timezone=auto';
   const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(12000)});
   if(!response.ok)throw Error('weather unavailable');
   const data=await response.json();if(requestId!==weatherRequestId)return;
@@ -322,6 +324,8 @@ async function loadLocalWeather(){
   if(!future.length)throw Error('no forecast');
   const sum=hours=>future.filter(p=>p.t<start+hours*3600000).reduce((a,p)=>a+p.v,0);
   const fmt=n=>n.toLocaleString(en?'en-GB':'fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})+' mm';
+  const past=points.filter(p=>p.t>=start-24*3600000&&p.t<start&&Number.isFinite(p.v));
+  document.querySelector('#weatherPast').textContent=past.length>=20?fmt(past.reduce((a,p)=>a+p.v,0)):(en?'Unavailable':'Indisponible');
   document.querySelector('#weatherSix').textContent=fmt(sum(6));
   document.querySelector('#weatherDay').textContent=fmt(sum(24));
   const temp=data.current?.temperature_2m;
