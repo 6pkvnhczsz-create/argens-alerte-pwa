@@ -55,6 +55,17 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .hero-chart-head{align-items:center;justify-content:center;text-align:center;width:100%;gap:10px}
 .hero-chart-head .hero-chart-label{text-align:center;width:100%}
 .hero-chart-head .range-switch{align-self:center;margin-left:auto;margin-right:auto;width:max-content;max-width:100%}
+
+/* Center the entire water-level card's content, preserving the graph axes. */
+.hero{text-align:center}
+.hero .live-row{justify-content:center;position:relative}
+.hero .live-source{margin-left:0;position:absolute;right:0}
+.hero .level{display:flex;align-items:baseline;justify-content:center;gap:7px}
+.hero .threshold-row{justify-content:center}
+.hero #trend,.hero #readingTime,.hero .range-info{text-align:center}
+.hero .chart-with-scale{text-align:left}
+.hero .chart-times{text-align:initial}
+@media(max-width:390px){.hero .live-row{justify-content:flex-start}.hero .live-source{position:static;margin-left:auto}}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button></div></div>
