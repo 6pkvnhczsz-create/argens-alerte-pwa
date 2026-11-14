@@ -12,6 +12,7 @@
     }
   ],
   "vars": {
-    "VAPID_PUBLIC_KEY": "BNmAS3Gm-VN8T9-_TsA4viBni7q-TwNk0dMEcWR6QYdb0T-fHEQ0Nz8s2sIlCrIBPW_A9LdqI8paKvVqCStUOrA"
+    "VAPID_PUBLIC_KEY": "BNmAS3Gm-VN8T9-_TsA4viBni7q-TwNk0dMEcWR6QYdb0T-fHEQ0Nz8s2sIlCrIBPW_A9LdqI8paKvVqCStUOrA",
+    "VAPID_SUBJECT": "mailto:login@riviere-alerte.fr"
   }
 }
