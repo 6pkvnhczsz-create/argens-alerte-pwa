@@ -328,8 +328,15 @@ export default {
     return json(request,{ok:true});
    }catch(e){console.error('Device link failed',String(e));return json(request,{error:'Unable to link device'},500)}
   }
+  if(url.pathname==='/subscription/status'&&request.method==='POST'){
+   if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
+   if(!env.DB)return json(request,{error:'Database unavailable'},503);
+   const user=await authUser(request,env.DB);if(!user)return json(request,{active:false},200);
+   try{const raw=await request.text();if(raw.length>2500)return json(request,{error:'Too large'},413);const {endpoint}=JSON.parse(raw);if(typeof endpoint!=='string'||endpoint.length>2048)return json(request,{error:'Invalid endpoint'},400);const row=await env.DB.prepare('SELECT s.endpoint FROM push_subscriptions s JOIN push_user_devices d ON d.endpoint=s.endpoint WHERE s.endpoint=? AND d.user_id=?').bind(endpoint,user.id).first();return json(request,{active:!!row})}catch{return json(request,{active:false})}
+  }
   if(url.pathname==='/health'&&request.method==='GET')return json(request,{ok:true,service:'argens-alerte-push',pushConfigured:Boolean(env.VAPID_PRIVATE_KEY&&env.VAPID_PUBLIC_KEY&&env.VAPID_SUBJECT)});
   if(url.pathname==='/subscribe'&&request.method==='POST'){
+   const signedIn=await authUser(request,env.DB);if(!signedIn)return json(request,{error:'Sign in required to enable notifications'},401);
    if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
    if(!env.DB)return json(request,{error:'Database not configured'},503);
    try{
@@ -340,6 +347,8 @@ export default {
     const endpoint=new URL(sub.endpoint);if(endpoint.protocol!=='https:'||endpoint.href.length>2048)return json(request,{error:'Invalid endpoint'},400);
     if(unb64(sub.keys.p256dh).length!==65||unb64(sub.keys.auth).length<16)return json(request,{error:'Invalid keys'},400);
     await env.DB.prepare('INSERT INTO push_subscriptions(endpoint,subscription_json,station_code) VALUES(?,?,?) ON CONFLICT(endpoint) DO UPDATE SET subscription_json=excluded.subscription_json,station_code=excluded.station_code').bind(sub.endpoint,JSON.stringify({...sub,language:body.language==='en'?'en':'fr'}),STATION).run();
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS push_user_devices (endpoint TEXT PRIMARY KEY,user_id TEXT NOT NULL,linked_at INTEGER NOT NULL)').run();
+    await env.DB.prepare('INSERT INTO push_user_devices(endpoint,user_id,linked_at) VALUES(?,?,?) ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id,linked_at=excluded.linked_at').bind(sub.endpoint,signedIn.id,Date.now()).run();
     return json(request,{ok:true});
    }catch(e){console.error('Subscription rejected',String(e));return json(request,{error:'Invalid subscription'},400)}
   }
