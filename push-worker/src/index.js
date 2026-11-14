@@ -19,6 +19,27 @@ export class AdminPushService extends WorkerEntrypoint {
   await db.prepare('UPDATE admin_send_log SET accepted=?,failed=?,expired=? WHERE id=?').bind(accepted,failed,expired,record.meta.last_row_id).run();
   return {accepted,failed,expired};
  }
+ async simulateRainOnDevice(data){
+  if(!['orange','red','purple'].includes(data?.level)||typeof data.endpoint!=='string'||data.endpoint.length>2048)throw Error('Invalid simulation request');
+  const db=this.env.DB;
+  const row=await db.prepare('SELECT subscription_json FROM push_subscriptions WHERE endpoint=?').bind(data.endpoint).first();
+  if(!row)throw Error('Device not registered');
+  await db.prepare('CREATE TABLE IF NOT EXISTS admin_rain_test_cooldown (endpoint TEXT PRIMARY KEY,last_sent INTEGER NOT NULL)').run();
+  const last=await db.prepare('SELECT last_sent FROM admin_rain_test_cooldown WHERE endpoint=?').bind(data.endpoint).first();
+  if(last&&Date.now()-Number(last.last_sent)<30000)throw Error('Wait 30 seconds before testing this device again');
+  const sub=JSON.parse(row.subscription_json),en=sub.language==='en',mm={orange:50,red:90,purple:120}[data.level];
+  const color=en?{orange:'Orange',red:'Red',purple:'Purple'}[data.level]:{orange:'orange',red:'rouge',purple:'violette'}[data.level];
+  const payload={title:en?'Argens Alerte · SIMULATION · '+color:'Argens Alerte · SIMULATION · '+color,body:en?'TEST ONLY: '+mm+' mm / 24 h rainfall forecast threshold. No real warning; forecast and alert levels are unchanged.':'TEST UNIQUEMENT : seuil de pluie '+mm+' mm / 24 h. Aucune alerte réelle ; prévisions et niveaux inchangés.',tag:'argens-admin-rain-test-'+data.level};
+  const result=await deliver(sub,payload,this.env);
+  if(!result.ok){
+   if(result.status===404||result.status===410)await db.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(data.endpoint).run();
+   throw Error('Push provider rejected simulation (HTTP '+result.status+')');
+  }
+  await db.prepare('INSERT INTO admin_rain_test_cooldown(endpoint,last_sent) VALUES(?,?) ON CONFLICT(endpoint) DO UPDATE SET last_sent=excluded.last_sent').bind(data.endpoint,Date.now()).run();
+  console.log('Admin rainfall simulation accepted',data.level,'for one device');
+  return {ok:true,level:data.level,accepted:1};
+ }
+
 }
 const STATION='Y531201001';
 const ORIGIN='https://6pkvnhczsz-create.github.io';
