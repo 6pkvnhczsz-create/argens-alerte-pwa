@@ -111,6 +111,24 @@ export default {
     return json(request,{ok:true});
    }catch(e){console.error('Subscription rejected',String(e));return json(request,{error:'Invalid subscription'},400)}
   }
+  if(url.pathname==='/test'&&request.method==='POST'){
+   if(request.headers.get('Origin')!==ORIGIN)return json(request,{error:'Origin not allowed'},403);
+   if(!env.DB)return json(request,{error:'Database not configured'},503);
+   try{
+    const raw=await request.text();if(raw.length>5000)return json(request,{error:'Too large'},413);
+    const {endpoint}=JSON.parse(raw);
+    if(typeof endpoint!=='string'||endpoint.length>2048)return json(request,{error:'Invalid endpoint'},400);
+    const row=await env.DB.prepare('SELECT subscription_json FROM push_subscriptions WHERE endpoint=? AND station_code=?').bind(endpoint,STATION).first();
+    if(!row)return json(request,{error:'Subscription not found'},404);
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS push_test_cooldown (endpoint TEXT PRIMARY KEY, last_sent INTEGER NOT NULL)').run();
+    const last=await env.DB.prepare('SELECT last_sent FROM push_test_cooldown WHERE endpoint=?').bind(endpoint).first();
+    if(last&&Date.now()-last.last_sent<15*60000)return json(request,{error:'Please wait 15 minutes before another test'},429);
+    const response=await deliver(JSON.parse(row.subscription_json),{title:'Argens Alerte · Test',body:'Les notifications de test fonctionnent. Ceci n’est pas une alerte de crue.',tag:'argens-test'},env);
+    if(!response.ok){if(response.status===404||response.status===410)await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(endpoint).run();return json(request,{error:'Push provider rejected request',status:response.status},502)}
+    await env.DB.prepare('INSERT INTO push_test_cooldown(endpoint,last_sent) VALUES(?,?) ON CONFLICT(endpoint) DO UPDATE SET last_sent=excluded.last_sent').bind(endpoint,Date.now()).run();
+    return json(request,{ok:true});
+   }catch(e){console.error('Push test failed',String(e));return json(request,{error:'Push test failed'},500)}
+  }
   return json(request,{error:'Not found'},404);
  },
  async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(e=>console.error('Scheduled check failed',String(e))))}
