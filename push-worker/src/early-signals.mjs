@@ -126,7 +126,9 @@ function color(value){
  const num=Number(value);
  return Number.isInteger(num)&&num>=1&&num<=4?COLORS[num]:null;
 }
-export function parseMeteoVigilance(data,{now=Date.now()}={}){
+export function parseMeteoVigilance(data,{now=Date.now(),department='83',departmentName=''}={}){
+ if(typeof department!=='string'||!/^(?:0[1-9]|[1-8][0-9]|9[0-5]|2A|2B)$/.test(department))
+  throw Error('Invalid French department');
  const product=data?.product;
  if(!product||typeof product.update_time!=='string'||!Array.isArray(product.periods))throw Error('Invalid Meteo-France product');
  const published=Date.parse(product.update_time);
@@ -135,19 +137,25 @@ export function parseMeteoVigilance(data,{now=Date.now()}={}){
   const from=Date.parse(p.begin_validity_time),to=Date.parse(p.end_validity_time);
   if(!Number.isFinite(from)||!Number.isFinite(to)||to<now-3*3600000||from>now+48*3600000)return null;
   const departments=p.timelaps?.domain_ids;
-  const varDepartment=Array.isArray(departments)?departments.find(d=>String(d.domain_id)==='83'):null;
-  if(!varDepartment)return null;
-  const phenomena=(varDepartment.phenomenon_items||[]).flatMap(item=>{
+  const selected=Array.isArray(departments)?departments.find(d=>{
+   const id=String(d.domain_id||'').trim().toUpperCase();
+   return (id.length===1&&/^\d$/.test(id)?'0'+id:id)===department;
+  }):null;
+  if(!selected)return null;
+  const phenomena=(selected.phenomenon_items||[]).flatMap(item=>{
    const label=PHENOMENA[String(item.phenomenon_id)],severity=color(item.phenomenon_max_color_id);
    return label&&severity?[{id:String(item.phenomenon_id),...label,color:severity}]:[];
   });
-  const overall=color(varDepartment.max_color_id);
+  const overall=color(selected.max_color_id);
   if(!overall)return null;
   return {period:String(p.echeance||''),begin:new Date(from).toISOString(),
    end:new Date(to).toISOString(),color:overall,phenomena};
  }).filter(Boolean);
- if(!periods.length)throw Error('No valid Var vigilance period');
- return {status:'official',provider:'Météo-France',department:'83',updatedAt:new Date(published).toISOString(),periods,link:OFFICIAL_LINK};
+ if(!periods.length)throw Error('No valid department vigilance period');
+ return {status:'official',provider:'Météo-France',department,
+  departmentName:String(departmentName||'').slice(0,70),
+  updatedAt:new Date(published).toISOString(),periods,
+  link:department==='83'?OFFICIAL_LINK:'https://vigilance.meteofrance.fr/fr'};
 }
 async function fetchMeteoToken(basic,fetchImpl,now){
  if(cachedToken?.basic===basic&&cachedToken?.until>now+120000)return cachedToken.value;
@@ -172,9 +180,11 @@ async function fetchMeteoToken(basic,fetchImpl,now){
  cachedToken={basic,value:reply.access_token,until:now+age*1000};
  return cachedToken.value;
 }
-export async function fetchOfficialVigilance(env,{now=Date.now(),fetchImpl=fetch}={}){
+export async function fetchOfficialVigilance(env,{now=Date.now(),fetchImpl=fetch,department='83',departmentName=''}={}){
  const configured=Boolean(env?.METEO_FRANCE_BASIC||env?.METEO_FRANCE_API_KEY);
- const fallback={status:configured?'unavailable':'not_configured',provider:'Météo-France',department:'83',periods:[],link:OFFICIAL_LINK};
+ const fallback={status:configured?'unavailable':'not_configured',provider:'Météo-France',department,
+  departmentName:String(departmentName||'').slice(0,70),periods:[],
+  link:department==='83'?OFFICIAL_LINK:'https://vigilance.meteofrance.fr/fr'};
  if(!configured)return fallback;
  try{
   // Météo-France accepts an API key directly. Prefer it when configured to avoid
@@ -188,7 +198,7 @@ export async function fetchOfficialVigilance(env,{now=Date.now(),fetchImpl=fetch
   if(!response.ok)throw Error('bulletin_http_'+response.status);
   let bulletin;
   try{bulletin=await response.json()}catch{throw Error('bulletin_invalid_json')}
-  return parseMeteoVigilance(bulletin,{now});
+  return parseMeteoVigilance(bulletin,{now,department,departmentName});
  }catch(error){
   // Only fixed diagnostic codes are exposed; credentials, response bodies and tokens never are.
   const message=String(error?.message||'');
@@ -197,7 +207,7 @@ export async function fetchOfficialVigilance(env,{now=Date.now(),fetchImpl=fetch
    :message==='token_missing'?'token_missing'
    :message==='Invalid Meteo-France product'?'invalid_bulletin'
    :message==='Outdated Meteo-France bulletin'?'outdated_bulletin'
-   :message==='No valid Var vigilance period'?'missing_var_period'
+   :message==='No valid department vigilance period'?'missing_department_period'
    :'request_or_format_error';
   console.warn('Meteo-France vigilance unavailable:',code);
   return {...fallback,diagnostic:code};
