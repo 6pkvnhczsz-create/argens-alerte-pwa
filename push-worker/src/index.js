@@ -708,7 +708,7 @@ export default {
     }
     // Prefer five verified upstream stations with actual recent measurements.
     // Never fill gaps with geographically nearby but unconnected gauges.
-    const verified=await measureBatch((result.candidates||[]).slice(0,10));
+    const verified=includeNearby?[]:await measureBatch((result.candidates||[]).slice(0,10));
     const stations=verified.filter(Boolean).slice(0,5);
     // Surrounding gauges are fetched only when the visitor opens the optional list.
     // These stations are never part of the verified upstream warning or prediction.
