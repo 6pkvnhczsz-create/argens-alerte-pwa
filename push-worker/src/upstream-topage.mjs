@@ -76,26 +76,36 @@ function snap(point,edges,limitKm){
  }
  return hits[0];
 }
+// The nearest gauges are ranked by a route over directed TOPAGE segments,
+// never by their aerial distance or the order returned by the registry.
+function lengthOfEdge(coords){
+ let km=0;
+ for(let i=1;i<coords.length;i++)km+=distanceKm(coords[i-1][1],coords[i-1][0],coords[i][1],coords[i][0]);
+ return km;
+}
 export function connectedUpstream(home,candidates,features,{maxStations=8}={}){
  const edges=(features||[]).map(directedFeature).filter(Boolean);
  if(!edges.length)throw Error('No directed Topage river segments');
- const homePoint=[home.lon,home.lat],homeSnap=snap(homePoint,edges,.35);
+ const homeSnap=snap([home.lon,home.lat],edges,.35);
  if(!homeSnap)throw Error('Home gauge not mapped to directed river graph');
- const byEnd=new Map();
+ const byEnd=new Map(),lengths=edges.map(edge=>lengthOfEdge(edge.coords));
  for(let i=0;i<edges.length;i++){
   const list=byEnd.get(edges[i].to)||[];list.push(i);byEnd.set(edges[i].to,list);
  }
- // Directed walk in reverse flow direction: from the target segment
- // backwards along its upstream node. No geographical-distance shortcut.
- const connected=new Map([[homeSnap.index,homeSnap.fraction<.005?0:homeSnap.fraction]]);
- const queue=[edges[homeSnap.index].from],seen=new Set(queue);
- for(let i=0;i<queue.length&&queue.length<MAX_EDGES;i++){
-  const node=queue[i];
+ // Walk against the confirmed flow direction. Keep the shortest upstream
+ // path at each mapped node, while bounding work on malformed cyclic graphs.
+ const startNode=edges[homeSnap.index].from;
+ const nodes=new Map([[startNode,{km:0,hops:0}]]);
+ const queue=[startNode];let expanded=0;
+ while(queue.length&&expanded<MAX_EDGES){
+  const node=queue.shift(),base=nodes.get(node);expanded++;
   for(const index of byEnd.get(node)||[]){
-   if(index===homeSnap.index||connected.has(index))continue;
-   connected.set(index,1+i);
-   const other=edges[index].from;
-   if(!seen.has(other)){seen.add(other);queue.push(other)}
+   if(index===homeSnap.index)continue;
+   const edge=edges[index],next=base.km+lengths[index],previous=nodes.get(edge.from);
+   if(!previous||next<previous.km-0.00001){
+    nodes.set(edge.from,{km:next,hops:base.hops+1});
+    queue.push(edge.from);
+   }
   }
  }
  const verified=[];
@@ -103,12 +113,22 @@ export function connectedUpstream(home,candidates,features,{maxStations=8}={}){
   if(!validStationCode(station.code)||station.code===home.code)continue;
   if(!Number.isFinite(station.lon)||!Number.isFinite(station.lat))continue;
   const hit=snap([station.lon,station.lat],edges,.18);
-  if(!hit||!connected.has(hit.index))continue;
-  // Same segment requires the candidate to lie physically upstream of home.
-  if(hit.index===homeSnap.index&&hit.fraction>=homeSnap.fraction-.04)continue;
-  verified.push({...station,graphHops:connected.get(hit.index),snapKm:hit.km});
+  if(!hit)continue;
+  let riverKm,hops;
+  if(hit.index===homeSnap.index){
+   if(hit.fraction>=homeSnap.fraction-.04)continue;
+   riverKm=homeSnap.fraction-hit.fraction;hops=1;
+  }else{
+   const downstream=nodes.get(edges[hit.index].to);
+   if(!downstream)continue;
+   riverKm=homeSnap.fraction+downstream.km+Math.max(0,hit.lengthKm-hit.fraction);
+   hops=downstream.hops+1;
+  }
+  if(!Number.isFinite(riverKm)||riverKm<0)continue;
+  verified.push({...station,graphHops:hops,riverDistanceKm:Number(riverKm.toFixed(2)),snapKm:hit.km});
  }
- verified.sort((a,b)=>a.graphHops-b.graphHops||a.snapKm-b.snapKm||a.code.localeCompare(b.code));
+ verified.sort((a,b)=>a.riverDistanceKm-b.riverDistanceKm||
+  a.snapKm-b.snapKm||a.code.localeCompare(b.code));
  return verified.slice(0,Math.max(0,Math.min(maxStations,10)));
 }
 async function publicJson(url,{fetchImpl=fetch,maxBytes=MAX_BYTES}={}){
