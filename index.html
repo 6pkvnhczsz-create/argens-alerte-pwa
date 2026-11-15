@@ -421,6 +421,22 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
  #forecastPage #nationalUpstreamRows .upstream-distance-row>span,
  #forecastPage #nearbyGaugesRows .upstream-distance-row>span{text-align:left;font-size:12px}
 }
+
+/* App-styled home-station confirmation, replacing the native iOS alert. */
+.station-confirm-dialog{width:min(410px,calc(100vw - 34px));max-width:calc(100vw - 34px);max-height:calc(100dvh - 28px);padding:0;border:1px solid #cde0e7;border-radius:25px;overflow:auto;background:#f9fcfd;color:#163447;font:inherit;box-shadow:0 24px 75px #061e3080}
+.station-confirm-dialog::backdrop{background:rgba(10,32,47,.58);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+.station-confirm-head{background:linear-gradient(135deg,#123e58 0%,#08778a 100%);padding:23px 24px 20px;color:#fff;text-align:center}
+.station-confirm-icon{display:grid;place-items:center;width:54px;height:54px;margin:0 auto 12px;border-radius:17px;background:#ffffff25;border:1px solid #ffffff38;font-size:27px}
+.station-confirm-head h2{font-size:19px;line-height:1.35;letter-spacing:-.35px;margin:0;font-weight:800;color:#fff}
+.station-confirm-content{padding:21px 23px 23px;text-align:center}
+.station-confirm-name{display:block;font-size:16px;font-weight:800;color:#154c60;line-height:1.4;overflow-wrap:anywhere;margin:0 0 12px}
+.station-confirm-description{font-size:13px;line-height:1.6;color:#4a697a;margin:0 0 20px}
+.station-confirm-actions{display:grid;gap:9px}
+.station-confirm-actions button{display:block;width:100%;min-height:47px;border-radius:12px;font:inherit;font-size:13px;font-weight:750;cursor:pointer;padding:12px 15px;line-height:1.35}
+.station-confirm-accept{border:1px solid #0b7689;background:linear-gradient(120deg,#09677d,#088b99);color:#fff;box-shadow:0 6px 15px #087c9226}
+.station-confirm-cancel{border:1px solid #d7e5ec;background:#edf4f7;color:#295367}
+.station-confirm-actions button:focus-visible{outline:3px solid #e0a33e;outline-offset:2px}
+@media(prefers-reduced-motion:no-preference){.station-confirm-dialog[open]{animation:station-confirm-enter .2s ease-out}@keyframes station-confirm-enter{from{opacity:.6;transform:translateY(9px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -644,7 +660,22 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <div class="legal-en" lang="en" hidden><p><strong>Publisher and content responsibility:</strong> Patrick Hammerschmidt, c/o one-shot Filmproduktionen GmbH, Kalscheurener Straße 19, 50354 Hürth, Germany. Operated personally; the company is listed only as a correspondence address.</p><p>Contact: <a href="mailto:privacy@riviere-alerte.fr">privacy@riviere-alerte.fr</a>. Technical infrastructure: Cloudflare. Rivière Alerte is an independent service, not affiliated with public authorities. Data and estimates are not official warnings.</p></div>
 <div class="legal-de" lang="de" hidden><p><strong>Anbieter und inhaltlich Verantwortlicher:</strong> Patrick Hammerschmidt, c/o one-shot Filmproduktionen GmbH, Kalscheurener Straße 19, 50354 Hürth, Deutschland. Die App wird privat betrieben; das Unternehmen ist ausschließlich als Korrespondenzanschrift angegeben.</p><p>Kontakt: <a href="mailto:privacy@riviere-alerte.fr">privacy@riviere-alerte.fr</a>. Technische Infrastruktur: Cloudflare. Rivière Alerte ist ein unabhängiger Dienst ohne Verbindung zu öffentlichen Behörden. Die Daten und Schätzungen stellen keine amtlichen Warnungen dar.</p></div></details></section>
 <nav class="bottom" aria-label="Navigation"><button class="active" data-tab="overview"><span class="nav-icon">⌂</span><span>Accueil</span></button><button data-tab="Carte"><span class="nav-icon">⌖</span><span>Carte</span></button><button data-tab="Alertes"><span class="nav-icon">♧</span><span>Messages d’alerte</span></button><button data-tab="Prévisions"><span class="nav-icon">☁</span><span>Prévisions</span></button><button data-tab="Réglages"><span class="nav-icon">⚙</span><span>Réglages</span></button></nav>
-</div><script src="./i18n-de.js"></script>
+</div>
+<dialog id="homeStationDialog" class="station-confirm-dialog" aria-labelledby="homeStationDialogTitle" aria-describedby="homeStationDialogDescription">
+ <div class="station-confirm-head">
+  <div class="station-confirm-icon" aria-hidden="true">📍</div>
+  <h2 id="homeStationDialogTitle">Changer de station personnelle ?</h2>
+ </div>
+ <div class="station-confirm-content">
+  <strong id="homeStationDialogName" class="station-confirm-name"></strong>
+  <p id="homeStationDialogDescription" class="station-confirm-description">Ce choix sera conservé sur votre appareil. Vos seuils d’alerte resteront inchangés.</p>
+  <div class="station-confirm-actions">
+   <button type="button" id="homeStationDialogConfirm" class="station-confirm-accept">✓ Choisir comme station personnelle</button>
+   <button type="button" id="homeStationDialogCancel" class="station-confirm-cancel">Annuler</button>
+  </div>
+ </div>
+</dialog>
+<script src="./i18n-de.js"></script>
 <script>
 const slider=document.querySelector('#slider'),level=document.querySelector('#level'),status=document.querySelector('#status'),delta=document.querySelector('#delta');
 const stationTitle=document.querySelector('#stationTitle');
