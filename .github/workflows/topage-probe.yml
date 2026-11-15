@@ -25,9 +25,9 @@ jobs:
             name=next((x for x in names if 'TronconHydrographique_FXX' in x),None)
             if not name:raise ValueError('No French mainstem layer')
             params={'service':'WFS','version':'2.0.0','request':'GetFeature','typeNames':name,
-             'count':'4500','srsName':'EPSG:4326','bbox':'43.34,6.49,43.56,6.78,EPSG:4326','outputFormat':'geojson'}
+             'count':'4500','srsName':'EPSG:4326','bbox':'43.405,6.585,43.495,6.68,EPSG:4326','outputFormat':'geojson'}
             with urllib.request.urlopen(urllib.request.Request(base+'?'+urllib.parse.urlencode(params),headers={'User-Agent':'RiviereAlerteHydrology/1.0'}),timeout=35) as res:
-              b=res.read(6000000)
+              b=res.read(9500000)
               print('HTTP features',res.status,'content-type',res.headers.get('Content-Type'))
             data=json.loads(b)
             print('features',len(data.get('features',[])),'numberMatched',data.get('numberMatched'))
