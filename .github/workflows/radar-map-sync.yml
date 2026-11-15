@@ -57,7 +57,15 @@ jobs:
                 data=json.load(response)
               print('PIAF subscription probe:',json.dumps(data,ensure_ascii=False))
               assert data.get('ok') is True
-              break
+              results=data.get('answers',[])
+              if len(results)>2 or any(item.get('catalogue') for item in results):
+                print('Enhanced PIAF diagnostic response received.')
+                break
+              if attempt==5:
+                print('PIAF diagnostic Worker has not updated yet; no forecast connection is claimed.')
+                break
+              print('Waiting for the read-only PIAF probe deployment before retesting.')
+              time.sleep(12)
             except urllib.error.HTTPError as ex:
               print('PIAF probe availability status',ex.code)
               if ex.code not in (404,503) or attempt==5:raise
