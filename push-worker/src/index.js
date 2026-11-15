@@ -664,18 +664,11 @@ export default {
    try{await verifyRadarWorkflowToken(bearer.slice(7))}
    catch{return json(request,{ok:false,error:'Workflow identity rejected'},401)}
    if(!env.METEO_FRANCE_API_KEY)return json(request,{ok:false,error:'API key not configured'},503);
-   // Météo-France uses short and marketing names for some API routes.
-   // Only compare explicitly whitelisted public endpoints; never return the API key.
-   const service='/wms/MF-NWP-HIGHRES-PIAF-001-FRANCE-WMS/GetCapabilities?service=WMS&version=1.3.0&language=fre';
+   // The canonical server URL comes from Météo-France PIAF's Swagger
+   // documentation. Keep the API key inside Cloudflare.
    const candidates=[
-    'https://public-api.meteofrance.fr/public/piaf/1.0',
-    'https://public-api.meteofrance.fr/public/aromepiaf/1.0',
-    'https://public-api.meteofrance.fr/public/PrevisionImmediatePrecipitations/1.0',
-    'https://public-api.meteofrance.fr/public/PrevisionImmediatePrecipitations/v1.0',
-    'https://public-api.meteofrance.fr/public/arome-piaf/1.0',
-    'https://public-api.meteofrance.fr/public/piaf/v1.0',
-    'https://public-api.meteofrance.fr/public/aromepiaf/v1.0'
-   ].map(base=>base+service);
+    'https://api.meteofrance.fr/pro/piaf/1.0/wms/MF-NWP-HIGHRES-PIAF-001-FRANCE-WMS/GetCapabilities?service=WMS&version=1.3.0'
+   ];
    const answers=[];
    for(let i=0;i<candidates.length;i++){
     try{
@@ -698,7 +691,7 @@ export default {
      if(catalogue)break;
     }catch{answers.push({variant:i+1,httpStatus:0,error:'request_failed'})}
    }
-   return json(request,{ok:true,checkedAt:new Date().toISOString(),model:'PIAF',answers});
+   return json(request,{ok:true,connected:answers.some(a=>a.catalogue),checkedAt:new Date().toISOString(),model:'PIAF',answers});
   }
 
   if(url.pathname==='/api/radar-map/ingest'&&request.method==='POST'){
