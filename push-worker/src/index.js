@@ -31,7 +31,12 @@ export class AdminPushService extends WorkerEntrypoint {
   const sub=JSON.parse(row.subscription_json),en=sub.language==='en';
   const names=en?{orange:'Orange',red:'Red',green:'Back to green'}:{orange:'Orange',red:'Rouge',green:'Retour au vert'};
   const rules=en?{orange:'Water level 3.00 m or rise ≥ 30 cm/h',red:'Water level 4.50 m or rise ≥ 50 cm/h',green:'Water level below alert threshold'}:{orange:'Niveau 3,00 m ou hausse ≥ 30 cm/h',red:'Niveau 4,50 m ou hausse ≥ 50 cm/h',green:'Niveau sous le seuil d’alerte'};
-  const payload={title:({orange:'🟠 🌊',red:'🔴 🌊',green:'🟢 🌊'}[data.level])+' Argens Alerte · SIMULATION',body:names[data.level]+' · '+rules[data.level]+(en?'. TEST ONLY — no real flood warning.':'. TEST UNIQUEMENT — aucune alerte réelle.'),tag:'argens-admin-flood-test-'+data.level};
+
+  if(sub.language==='de'){
+   names.orange='Orange';names.red='Rot';names.green='Zurück zu Grün';
+   rules.orange='Wasserstand 3,00 m oder Anstieg ≥ 30 cm/Std.';rules.red='Wasserstand 4,50 m oder Anstieg ≥ 50 cm/Std.';rules.green='Wasserstand unter dem Warnschwellenwert';
+  }
+  const payload={title:({orange:'🟠 🌊',red:'🔴 🌊',green:'🟢 🌊'}[data.level])+' Argens Alerte · SIMULATION',body:names[data.level]+' · '+rules[data.level]+(sub.language==='de'?'. NUR TEST — keine echte Hochwasserwarnung.':en?'. TEST ONLY — no real flood warning.':'. TEST UNIQUEMENT — aucune alerte réelle.'),tag:'argens-admin-flood-test-'+data.level};
   const result=await deliver(sub,payload,this.env);
   if(!result.ok){
    if(result.status===404||result.status===410)await db.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(data.endpoint).run();
@@ -54,6 +59,7 @@ export class AdminPushService extends WorkerEntrypoint {
   const rainLabel=en?{orange:'Heavy rain',red:'Dangerous heavy rain',purple:'Extreme rain'}[data.level]:{orange:'Fortes pluies',red:'Fortes pluies dangereuses',purple:'Pluies extrêmes'}[data.level];
   const safety=en?'Keep an eye on the app. If in danger, move to a safe place.':'Surveillez l’application. En cas de danger, mettez-vous en sécurité.';
   const payload={title:({orange:'🟠 🌧️',red:'🔴 🌧️🌧️',purple:'🟣 ⛈️'}[data.level])+' Argens Alerte · SIMULATION',body:rainLabel+' · '+mm+' mm / 24 h. '+safety+' '+(en?'TEST ONLY — not a real warning.':'TEST UNIQUEMENT — pas une alerte réelle.'),tag:'argens-admin-rain-test-'+data.level};
+  if(sub.language==='de'){const levelName={orange:'Starkregen',red:'Gefährlicher Starkregen',purple:'Extremregen'}[data.level];payload.body=levelName+' · '+mm+' mm / 24 Std. Beobachten Sie die Lage. Bringen Sie sich bei Gefahr in Sicherheit. NUR TEST — keine echte Warnung.';}
   const result=await deliver(sub,payload,this.env);
   if(!result.ok){
    if(result.status===404||result.status===410)await db.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(data.endpoint).run();
@@ -132,6 +138,11 @@ async function currentObservation(){
 }
 const labels={green:'Vert',orange:'Orange',red:'Rouge'};
 function notification(obs,previous,lang='fr'){
+ if(lang==='de'){
+  const label=previous==='unknown'?'Wasserstandsbericht':obs.level==='green'?'Zurück zu Grün':obs.level==='red'?'Rote Warnung':obs.level==='orange'?'Orange Warnung':'Aktualisierung';
+  const deTrend=obs.rate===null?'':' · '+(obs.rate>=0?'+':'')+obs.rate.toFixed(1).replace('.',',')+' cm/Std.';
+  return {title:({green:'🟢 🌊',orange:'🟠 🌊',red:'🔴 🌊'}[obs.level])+' Argens Alerte · '+label,body:'Roquebrune-sur-Argens · '+obs.metres.toFixed(2).replace('.',',')+' m'+deTrend+'. Inoffizieller Richtwert.',tag:'argens-'+obs.level};
+ }
  const change=previous==='unknown'?'Niveau observé':obs.level==='green'?'Retour au vert':obs.level==='red'?'Alerte rouge':obs.level==='orange'?'Alerte orange':'Mise à jour';
  const trend=obs.rate===null?'':' · '+(obs.rate>=0?'+':'')+obs.rate.toFixed(1)+' cm/h';
  if(lang==='en'){
@@ -185,6 +196,11 @@ async function checkRainForecast(env){
    const rainLabel=en?{orange:'Heavy rain',red:'Dangerous heavy rain',purple:'Extreme rain'}[current]:{orange:'Fortes pluies',red:'Fortes pluies dangereuses',purple:'Pluies extrêmes'}[current];
    const safety=en?'Keep an eye on the app. If in danger, move to a safe place.':'Surveillez l’application. En cas de danger, mettez-vous en sécurité.';
    const payload={title:({orange:'🟠 🌧️',red:'🔴 🌧️🌧️',purple:'🟣 ⛈️'}[current])+' Argens Alerte · '+rainLabel,body:(en?'Roquebrune-sur-Argens · up to ':'Roquebrune-sur-Argens · jusqu’à ')+amount+(en?' mm / 24 h forecast. ':' mm / 24 h prévus. ')+safety+(en?' Indicative forecast, not an official warning.':' Prévision indicative, pas une alerte officielle.'),tag:'argens-rain-'+current};
+   if(sub.language==='de'){
+    const levelName={orange:'Starkregen',red:'Gefährlicher Starkregen',purple:'Extremregen'}[current];
+    payload.title=({orange:'🟠 🌧️',red:'🔴 🌧️🌧️',purple:'🟣 ⛈️'}[current])+' Argens Alerte · '+levelName;
+    payload.body='Roquebrune-sur-Argens · bis zu '+max.toLocaleString('de-DE',{maximumFractionDigits:1})+' mm / 24 Std. vorhergesagt. Beobachten Sie die Lage. Bringen Sie sich bei Gefahr in Sicherheit. Unverbindliche Vorhersage, keine amtliche Warnung.';
+   }
    const result=await deliver(sub,payload,env);
    if(result.ok)sent++;
    else if(result.status===404||result.status===410)await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(row.endpoint).run();
@@ -207,7 +223,16 @@ async function personalStationObservation(code){
  const rate=reference?(points[0].mm-reference.mm)/10/((points[0].time-reference.time)/3600000):null;
  return {metres:points[0].mm/1000,rate,observedAt:new Date(points[0].time).toISOString()};
 }
-function personalPushMessage({station,metres,threshold,rate,level,rapid,settingsUpdate,en}){
+function personalPushMessage({station,metres,threshold,rate,level,rapid,settingsUpdate,en,de}){
+ if(de){
+  const fmt=n=>Number(n).toFixed(2).replace('.',',');
+  const icon={green:'🟢',orange:'🟠',red:'🔴'}[level];
+  const label=rapid?'Schneller Anstieg':level==='green'?'Zurück zu Grün':level==='red'?'Roter Schwellenwert erreicht':'Orangener Schwellenwert erreicht';
+  const title=icon+' Rivière Alerte · '+label;
+  const detail=rapid?'📈 Anstieg: '+(rate>=0?'+':'')+Number(rate).toFixed(1).replace('.',',')+' cm/Std.':level==='green'?'🟢 Unter Ihrem orangenen Schwellenwert':'🎯 Ihr Schwellenwert: '+fmt(threshold)+' m';
+  const body='📍 '+station+'\n🌊 Wasserstand: '+fmt(metres)+' m\n'+detail+(settingsUpdate?'\n⚙️ Schwellenwerte gespeichert':'')+'\nℹ️ Persönliche, inoffizielle Warnung';
+  return {title,body};
+ }
  const fmt=n=>Number(n).toFixed(2).replace('.',en?'.':',');
  const icon={green:'🟢',orange:'🟠',red:'🔴'}[level];
  const label=rapid?(en?'Rapid rise':'Montée rapide'):level==='green'?(en?'Back to green':'Retour au vert'):level==='red'?(en?'Red threshold reached':'Seuil rouge atteint'):(en?'Orange threshold reached':'Seuil orange atteint');
@@ -230,7 +255,7 @@ async function notifyUpdatedStationSettings(env,user,settings,obs){
    const sub=JSON.parse(device.subscription_json),en=sub.language==='en';
    const threshold=effective==='red'?settings.red_m:settings.orange_m;
    const rapidCause=rank[rapid]>=rank[level]&&rapid!=='green';
-   const {title,body}=personalPushMessage({station:settings.station_name||settings.station_code,metres:obs.metres,threshold,rate:obs.rate,level:effective,rapid:rapidCause,settingsUpdate:true,en});
+   const {title,body}=personalPushMessage({station:settings.station_name||settings.station_code,metres:obs.metres,threshold,rate:obs.rate,level:effective,rapid:rapidCause,settingsUpdate:true,en,de:sub.language==='de'});
    const response=await deliver(sub,{title,body,tag:'settings-'+settings.station_code+'-'+effective},env);
    if(response.ok)sent++;
    else if([404,410].includes(response.status))await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(device.endpoint).run();
@@ -278,7 +303,7 @@ async function checkPersonalStations(env){
     const subscription=JSON.parse(d.subscription_json),en=subscription.language==='en';
     const name=u.station_name||u.station_code;
     const threshold=level==='red'?u.red_m:u.orange_m;
-    const {title,body}=personalPushMessage({station:name,metres:obs.metres,threshold,rate:obs.rate,level,rapid:rapidTriggered||rapidCause,settingsUpdate:false,en});
+    const {title,body}=personalPushMessage({station:name,metres:obs.metres,threshold,rate:obs.rate,level,rapid:rapidTriggered||rapidCause,settingsUpdate:false,en,de:subscription.language==='de'});
     const response=await deliver(subscription,{title,body,tag:'personal-'+u.station_code+'-'+level},env);
     if(!response.ok&&[404,410].includes(response.status))await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(d.endpoint).run();
     else if(!response.ok)failed++;
@@ -300,7 +325,7 @@ async function scheduledCheck(env){
  for(const row of subs.results||[]){
   try{
    const subscription=JSON.parse(row.subscription_json);
-   const response=await deliver(subscription,notification(obs,previous,subscription.language==='en'?'en':'fr'),env);
+   const response=await deliver(subscription,notification(obs,previous,['fr','en','de'].includes(subscription.language)?subscription.language:'fr'),env);
    if(response.ok)sent++;
    else if(response.status===404||response.status===410){await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(row.endpoint).run()}
    else{failed++;console.error('Push rejected',response.status)}
@@ -533,11 +558,11 @@ export default {
    try{
     const raw=await request.text();if(raw.length>5000)return json(request,{error:'Too large'},413);
     const body=JSON.parse(raw),sub=body.subscription;
-    if(body.language!==undefined&&!['fr','en'].includes(body.language))return json(request,{error:'Invalid language'},400);
+    if(body.language!==undefined&&!['fr','en','de'].includes(body.language))return json(request,{error:'Invalid language'},400);
     if(body.station!==STATION||!sub?.endpoint||!sub?.keys?.p256dh||!sub?.keys?.auth)return json(request,{error:'Invalid subscription'},400);
     const endpoint=new URL(sub.endpoint);if(endpoint.protocol!=='https:'||endpoint.href.length>2048)return json(request,{error:'Invalid endpoint'},400);
     if(unb64(sub.keys.p256dh).length!==65||unb64(sub.keys.auth).length<16)return json(request,{error:'Invalid keys'},400);
-    await env.DB.prepare('INSERT INTO push_subscriptions(endpoint,subscription_json,station_code) VALUES(?,?,?) ON CONFLICT(endpoint) DO UPDATE SET subscription_json=excluded.subscription_json,station_code=excluded.station_code').bind(sub.endpoint,JSON.stringify({...sub,language:body.language==='en'?'en':'fr'}),STATION).run();
+    await env.DB.prepare('INSERT INTO push_subscriptions(endpoint,subscription_json,station_code) VALUES(?,?,?) ON CONFLICT(endpoint) DO UPDATE SET subscription_json=excluded.subscription_json,station_code=excluded.station_code').bind(sub.endpoint,JSON.stringify({...sub,language:['fr','en','de'].includes(body.language)?body.language:'fr'}),STATION).run();
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS push_user_devices (endpoint TEXT PRIMARY KEY,user_id TEXT NOT NULL,linked_at INTEGER NOT NULL)').run();
     await env.DB.prepare('INSERT INTO push_user_devices(endpoint,user_id,linked_at) VALUES(?,?,?) ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id,linked_at=excluded.linked_at').bind(sub.endpoint,signedIn.id,Date.now()).run();
     return json(request,{ok:true});
@@ -549,7 +574,7 @@ export default {
    try{
     const raw=await request.text();if(raw.length>2500)return json(request,{error:'Too large'},413);
     const {endpoint,language}=JSON.parse(raw);
-    if(typeof endpoint!=='string'||endpoint.length>2048||!['fr','en'].includes(language))return json(request,{error:'Invalid request'},400);
+    if(typeof endpoint!=='string'||endpoint.length>2048||!['fr','en','de'].includes(language))return json(request,{error:'Invalid request'},400);
     const row=await env.DB.prepare('SELECT subscription_json FROM push_subscriptions WHERE endpoint=? AND station_code=?').bind(endpoint,STATION).first();
     if(!row)return json(request,{error:'Subscription not found'},404);
     const sub=JSON.parse(row.subscription_json);sub.language=language;
@@ -570,7 +595,7 @@ export default {
     const last=await env.DB.prepare('SELECT last_sent FROM push_test_cooldown WHERE endpoint=?').bind(endpoint).first();
     if(last&&Date.now()-last.last_sent<15*60000)return json(request,{error:'Please wait 15 minutes before another test'},429);
     const saved=JSON.parse(row.subscription_json);
-    const payload=saved.language==='en'?{title:'Argens Alerte · Test',body:'Test notifications are working. This is not a flood warning.',tag:'argens-test'}:{title:'Argens Alerte · Test',body:'Les notifications de test fonctionnent. Ceci n’est pas une alerte de crue.',tag:'argens-test'};
+    const payload=saved.language==='de'?{title:'Argens Alerte · Test',body:'Testbenachrichtigungen funktionieren. Dies ist keine Hochwasserwarnung.',tag:'argens-test'}:saved.language==='en'?{title:'Argens Alerte · Test',body:'Test notifications are working. This is not a flood warning.',tag:'argens-test'}:{title:'Argens Alerte · Test',body:'Les notifications de test fonctionnent. Ceci n’est pas une alerte de crue.',tag:'argens-test'};
     const response=await deliver(saved,payload,env);
     if(!response.ok){if(response.status===404||response.status===410)await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(endpoint).run();return json(request,{error:'Push provider rejected request',status:response.status},502)}
     await env.DB.prepare('INSERT INTO push_test_cooldown(endpoint,last_sent) VALUES(?,?) ON CONFLICT(endpoint) DO UPDATE SET last_sent=excluded.last_sent').bind(endpoint,Date.now()).run();
