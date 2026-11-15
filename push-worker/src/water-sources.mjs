@@ -8,6 +8,7 @@ export const validHydroStation = code => typeof code==='string' && /^[A-Z][0-9]{
 
 function point(time, mm) {
  const t=typeof time==='number'?time:typeof time==='string'&&/^\d{13}$/.test(time)?Number(time):Date.parse(time);
+ if(mm===null||mm===undefined||mm==='')return null;
  const height=Number(mm);
  if(!Number.isFinite(t)||!Number.isFinite(height)||height < -5000||height > 30000) return null;
  return {mm:height,time:t};
