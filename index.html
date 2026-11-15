@@ -313,35 +313,22 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 /* Compact gauge trends are part of the marker itself, not second Leaflet tooltips. */
 #forecastPage .upstream-gauge-marker-wrap,#forecastPage .upstream-home-pin-wrap{background:transparent;border:0;overflow:visible}
 #forecastPage .upstream-gauge-marker{position:relative;display:block;width:30px;height:30px}
-/* Translucent map legend instead of overlapping rate badges at clustered pins. */
-#forecastPage .upstream-map-shell{position:relative;width:100%;margin:13px auto 0}
-#forecastPage .upstream-map-shell[hidden],#forecastPage .upstream-trend-legend[hidden]{display:none!important}
-#forecastPage .upstream-map-shell .upstream-map{margin:0}
-#forecastPage .upstream-trend-legend{position:absolute;z-index:750;right:8px;top:9px;display:grid;
- grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;max-width:298px;width:calc(100% - 86px);
- pointer-events:none;text-align:left}
-#forecastPage .upstream-legend-chip{pointer-events:auto;display:flex;align-items:center;gap:5px;
- min-width:0;min-height:27px;padding:5px 6px;border:1px solid rgba(155,188,201,.85);border-radius:9px;
- background:rgba(255,255,255,.75);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
- box-shadow:0 2px 7px rgba(18,54,76,.11);font:750 11px/1.2 system-ui,sans-serif;
- white-space:nowrap;cursor:pointer;font-variant-numeric:tabular-nums}
-#forecastPage .upstream-legend-chip:focus-visible{outline:2px solid #087f91;outline-offset:2px}
-#forecastPage .upstream-legend-chip .legend-number{flex:none;display:grid;place-items:center;width:18px;height:18px;
- border-radius:50%;background:#0b718c;color:white;font-size:10px}
-#forecastPage .upstream-legend-chip .legend-value{min-width:0;white-space:nowrap;color:#315c6b}
-#forecastPage .upstream-legend-chip.trend-up .legend-value{color:#955019}
-#forecastPage .upstream-legend-chip.trend-down .legend-value{color:#146d65}
-#forecastPage .upstream-legend-chip.trend-flat .legend-value{color:#526b7a}
-@media(max-width:390px){#forecastPage .upstream-trend-legend{top:7px;right:6px;width:calc(100% - 74px);gap:4px}
- #forecastPage .upstream-legend-chip{padding:4px;font-size:10px;gap:3px}
- #forecastPage .upstream-legend-chip .legend-number{width:16px;height:16px;font-size:9px}}
+/* Compact semi-transparent labels anchored to verified gauge pins. */
+#forecastPage .upstream-gauge-trend{position:absolute;left:33px;top:3px;display:block;box-sizing:border-box;
+ min-width:77px;padding:4px 5px;border-radius:8px;border:1px solid rgba(146,183,197,.75);
+ background:rgba(255,255,255,.71);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+ box-shadow:0 1px 5px #183c4a22;color:#315c6b;font:750 10px/1.15 system-ui,sans-serif;
+ font-variant-numeric:tabular-nums;white-space:nowrap;text-align:center;pointer-events:none}
+#forecastPage .upstream-gauge-trend.trend-up{color:#98501a}
+#forecastPage .upstream-gauge-trend.trend-down{color:#146c62}
+#forecastPage .upstream-gauge-trend.trend-flat{color:#4e6573}
 #forecastPage .upstream-home-pin-wrap{font-family:system-ui,sans-serif}
-#forecastPage .upstream-home-pin{position:absolute;left:0;top:0;display:grid;place-items:center;
- width:31px;height:31px;box-sizing:border-box;border:2px solid #fff;border-radius:50% 50% 50% 0;
- transform:rotate(-45deg);background:#173d68;color:#fff;box-shadow:0 2px 8px #102a4e70;font-size:19px;font-weight:800}
+#forecastPage .upstream-home-pin{position:absolute;left:0;top:0;display:grid;place-items:center;width:21px;height:21px;
+ box-sizing:border-box;border:1.5px solid #ffffffd6;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+ background:rgba(23,61,104,.64);color:#fff;box-shadow:0 1px 5px #102a4e30;font-size:12px;font-weight:800}
 #forecastPage .upstream-home-pin>span{transform:rotate(45deg)}
-#forecastPage .upstream-home-label{position:absolute;left:36px;top:3px;background:#173d68ee;color:#fff;
- padding:5px 7px;border-radius:7px;font:750 10px/1.2 system-ui,sans-serif;white-space:nowrap;box-shadow:0 1px 5px #102a4e44}
+#forecastPage .upstream-home-label{position:absolute;left:25px;top:0;background:rgba(23,61,104,.62);color:#fff;
+ padding:3px 5px;border-radius:6px;font:700 9px/1.15 system-ui,sans-serif;white-space:nowrap;box-shadow:0 1px 4px #102a4e22}
 #forecastPage .upstream-map .leaflet-popup-content{margin:10px 12px}
 #forecastPage .upstream-popup-summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 #forecastPage .upstream-popup-summary strong{font-size:15px;color:#133e51}
@@ -463,7 +450,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <span class="forecast-card-icon" aria-hidden="true">🌊</span>
     <strong id="earlyUpstreamTitle">Stations en amont</strong>
     <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
-    <div id="upstreamMapShell" class="upstream-map-shell" hidden><div id="upstreamMap" class="upstream-map" role="region" aria-label="Stations de mesure de l’Argens sur la carte" hidden></div><div id="upstreamTrendLegend" class="upstream-trend-legend" role="group" aria-label="Tendances des stations" hidden></div></div>
+    <div id="upstreamMap" class="upstream-map" role="region" aria-label="Stations de mesure de l’Argens sur la carte" hidden></div>
     <p id="upstreamMapMessage" class="note upstream-map-message" role="status"></p>
     <div id="earlyUpstreamRows" class="upstream-ranked-list" hidden></div>
     <p id="earlyUpstreamDisclaimer" class="note forecast-disclaimer">Tendances mesurées localement ; les hauteurs des stations ne sont pas comparables entre elles.</p>
@@ -1770,10 +1757,52 @@ function buildRoquebrunePopup(){
  const code=document.createElement('small');code.textContent=earlyI18n('Code station : ','Station code: ','Stationscode: ')+'Y531201001';
  extra.append(toggle,code);bubble.append(name,info,extra);return bubble;
 }
+// Locate rate labels near each official gauge, avoiding other gauges and labels.
+// Re-evaluated after pan/zoom, never changes the actual pin position or the reading.
+let upstreamBadgeEntries=[],upstreamHomePosition=null,upstreamBadgeRaf=0;
+function positionUpstreamBadges(){
+ const map=upstreamMapInstance;
+ if(!map||typeof map.latLngToContainerPoint!=='function')return;
+ const size=map.getSize?.()||{x:400,y:400},boxes=[];
+ const pts=upstreamBadgeEntries.map(e=>map.latLngToContainerPoint([e.point.lat,e.point.lon]));
+ if(upstreamHomePosition){
+  const p=map.latLngToContainerPoint([upstreamHomePosition.lat,upstreamHomePosition.lon]);
+  boxes.push({x:p.x-11,y:p.y-25,w:96,h:25});
+ }
+ const intersect=(a,b,margin=2)=>a.x<b.x+b.w+margin&&a.x+a.w+margin>b.x&&a.y<b.y+b.h+margin&&a.y+a.h+margin>b.y;
+ const pins=pts.map(p=>({x:p.x-17,y:p.y-17,w:34,h:34}));
+ const slots=[[34,-2],[-89,-2],[-40,-35],[34,28],[-89,28],[-40,37],[34,-35],[-89,-35],[-40,-59]];
+ for(let i=0;i<upstreamBadgeEntries.length;i++){
+  const p=pts[i],e=upstreamBadgeEntries[i],marker=upstreamMarkerByCode.get(e.g.code);
+  if(!marker)continue;
+  let chosen=null,lowest=Infinity;
+  for(let j=0;j<slots.length;j++){
+   const [dx,dy]=slots[(j+i*2)%slots.length],r={x:p.x+dx,y:p.y+dy,w:85,h:23};
+   const overflow=Math.max(0,8-r.x)+Math.max(0,r.x+r.w-size.x+8)+Math.max(0,57-r.y)+Math.max(0,r.y+r.h-size.y+10);
+   const hits=boxes.filter(b=>intersect(r,b)).length;
+   const pinHits=pins.filter((b,k)=>k!==i&&intersect(r,b)).length;
+   const score=overflow*12+hits*1500+pinHits*900+j;
+   if(score<lowest){lowest=score;chosen={dx,dy,rect:r}}
+  }
+  if(!chosen)continue;
+  boxes.push(chosen.rect);
+  const label=marker.getElement?.()?.querySelector('.upstream-gauge-trend');
+  if(label){label.style.left=chosen.dx+'px';label.style.top=chosen.dy+'px'}
+  else if(typeof marker.setIcon==='function'){
+   const html='<span class="upstream-gauge-marker rank-'+e.rank+'"><span class="upstream-station-pin">'+e.rank+
+    '</span><span class="upstream-gauge-trend '+e.trend.className+'" style="left:'+chosen.dx+'px;top:'+chosen.dy+'px">'+
+    e.trend.label+'</span></span>';
+   marker.setIcon(window.L.divIcon({className:'upstream-gauge-marker-wrap',html,iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-15]}));
+  }
+ }
+}
+function scheduleUpstreamBadgePosition(){
+ if(upstreamBadgeRaf)cancelAnimationFrame(upstreamBadgeRaf);
+ upstreamBadgeRaf=requestAnimationFrame(()=>{upstreamBadgeRaf=0;positionUpstreamBadges()});
+}
 async function updateUpstreamMap(){
  const id=++upstreamMapUpdateId;
  const mapNode=document.getElementById('upstreamMap');
- const shell=document.getElementById('upstreamMapShell'),legend=document.getElementById('upstreamTrendLegend');
  const forecastPage=document.getElementById('forecastPage');
  if(!mapNode||!forecastPage||forecastPage.classList.contains('hidden'))return;
  const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
@@ -1784,7 +1813,7 @@ async function updateUpstreamMap(){
    &&Date.now()-at<=90*60000&&at-Date.now()<=15*60000;
  });
  if(!gauges.length){
-  mapNode.hidden=true;shell.hidden=true;legend.hidden=true;legend.replaceChildren();
+  mapNode.hidden=true;
   if(upstreamMapMarkers)upstreamMapMarkers.clearLayers();
   upstreamMarkerByCode.clear();
   renderUpstreamOrderedList([],locale,fmt);
@@ -1806,7 +1835,7 @@ async function updateUpstreamMap(){
  const missing=ordered.filter(x=>!x.point);
  renderUpstreamOrderedList(ordered,locale,fmt);
  if(!mapped.length){
-  mapNode.hidden=true;shell.hidden=true;legend.hidden=true;legend.replaceChildren();
+  mapNode.hidden=true;
   if(upstreamMapMarkers)upstreamMapMarkers.clearLayers();
   upstreamMarkerByCode.clear();
   earlyText('upstreamMapMessage',earlyI18n('Positions indisponibles · mesures présentées en liste','Locations unavailable · readings shown in list','Stationspositionen nicht verfügbar · Messwerte als Liste'));
@@ -1815,13 +1844,14 @@ async function updateUpstreamMap(){
  try{
   const L=await loadMapLibrary();
   if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden'))return;
-  mapNode.hidden=false;shell.hidden=false;
+  mapNode.hidden=false;
   if(!upstreamMapInstance){
    upstreamMapInstance=L.map(mapNode,{scrollWheelZoom:false,zoomControl:true});
    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxZoom:15,attribution:'© OpenStreetMap contributors'
    }).addTo(upstreamMapInstance);
    upstreamMapMarkers=L.layerGroup().addTo(upstreamMapInstance);
+   if(typeof upstreamMapInstance.on==='function')upstreamMapInstance.on('zoomend moveend resize',scheduleUpstreamBadgePosition);
   }
   upstreamMapMarkers.clearLayers();
   upstreamMarkerByCode.clear();
@@ -1831,7 +1861,7 @@ async function updateUpstreamMap(){
    // Never bind a Leaflet tooltip: mobile Safari may display it together with the popup.
    const pin=L.divIcon({
     className:'upstream-gauge-marker-wrap',
-    html:'<span class="upstream-gauge-marker rank-'+String(rank)+'"><span class="upstream-station-pin">'+String(rank)+'</span></span>',
+    html:'<span class="upstream-gauge-marker rank-'+String(rank)+'"><span class="upstream-station-pin">'+String(rank)+'</span><span class="upstream-gauge-trend '+trend.className+'">'+trend.label+'</span></span>',
     iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-15]
    });
    const station=L.marker([point.lat,point.lon],{icon:pin,riseOnHover:true,keyboard:true,
@@ -1845,33 +1875,18 @@ async function updateUpstreamMap(){
   const homeIcon=L.divIcon({
    className:'upstream-home-pin-wrap',
    html:'<span class="upstream-home-pin"><span>●</span></span><span class="upstream-home-label">Roquebrune</span>',
-   iconSize:[34,34],iconAnchor:[16,31],popupAnchor:[0,-28]
+   iconSize:[24,24],iconAnchor:[10,20],popupAnchor:[0,-18]
   });
   const home=L.marker([reference.lat,reference.lon],{
    icon:homeIcon,riseOnHover:true,keyboard:true,zIndexOffset:1000,title:'Roquebrune-sur-Argens · Y531201001'
   });
   home.bindPopup(buildRoquebrunePopup(),{maxWidth:220});
   upstreamMapMarkers.addLayer(home);
-  // Readable, semi-transparent trend overview. Each chip opens the corresponding
-  // gauge popup; the numbered map pins remain at their verified coordinates.
-  legend.replaceChildren();
-  legend.setAttribute('aria-label',earlyI18n('Tendances des stations','Station trends','Pegeltrends'));
-  for(const {g,rank} of mapped){
-   const trend=upstreamTrend(g,fmt);
-   const chip=document.createElement('button');chip.type='button';
-   chip.className='upstream-legend-chip '+trend.className;
-   chip.setAttribute('aria-label',String(rank)+'. '+g.name+', '+trend.label);
-   chip.title=String(rank)+'. '+g.name;
-   const number=document.createElement('span');number.className='legend-number';number.textContent=String(rank);
-   const value=document.createElement('span');value.className='legend-value';value.textContent=trend.label;
-   chip.append(number,value);
-   chip.addEventListener('click',()=>upstreamMarkerByCode.get(g.code)?.openPopup());
-   legend.append(chip);
-  }
-  legend.hidden=!mapped.length;
   const bounds=L.latLngBounds([[reference.lat,reference.lon],...mapped.map(x=>[x.point.lat,x.point.lon])]);
   upstreamMapInstance.fitBounds(bounds,{padding:[32,32],maxZoom:10,animate:false});
-  requestAnimationFrame(()=>upstreamMapInstance?.invalidateSize());
+  upstreamBadgeEntries=mapped.map(({g,point,rank})=>({g,point,rank,trend:upstreamTrend(g,fmt)}));
+  upstreamHomePosition=reference;
+  requestAnimationFrame(()=>{upstreamMapInstance?.invalidateSize();positionUpstreamBadges()});
   earlyText('upstreamMapMessage',earlyI18n(
    'Ordre des confluences sur l’Argens, de l’aval vers l’amont. Les affluents sont des branches distinctes ; pas une distance ni un temps de crue.',
    'Junction order along the Argens, downstream to upstream. Tributaries are separate branches, not distances or flood travel times.',
@@ -1879,7 +1894,7 @@ async function updateUpstreamMap(){
    (missing.length?earlyI18n(' · Autres mesures sans position',' · Other readings without location',' · Weitere Messwerte ohne Position'):''));
  }catch(error){
   if(id!==upstreamMapUpdateId)return;
-  mapNode.hidden=true;shell.hidden=true;legend.hidden=true;legend.replaceChildren();
+  mapNode.hidden=true;
   upstreamMarkerByCode.clear();
   renderUpstreamOrderedList(ordered,locale,fmt);
   earlyText('upstreamMapMessage',earlyI18n('Carte indisponible · données classées ci-dessous','Map unavailable · ranked readings below','Karte nicht verfügbar · geordnete Messwerte unten'));
