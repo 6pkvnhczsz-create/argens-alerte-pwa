@@ -34,6 +34,9 @@ jobs:
                   assert data.get('station')=='Y531201001'
                   assert data.get('changesFloodThresholds') is False
                   print('Checked UTC:',data.get('checkedAt'),'official status:',data.get('official',{}).get('status'),flush=True)
+                  # Never log credentials: diagnostic covers status, published time and validation only.
+                  official=data.get('official') or {}
+                  print('METEO FRANCE: status:',official.get('status'),'bulletin updated:',official.get('updatedAt'),'period count:',len(official.get('periods') or []),'department:',official.get('department'),'safe diagnostic:',official.get('diagnostic'),flush=True)
                   for row in data.get('upstream',[]):
                       print('UPSTREAM:',row.get('code'),row.get('status'),'last:',row.get('observedAt'),'trend:',row.get('trendCmH'),flush=True)
                   for row in data.get('rain',[]):
