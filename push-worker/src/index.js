@@ -566,18 +566,31 @@ export default {
   // Only the exact repository main-branch GitHub Actions workflow may write
   // verified measurements. An untrusted HTTP client cannot forge flood readings.
   if(url.pathname==='/api/vigicrues-ingest'&&request.method==='POST'){
+   const auth=request.headers.get('Authorization')||'';
+   if(!auth.startsWith('Bearer '))return json(request,{error:'GitHub identity required',stage:'auth'},401);
+   let identity;
    try{
-    const auth=request.headers.get('Authorization')||'';
-    if(!auth.startsWith('Bearer '))return json(request,{error:'GitHub identity required'},401);
-    const identity=await verifyGitHubActionToken(auth.slice(7));
-    if(Number(request.headers.get('Content-Length'))>SNAPSHOT_MAX_BODY)return json(request,{error:'Payload too large'},413);
-    const body=await request.text();
-    if(body.length>SNAPSHOT_MAX_BODY)return json(request,{error:'Payload too large'},413);
-    const received=await ingestSnapshot(env.DB,JSON.parse(body),{runId:identity.runId});
-    return json(request,received);
+    identity=await verifyGitHubActionToken(auth.slice(7));
    }catch(error){
-    console.error('Vigicrues signed ingestion rejected',String(error?.message||error));
-    return json(request,{error:'Backup submission rejected'},401);
+    const reason=String(error?.message||error).slice(0,200);
+    console.error('Signed Vigicrues authentication failed:',reason);
+    return json(request,{error:'GitHub identity rejected',stage:'auth',reason},401);
+   }
+   let payload;
+   try{
+    if(Number(request.headers.get('Content-Length'))>SNAPSHOT_MAX_BODY)return json(request,{error:'Payload too large',stage:'payload'},413);
+    const body=await request.text();
+    if(body.length>SNAPSHOT_MAX_BODY)return json(request,{error:'Payload too large',stage:'payload'},413);
+    payload=JSON.parse(body);
+   }catch(error){
+    return json(request,{error:'Malformed snapshot JSON',stage:'payload'},400);
+   }
+   try{
+    return json(request,await ingestSnapshot(env.DB,payload,{runId:identity.runId}));
+   }catch(error){
+    const reason=String(error?.message||error).slice(0,230);
+    console.error('Signed Vigicrues snapshot storage failed:',reason);
+    return json(request,{error:'Snapshot rejected or storage unavailable',stage:'storage',reason},422);
    }
   }
   // PWA uses this only when direct Hub'Eau observations are unavailable.
