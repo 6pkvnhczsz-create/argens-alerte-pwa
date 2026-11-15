@@ -87,6 +87,17 @@ test('radar catalogue only verifies freshness; metadata never masquerades as mea
  assert.equal((await fetchRadarCatalogue({}, {now:NOW,fetchImpl:async()=>{throw Error('must not fetch')}})).status,'not_configured');
 });
 
+test('radar access failure is diagnosed without leaking the API key',async()=>{
+ const secret='PRIVATE_RADAR_KEY_DO_NOT_LOG';
+ for(const [http,expected] of [[401,'radar_http_401'],[403,'radar_http_403'],[429,'radar_http_429']]){
+  const out=await fetchRadarCatalogue({METEO_FRANCE_API_KEY:secret},{
+   now:NOW,fetchImpl:async()=>({ok:false,status:http,text:async()=>secret})
+  });
+  assert.equal(out.status,'unavailable');
+  assert.equal(out.diagnostic,expected);
+  assert.ok(!JSON.stringify(out).includes(secret));
+ }
+});
 test('official vigilance reads Var department (83), not another department and shows proper colors',()=>{
  const parsed=parseMeteoVigilance(fixtureOfficial(),{now:NOW});
  assert.equal(parsed.status,'official');
