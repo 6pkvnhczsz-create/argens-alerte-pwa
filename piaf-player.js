@@ -13,7 +13,7 @@
  const slider=id('piafSlider'),play=id('piafPlay'),mapNode=id('piafForecastMap'),controls=id('piafForecastControls');
  const palette=window.PiafPalette;
  let map=null,overlay=null,model=null,frameIndex=0,loading=false,lastCheck=0,requestSerial=0;
- let selectedCode=DEFAULT_CODE,stationPin=null;
+ let selectedCode=window.argensHomeStationCode||DEFAULT_CODE,stationPin=null;
  function mapBounds(){return [[model.bounds[1],model.bounds[0]],[model.bounds[3],model.bounds[2]]]}
  function setStation(code){
   if(typeof code!=='string'||!/^[A-Z][A-Z0-9]{7,13}$/.test(code)||code===selectedCode)return;
@@ -25,7 +25,14 @@
  }
  document.addEventListener('argens-station-selected',e=>setStation(e.detail?.code));
  document.addEventListener('argens-home-station-restored',e=>setStation(e.detail?.code));
- let playback=false,playTimer=null,drawSerial=0,preloadRun=0;
+ let playback=false,playTimer=null,drawSerial=0,preloadRun=0,fadeTransition=null;
+ function abortFade(){
+  const fade=fadeTransition;if(!fade)return;
+  fadeTransition=null;
+  if(fade.raf!==null)cancelAnimationFrame(fade.raf);
+  if(map){map.removeLayer(fade.layer);fade.previous?.setOpacity(0.82)}
+  fade.resolve(false);
+ }
  const cache=new Map(),queued=[],pending=new Map();
  let working=0,sliderTimer=null;
  const imageURL=i=>API+'/frame?time='+encodeURIComponent(model.frames[i])+'&run='+
@@ -35,6 +42,7 @@
  const canPreload=()=>model&&mapVisible()&&!document.hidden;
  function status(s){text('piafBufferStatus',s)}
  function pause(){
+  abortFade();
   playback=false;
   if(playTimer!==null){clearTimeout(playTimer);playTimer=null}
   play.textContent='▶';
@@ -44,9 +52,9 @@
   text('piafForecastTitle',until?lang('Prévision de pluie jusqu’à ','Rain forecast until ','Regenprognose bis ')+until:
     lang('Prévision de pluie','Rain forecast','Regenprognose'));
   text('piafForecastDisclaimer',lang(
-   'Prévision Météo-France PIAF, par pas de 5 min. Ni radar mesuré, ni prévision de crue. Sans effet sur les alertes.',
-   'Météo-France PIAF forecast in 5-minute steps. Not measured radar or a flood forecast. Does not affect alerts.',
-   'Météo-France PIAF-Prognose in 5-Minuten-Schritten. Kein gemessener Regen und keine Hochwasserprognose. Warnungen unverändert.'));
+   'PIAF Météo-France, pas de 5 min, transitions fondues pour une animation plus fluide. Les images intermédiaires sont uniquement visuelles ; ni mesure radar ni nouvelle prévision. Alertes inchangées.',
+   'Météo-France PIAF in 5-minute steps with visually blended transitions. Intermediate images are display-only, not extra forecasts or measured radar. Alerts unchanged.',
+   'Météo-France PIAF alle 5 Minuten, mit weich überblendeten Zwischenbildern. Diese sind nur eine Darstellung, keine zusätzlichen Prognosen oder Radarmessungen. Warnungen unverändert.'));
   text('piafLegendTitle',lang('Intensité relative de la pluie prévue','Relative forecast rain intensity','Relative Intensität des vorhergesagten Regens'));
   const names=[
    lang('Très faible','Very light','Sehr leicht'),
@@ -124,10 +132,13 @@
   const ahead=navigator.connection?.saveData?3:8;
   for(let i=index+1;i<Math.min(model.frames.length,index+ahead+1);i++)preload(i);
  }
- function showFrame(index){
+ // Smoothly crossfade the already verified 5-minute forecast frames.
+ // This is a display-only dissolve: do not invent rain cells or time slices.
+ function showFrame(index,{smooth=false}={}){
   if(!model||!map)return Promise.resolve(false);
   const desired=Math.max(0,Math.min(model.frames.length-1,Math.trunc(index)||0));
   const seq=++drawSerial,generation=preloadRun;
+  abortFade();
   text('piafFrameTime',time(model.frames[desired]));
   slider.value=String(desired);
   return preload(desired).then(ok=>{
@@ -139,26 +150,46 @@
    }
    const layer=window.L.imageOverlay(cache.get(desired),mapBounds(),{opacity:0,interactive:false});
    return new Promise(resolve=>{
-    let finished=false;
-    const finish=ok=>{
-     if(finished)return;finished=true;
-     if(!ok||seq!==drawSerial||generation!==preloadRun){
-      if(map)map.removeLayer(layer);
-      if(!ok&&seq===drawSerial){
-       pause();status(lang('Image indisponible','Frame unavailable','Regenbild nicht verfügbar'));
-      }
-      resolve(false);return;
-     }
-     const previous=overlay;overlay=layer;frameIndex=desired;
-     // Reveal the buffered image only once Leaflet confirms it has loaded.
-     layer.setOpacity(0.82);
-     if(previous)map.removeLayer(previous);
-     // The selected time is already next to the slider. No duplicate subtitle.
-     text('piafForecastStatus','');id('piafForecastStatus').hidden=true;
-     status('');
-     prefetchAhead(frameIndex);resolve(true);
+    const fail=()=>{
+     map?.removeLayer(layer);
+     if(seq===drawSerial){pause();status(lang('Image indisponible','Frame unavailable','Regenbild nicht verfügbar'))}
+     resolve(false);
     };
-    layer.once('load',()=>finish(true)).once('error',()=>finish(false)).addTo(map);
+    const success=()=>{
+     text('piafForecastStatus','');id('piafForecastStatus').hidden=true;
+     status('');prefetchAhead(frameIndex);resolve(true);
+    };
+    layer.once('load',()=>{
+     if(seq!==drawSerial||generation!==preloadRun||!mapVisible()){map?.removeLayer(layer);resolve(false);return}
+     const previous=overlay;
+     const reduce=typeof window.matchMedia==='function'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+     if(!smooth||!previous||reduce){
+      overlay=layer;frameIndex=desired;layer.setOpacity(0.82);
+      if(previous)map.removeLayer(previous);
+      success();return;
+     }
+     // Use requestAnimationFrame for consistent 60 Hz presentation where supported,
+     // while keeping the measured source timestamps unchanged on the slider.
+     const fade={layer,previous,raf:null,resolve};
+     fadeTransition=fade;
+     let start=null;const duration=450;
+     function animate(now){
+      if(fadeTransition!==fade)return;
+      if(seq!==drawSerial||generation!==preloadRun||document.hidden||!mapVisible()){
+       abortFade();return;
+      }
+      if(start===null)start=now;
+      const p=Math.min(1,(now-start)/duration);
+      const easing=p*p*(3-2*p);
+      previous.setOpacity(0.82*(1-easing));
+      layer.setOpacity(0.82*easing);
+      if(p<1){fade.raf=requestAnimationFrame(animate);return}
+      fadeTransition=null;overlay=layer;frameIndex=desired;
+      map.removeLayer(previous);layer.setOpacity(0.82);
+      success();
+     }
+     fade.raf=requestAnimationFrame(animate);
+    }).once('error',fail).addTo(map);
    });
   });
  }
@@ -168,10 +199,10 @@
    playTimer=null;if(!playback)return;
    if(document.hidden||!mapVisible()){pause();return}
    const next=frameIndex>=model.frames.length-1?0:frameIndex+1;
-   const ok=await showFrame(next);
+   const ok=await showFrame(next,{smooth:true});
    if(!ok){pause();return}
    scheduleNext();
-  },340);
+  },65);
  }
  async function togglePlay(){
   if(playback){pause();return}
@@ -200,9 +231,9 @@
    'Search for a town or use your location, then choose your home station. To receive alerts, save it with your thresholds in Settings.',
    'Ort suchen oder Standort verwenden und eine Station als Heimatstation auswählen. Für dauerhafte Warnungen danach die Schwellenwerte in den Einstellungen speichern.'));
   text('stationHomeReminder',lang(
-   'Votre choix doit être enregistré dans Réglages pour être conservé.',
-   'Save your choice in Settings to keep it.',
-   'Die Auswahl wird erst durch Speichern in den Einstellungen dauerhaft übernommen.'));
+   'Votre station choisie reste mémorisée sur cet appareil. Pour recevoir des alertes sur cette station, enregistrez les seuils dans Réglages.',
+   'Your chosen station stays saved on this device. For alerts on this station, save its thresholds in Settings.',
+   'Deine gewählte Heimatstation bleibt auf diesem Gerät gespeichert. Für Push-Warnungen dort bitte die Schwellen in Einstellungen speichern.'));
  }
  mapLabels();labels();
  document.addEventListener('argens-language-changed',()=>{
