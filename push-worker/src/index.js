@@ -10,6 +10,7 @@ import { refreshEarlySignals, loadEarlySignals } from './early-signals.mjs';
 import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
 import { fetchPiafMetadata, fetchPiafFrame, fetchPiafLegend } from './piaf-map.mjs';
 import { DEFAULT_STATION, validStationCode, cachedStation } from './piaf-station.mjs';
+import { findLocalUpstream, recentUpstreamReading } from './upstream-topage.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
  async vigicruesHealthAdmin(){
@@ -672,6 +673,38 @@ export default {
      reason==='Radar file exceeds safety limit'?'radar_too_large':'radar_fetch_error';
     console.warn('Radar raw download unavailable',code);
     return json(request,{error:'Radar product unavailable',stage:'download',code},502);
+   }
+  }
+  // Local upstream discovery for mainland France. Only confirmed directed
+  // TOPAGE graph connections are ever called "upstream". This is read-only
+  // information, not a new alarm criterion, flow-time model or full basin map.
+  if(url.pathname==='/api/upstream/stations'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
+   const code=url.searchParams.get('station')||DEFAULT_STATION;
+   if(!validStationCode(code)||[...url.searchParams].length>1)
+    return json(request,{error:'Invalid station'},400);
+   try{
+    const cache=globalThis.caches?.default;
+    const key=new Request('https://riviere-alerte.fr/__hydro_cache/upstream_v1?station='+code);
+    let result=null;
+    if(cache){const hit=await cache.match(key);if(hit)result=await hit.json().catch(()=>null)}
+    if(!result||result.home?.code!==code){
+     result=await findLocalUpstream(code);
+     if(cache)await cache.put(key,new Response(JSON.stringify(result),{headers:{
+      'Content-Type':'application/json','Cache-Control':'public, max-age=900'}}));
+    }
+    const observations=await Promise.all(result.candidates.map(x=>recentUpstreamReading(x)));
+    const stations=observations.filter(Boolean);
+    return json(request,{ok:true,status:stations.length?'verified':'no_current_verified',
+     home:result.home,stations,checkedAt:new Date().toISOString(),
+     source:result.evidence,extent:result.extent,hydrologicalConnectivity:'directed_verified_local_only',
+     excludedUnverified:true,notForAlerts:true});
+   }catch(error){
+    console.warn('Official directed upstream graph unavailable',String(error?.message||error));
+    return json(request,{ok:false,status:'unavailable',stations:[],
+     source:'BD TOPAGE / Hub Eau',notForAlerts:true,
+     error:'Upstream connectivity cannot be confirmed for this station'},503);
    }
   }
   // PIAF 3-hour nowcast: public validated metadata and PNG forecast frames.
