@@ -4,7 +4,7 @@
 // Private Worker-to-Worker RPC; not exposed as a public HTTP route.
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { getHydroObservations, readVigicruesObservations, validHydroStation } from './water-sources.mjs';
-import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
+import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, activeBackupStationCodes, markVigicruesUnavailable, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
  async vigicruesHealthAdmin(){
@@ -563,6 +563,43 @@ export default {
    try{const raw=await request.text();if(raw.length>2500)return json(request,{error:'Too large'},413);const {endpoint}=JSON.parse(raw);if(typeof endpoint!=='string'||endpoint.length>2048)return json(request,{error:'Invalid endpoint'},400);const row=await env.DB.prepare('SELECT s.endpoint FROM push_subscriptions s JOIN push_user_devices d ON d.endpoint=s.endpoint WHERE s.endpoint=? AND d.user_id=?').bind(endpoint,user.id).first();return json(request,{active:!!row})}catch{return json(request,{active:false})}
   }
 
+  // Station discovery is read-only but requires a signed GitHub OIDC identity.
+  // Registration and station changes are picked up at the next scheduled run.
+  if(url.pathname==='/api/vigicrues-stations'&&request.method==='GET'){
+   const auth=request.headers.get('Authorization')||'';
+   if(!auth.startsWith('Bearer '))return json(request,{error:'GitHub identity required'},401);
+   try{
+    await verifyGitHubActionToken(auth.slice(7));
+    const listing=await activeBackupStationCodes(env.DB);
+    return json(request,{ok:true,stations:listing.stations,deferred:listing.deferred,activeCount:listing.activeCount});
+   }catch(error){
+    console.error('Signed Vigicrues station discovery failed',String(error?.message||error));
+    return json(request,{error:'Station discovery unavailable'},503);
+   }
+  }
+  // A station without current Vigicrues measurements is skipped temporarily.
+  // This is never interpreted as valid backup data.
+  if(url.pathname==='/api/vigicrues-unavailable'&&request.method==='POST'){
+   const auth=request.headers.get('Authorization')||'';
+   if(!auth.startsWith('Bearer '))return json(request,{error:'GitHub identity required'},401);
+   try{
+    await verifyGitHubActionToken(auth.slice(7));
+   }catch(error){
+    console.error('Signed Vigicrues unavailable report rejected',String(error?.message||error));
+    return json(request,{error:'GitHub identity rejected'},401);
+   }
+   try{
+    if(Number(request.headers.get('Content-Length'))>1200)return json(request,{error:'Payload too large'},413);
+    const body=await request.text();
+    if(body.length>1200)return json(request,{error:'Payload too large'},413);
+    const payload=JSON.parse(body);
+    const stored=await markVigicruesUnavailable(env.DB,payload.station,payload.reason);
+    return json(request,stored);
+   }catch(error){
+    console.error('Vigicrues unavailability report error',String(error?.message||error));
+    return json(request,{error:'Invalid unavailability report'},422);
+   }
+  }
   // Only the exact repository main-branch GitHub Actions workflow may write
   // verified measurements. An untrusted HTTP client cannot forge flood readings.
   if(url.pathname==='/api/vigicrues-ingest'&&request.method==='POST'){
