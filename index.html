@@ -254,6 +254,13 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
       <p id="earlyRainDisclaimer" class="note" style="font-size:12px">Estimation du modèle Open-Meteo, pas des mesures radar. Aucun temps de crue prévu.</p>
     </div>
     <div class="card" style="padding:13px">
+      <strong id="earlyForecastTitle">🌦️ Pluie prévue · Météo-France</strong>
+      <p id="earlyForecastStatus" class="note" role="status">Chargement…</p>
+      <div id="earlyForecastRows" class="note"></div>
+      <p id="earlyForecastDisclaimer" class="note" style="font-size:12px">Prévisions des modèles AROME/ARPEGE via Open-Meteo, pas des mesures radar.</p>
+      <p id="earlyRadarStatus" class="note" style="font-size:12px" role="status"></p>
+    </div>
+    <div class="card" style="padding:13px">
       <strong id="earlyUpstreamTitle">🌊 Stations en amont</strong>
       <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
       <div id="earlyUpstreamRows" class="note"></div>
@@ -1439,6 +1446,9 @@ function renderEarlySignals(){
   'Zusatzinformationen: amtliche Warnlage, geschätzter Regen und Oberlieger-Pegel. Deine Schwellen und Warnungen bleiben unverändert.'));
  earlyText('earlyOfficialTitle',earlyI18n('⚠️ Vigilance officielle · Var (83)','⚠️ Official vigilance · Var (83)','⚠️ Amtliche Wetterwarnlage · Var (83)'));
  earlyText('earlyRainTitle',earlyI18n('🌧️ Pluie récente estimée','🌧️ Estimated recent rainfall','🌧️ Geschätzter Regen der letzten Stunden'));
+ earlyText('earlyForecastTitle',earlyI18n('🌦️ Pluie prévue · Météo-France','🌦️ Forecast rainfall · Météo-France','🌦️ Regenprognose · Météo-France'));
+ earlyText('earlyForecastDisclaimer',earlyI18n('Prévisions des modèles AROME/ARPEGE via Open-Meteo, pas de mesures radar ni de prévision de crue.','AROME/ARPEGE model forecasts via Open-Meteo, not measured radar rainfall or a flood forecast.','Modellprognosen AROME/ARPEGE über Open-Meteo, keine Radarmessung oder Hochwasserprognose.'));
+
  earlyText('earlyUpstreamTitle',earlyI18n('🌊 Stations en amont','🌊 Upstream gauges','🌊 Flussaufwärts gelegene Pegel'));
  earlyText('earlyOfficialLink',earlyI18n('Voir la vigilance sur Météo-France','Check Météo-France official vigilance','Amtliche Warnungen bei Météo-France ansehen'));
  earlyText('earlyRainDisclaimer',earlyI18n(
@@ -1450,11 +1460,11 @@ function renderEarlySignals(){
   'Station-specific trends only. Gauge heights are not comparable, and no travel time is estimated.',
   'Nur Trends je Station. Pegelhöhen sind nicht direkt vergleichbar; es wird keine Ankunftszeit berechnet.'));
  earlyText('earlySignalsRefresh',earlyI18n('↻ Actualiser les indicateurs','↻ Refresh indicators','↻ Indikatoren aktualisieren'));
- const upstreamNode=document.getElementById('earlyUpstreamRows'),rainNode=document.getElementById('earlyRainRows'),officialNode=document.getElementById('earlyOfficialPeriods');
- upstreamNode.replaceChildren();rainNode.replaceChildren();officialNode.replaceChildren();
+ const upstreamNode=document.getElementById('earlyUpstreamRows'),rainNode=document.getElementById('earlyRainRows'),officialNode=document.getElementById('earlyOfficialPeriods'),forecastNode=document.getElementById('earlyForecastRows');
+ upstreamNode.replaceChildren();rainNode.replaceChildren();officialNode.replaceChildren();forecastNode.replaceChildren();
  if(!d||!d.ok){
   const none=earlyI18n('Données temporairement indisponibles','Data temporarily unavailable','Daten derzeit nicht verfügbar');
-  ['earlyOfficialStatus','earlyRainStatus','earlyUpstreamStatus'].forEach(id=>earlyText(id,none));
+  ['earlyOfficialStatus','earlyRainStatus','earlyForecastStatus','earlyUpstreamStatus','earlyRadarStatus'].forEach(id=>earlyText(id,none));
   earlyText('earlySignalsChecked','');
   return;
  }
@@ -1483,6 +1493,23 @@ function renderEarlySignals(){
   rainNode.append(earlyLine(label+' · '+(r.status==='estimated'?(fmt(r.last3hMm)+' mm / 3 h · '+fmt(r.last6hMm)+' mm / 6 h'):
    earlyI18n('non disponible','unavailable','nicht verfügbar'))));
  }
+ const forecast=(d.forecast||[]),validForecast=forecast.filter(x=>x.status==='forecast');
+ earlyText('earlyForecastStatus',validForecast.length?
+  earlyI18n('Prévision du modèle · prochaines 6 h et 24 h','Model forecast · next 6 h and 24 h','Modellprognose · nächste 6 und 24 Stunden'):
+  earlyI18n('Prévisions indisponibles','Forecast unavailable','Prognose nicht verfügbar'));
+ const localNumber=n=>Number(n).toLocaleString(document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',{maximumFractionDigits:1});
+ for(const f of forecast){
+  const area=areaLabels[f.id]||f.name;
+  forecastNode.append(earlyLine(area+' · '+(f.status==='forecast'?
+   localNumber(f.next6hMm)+' mm / 6 h · '+localNumber(f.next24hMm)+' mm / 24 h':
+   earlyI18n('non disponible','unavailable','nicht verfügbar'))));
+ }
+ const radar=d.radar;
+ earlyText('earlyRadarStatus',radar?.status==='catalogue_only'?
+  earlyI18n('Radar officiel : flux accessible, mais cumuls non encore calculés.','Official radar: catalogue accessible, but rainfall amounts not yet processed.','Amtliches Radar: Daten verfügbar, Regenmengen noch nicht berechnet.'):
+  radar?.status==='not_configured'?
+   earlyI18n('Radar officiel : accès non configuré.','Official radar: access not configured.','Amtliches Radar: Zugang nicht eingerichtet.'):
+   earlyI18n('Radar officiel : vérification temporairement indisponible.','Official radar: verification temporarily unavailable.','Amtliches Radar: Prüfung vorübergehend nicht verfügbar.'));
  const upstream=d.upstream||[],active=upstream.filter(x=>x.status==='current');
  earlyText('earlyUpstreamStatus',active.length?earlyI18n('Variations de hauteur observées','Observed local water-level trends','Gemessene lokale Pegeltrends'):
   earlyI18n('Aucune mesure récente disponible','No recent observations available','Keine aktuellen Messungen'));

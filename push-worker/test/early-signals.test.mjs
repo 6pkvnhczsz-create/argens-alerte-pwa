@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 import {
  UPSTREAM_STATIONS, RAIN_AREAS, parseUpstreamPoints, parseRainEstimate,
- parseMeteoVigilance, fetchOfficialVigilance, buildEarlySignals,
+ parseMeteoVigilance, fetchOfficialVigilance, parseRainForecast, fetchRainForecast, fetchRadarCatalogue, buildEarlySignals,
  refreshEarlySignals, loadEarlySignals
 } from '../src/early-signals.mjs';
 
@@ -44,6 +44,59 @@ test('model rain accumulates past hourly estimates, never claims radar measureme
  assert.equal(result.last6hMm,10);
  assert.throws(()=>parseRainEstimate({hourly:{time:hours,precipitation:[1]}},NOW),/Missing/);
  assert.throws(()=>parseRainEstimate({hourly:{time:hours.slice(0,2),precipitation:[2,2]}},NOW),/Incomplete/);
+});
+
+test('Météo-France model forecast uses only future hours and rejects incomplete horizons',()=>{
+ const hours=Array.from({length:30},(_,i)=>Math.floor((NOW+i*3600000)/1000));
+ const result=parseRainForecast({hourly:{time:hours,precipitation:Array(30).fill(1.5)}},NOW);
+ assert.equal(result.status,'forecast');
+ assert.equal(result.next6hMm,9);
+ assert.equal(result.next24hMm,36);
+ assert.throws(()=>parseRainForecast({hourly:{time:hours.slice(0,10),precipitation:Array(10).fill(1.5)}},NOW),/Incomplete/);
+ assert.throws(()=>parseRainForecast({hourly:{time:hours,precipitation:[1]}},NOW),/Missing/);
+});
+test('forecast call uses dedicated Météo-France model API, not generic Open-Meteo model',async()=>{
+ let captured='';
+ const hours=Array.from({length:30},(_,i)=>Math.floor((NOW+i*3600000)/1000));
+ const out=await fetchRainForecast(RAIN_AREAS[0],{now:NOW,fetchImpl:async url=>{
+  captured=String(url);
+  return {ok:true,json:async()=>({hourly:{time:hours,precipitation:Array(30).fill(0.5)}})};
+ }});
+ assert.equal(new URL(captured).pathname,'/v1/meteofrance');
+ assert.equal(out.next6hMm,3);
+ assert.equal(out.status,'forecast');
+});
+test('radar catalogue only verifies freshness; metadata never masquerades as measured rain',async()=>{
+ const secret='RADAR_SECRET_MUST_NOT_APPEAR';
+ let seen='';
+ const radar=await fetchRadarCatalogue({METEO_FRANCE_API_KEY:secret},{
+  now:NOW,fetchImpl:async(url,opts)=>{
+   seen=url;
+   assert.equal(opts.headers.apikey,secret);
+   return {ok:true,json:async()=>({links:[{href:'https://public-api.meteofrance.fr/public/DPRadar/v1/mosaiques/METROPOLE/observations/LAME_D_EAU/produit?maille=500',validity_time:iso(NOW-5*60000)}]})};
+  }
+ });
+ assert.match(seen,/DPRadar\/v1\/mosaiques\/METROPOLE\/observations\/LAME_D_EAU/);
+ assert.equal(radar.status,'catalogue_only');
+ assert.equal(radar.measurementAvailable,false);
+ assert.ok(!JSON.stringify(radar).includes(secret));
+ const stale=await fetchRadarCatalogue({METEO_FRANCE_API_KEY:secret},{now:NOW,fetchImpl:async()=>({
+  ok:true,json:async()=>({links:[{validity_time:iso(NOW-2*3600000)}]})
+ })});
+ assert.equal(stale.status,'unavailable');
+ assert.equal((await fetchRadarCatalogue({}, {now:NOW,fetchImpl:async()=>{throw Error('must not fetch')}})).status,'not_configured');
+});
+
+test('radar access failure is diagnosed without leaking the API key',async()=>{
+ const secret='PRIVATE_RADAR_KEY_DO_NOT_LOG';
+ for(const [http,expected] of [[401,'radar_http_401'],[403,'radar_http_403'],[429,'radar_http_429']]){
+  const out=await fetchRadarCatalogue({METEO_FRANCE_API_KEY:secret},{
+   now:NOW,fetchImpl:async()=>({ok:false,status:http,text:async()=>secret})
+  });
+  assert.equal(out.status,'unavailable');
+  assert.equal(out.diagnostic,expected);
+  assert.ok(!JSON.stringify(out).includes(secret));
+ }
 });
 test('official vigilance reads Var department (83), not another department and shows proper colors',()=>{
  const parsed=parseMeteoVigilance(fixtureOfficial(),{now:NOW});
@@ -163,7 +216,9 @@ test('independent data errors never generate flood alerts or artificial official
  assert.equal(data.upstream.length,5);assert.ok(data.upstream.every(x=>x.status==='unavailable'));
  assert.equal(data.rain.length,3);assert.ok(data.rain.every(x=>x.status==='unavailable'));
  assert.equal(data.official.status,'not_configured');
- assert.equal(data.radar.status,'not_connected');
+ assert.equal(data.radar.status,'not_configured');
+ assert.ok(data.forecast.every(x=>x.status==='unavailable'));
+ assert.ok(data.radar.measurementAvailable===false);
  assert.equal(data.changesFloodThresholds,false);
  assert.equal(data.interpretation,'information_only');
 });
@@ -190,6 +245,8 @@ test('worker surface is information only, does not rewrite warning functions',()
  assert.match(page,/id="earlyOfficialLink"/);
  assert.match(page,/id="earlyUpstreamRows"/);
  assert.match(page,/id="earlyRainDisclaimer"/);
+ assert.match(page,/id="earlyForecastRows"/);
+ assert.match(page,/id="earlyRadarStatus"/);
  assert.match(page,/keine gemessenen Radardaten/i);
  const inline=[...page.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).filter(Boolean);
  for(const script of inline) assert.doesNotThrow(()=>new Script(script));

@@ -72,6 +72,42 @@ export async function fetchRainArea(area,{now=Date.now(),fetchImpl=fetch}={}){
   return {id:area.id,name:area.name,status:'unavailable',last3hMm:null,last6hMm:null,latestHour:null};
  }
 }
+
+/**
+ * Forecast accumulations are model predictions, never measured rainfall.
+ * The dedicated Open-Meteo Météo-France endpoint serves AROME/ARPEGE model
+ * output without granting access to Météo-France's separate AROME API.
+ */
+export function parseRainForecast(data,now=Date.now()){
+ const times=data?.hourly?.time,values=data?.hourly?.precipitation;
+ if(!Array.isArray(times)||!Array.isArray(values)||times.length!==values.length)throw Error('Missing forecast precipitation series');
+ const rows=times.map((t,i)=>({
+  t:typeof t==='number'?t*1000:Date.parse(t),
+  mm:values[i]
+ })).filter(x=>Number.isFinite(x.t)&&typeof x.mm==='number'&&Number.isFinite(x.mm)&&x.mm>=0&&x.mm<=300&&x.t>now&&x.t<=now+25*3600000)
+   .sort((a,b)=>a.t-b.t);
+ if(!rows.length||rows[0].t>now+90*60000||rows[rows.length-1].t<now+23*3600000)throw Error('Incomplete forecast horizon');
+ const first6=rows.filter(x=>x.t<=now+6*3600000),first24=rows.filter(x=>x.t<=now+24*3600000);
+ if(first6.length<5||first24.length<23)throw Error('Incomplete forecast precipitation');
+ const mm=xs=>Math.round(xs.reduce((total,x)=>total+x.mm,0)*10)/10;
+ return {status:'forecast',next6hMm:mm(first6),next24hMm:mm(first24),firstHour:new Date(rows[0].t).toISOString(),lastHour:new Date(first24.at(-1).t).toISOString()};
+}
+export async function fetchRainForecast(area,{now=Date.now(),fetchImpl=fetch}={}){
+ try{
+  const params=new URLSearchParams({
+   latitude:String(area.lat),longitude:String(area.lon),hourly:'precipitation',
+   forecast_hours:'30',timezone:'UTC',timeformat:'unixtime'
+  });
+  const response=await fetchImpl('https://api.open-meteo.com/v1/meteofrance?'+params,{
+   headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000),cf:{cacheTtl:300}
+  });
+  if(!response.ok)throw Error('Forecast unavailable');
+  return {id:area.id,name:area.name,...parseRainForecast(await response.json(),now)};
+ }catch{
+  return {id:area.id,name:area.name,status:'unavailable',next6hMm:null,next24hMm:null,firstHour:null,lastHour:null};
+ }
+}
+
 const PHENOMENA={
  '1':{fr:'Vent',en:'Wind'},
  '2':{fr:'Pluie-inondation',en:'Rain and flooding'},
@@ -165,17 +201,60 @@ export async function fetchOfficialVigilance(env,{now=Date.now(),fetchImpl=fetch
   return {...fallback,diagnostic:code};
  }
 }
+
+/**
+ * Only checks the official LAME_D_EAU radar product catalogue.
+ * Product downloads are BUFR/HDF5 binaries: no mm estimate is inferred
+ * from metadata. Any quantitative radar rainfall requires validated grid
+ * decoding and geolocation over the Argens catchment.
+ */
+export async function fetchRadarCatalogue(env,{now=Date.now(),fetchImpl=fetch}={}){
+ const base={provider:'Météo-France',source:'radar_LAME_D_EAU',measurementAvailable:false};
+ if(!env?.METEO_FRANCE_API_KEY)return {...base,status:'not_configured',observedAt:null};
+ let diagnostic='radar_fetch_failed';
+ try{
+  const response=await fetchImpl('https://public-api.meteofrance.fr/public/DPRadar/v1/mosaiques/METROPOLE/observations/LAME_D_EAU',{
+   headers:{apikey:env.METEO_FRANCE_API_KEY,Accept:'application/json'},
+   signal:AbortSignal.timeout(12000),cf:{cacheTtl:240}
+  });
+  // Expose only a fixed diagnostic code, never response bodies, credentials or headers.
+  if(!response.ok){
+   diagnostic=[401,403,404,429,500,502,503,504].includes(response.status)?
+    'radar_http_'+response.status:'radar_http_other';
+   throw Error('radar_unavailable');
+  }
+  diagnostic='radar_invalid_json';
+  const data=await response.json();
+  const timestamps=[];
+  function walk(v,depth=0){
+   if(depth>5||!v||typeof v!=='object')return;
+   if(typeof v.validity_time==='string')timestamps.push(Date.parse(v.validity_time));
+   if(Array.isArray(v)){for(const item of v.slice(0,100))walk(item,depth+1)}
+   else{for(const value of Object.values(v).slice(0,60))walk(value,depth+1)}
+  }
+  walk(data);
+  diagnostic='radar_stale_or_missing_timestamp';
+  const newest=Math.max(...timestamps.filter(t=>Number.isFinite(t)&&t<=now+10*60000));
+  if(!Number.isFinite(newest)||now-newest>30*60000)throw Error('radar_unavailable');
+  return {...base,status:'catalogue_only',observedAt:new Date(newest).toISOString()};
+ }catch{
+  return {...base,status:'unavailable',observedAt:null,diagnostic};
+ }
+}
+
 export async function buildEarlySignals(env,{now=Date.now(),fetchImpl=fetch}={}){
- const [upstream,rain,official]=await Promise.all([
+ const [upstream,rain,forecast,official,radar]=await Promise.all([
   Promise.all(UPSTREAM_STATIONS.map(x=>fetchUpstreamStation(x,{now,fetchImpl}))),
   Promise.all(RAIN_AREAS.map(x=>fetchRainArea(x,{now,fetchImpl}))),
-  fetchOfficialVigilance(env,{now,fetchImpl})
+  Promise.all(RAIN_AREAS.map(x=>fetchRainForecast(x,{now,fetchImpl}))),
+  fetchOfficialVigilance(env,{now,fetchImpl}),
+  fetchRadarCatalogue(env,{now,fetchImpl})
  ]);
  return {ok:true,station:EARLY_SIGNALS_STATION,checkedAt:new Date(now).toISOString(),
-  upstream,rain,official,
-  radar:{status:'not_connected',provider:'Météo-France',source:'actual_radar',note:'Requires API access and validated radar processing'},
+  upstream,rain,forecast,official,radar,
   interpretation:'information_only',changesFloodThresholds:false,
-  rainSource:'Open-Meteo past-hour model estimates; not measured rain or calibrated radar'};
+  rainSource:'Open-Meteo past-hour model estimates; not measured rain or calibrated radar',
+  forecastSource:'Météo-France AROME/ARPEGE model forecast via Open-Meteo; not measured rain'};
 }
 async function ensureTable(db){
  await db.prepare('CREATE TABLE IF NOT EXISTS early_signals (station_code TEXT PRIMARY KEY, checked_ms INTEGER NOT NULL, payload TEXT NOT NULL)').run();
