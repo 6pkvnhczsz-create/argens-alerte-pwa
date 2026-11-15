@@ -655,6 +655,44 @@ export default {
     return json(request,{error:'Radar product unavailable',stage:'download',code},502);
    }
   }
+  // Read-only live PIAF subscription probe. Only the already trusted radar
+  // GitHub workflow may invoke it; the Météo-France API key never leaves Worker.
+  // Returns only HTTP statuses and validated catalogue tags, never raw XML or keys.
+  if(url.pathname==='/api/radar-map/piaf-probe'&&request.method==='GET'){
+   const bearer=request.headers.get('Authorization')||'';
+   if(!bearer.startsWith('Bearer '))return json(request,{ok:false,error:'Workflow authentication required'},401);
+   try{await verifyRadarWorkflowToken(bearer.slice(7))}
+   catch{return json(request,{ok:false,error:'Workflow identity rejected'},401)}
+   if(!env.METEO_FRANCE_API_KEY)return json(request,{ok:false,error:'API key not configured'},503);
+   const candidates=[
+    'https://public-api.meteofrance.fr/public/piaf/1.0/wms/MF-NWP-HIGHRES-PIAF-001-FRANCE-WMS/GetCapabilities?service=WMS&version=1.3.0&language=fre',
+    'https://public-api.meteofrance.fr/public/piaf/1.0/wms/MF-NWP-PIAF-001-FRANCE-WMS/GetCapabilities?service=WMS&version=1.3.0&language=fre'
+   ];
+   const answers=[];
+   for(let i=0;i<candidates.length;i++){
+    try{
+     const result=await fetch(candidates[i],{
+      headers:{apikey:env.METEO_FRANCE_API_KEY,Accept:'application/xml'},
+      redirect:'manual',signal:AbortSignal.timeout(14000),cf:{cacheTtl:0}
+     });
+     const type=String(result.headers.get('content-type')||'').slice(0,100).replace(/[^a-zA-Z0-9/;= .-]/g,'');
+     let catalogue=false,layerCount=0,preview=[];
+     if(result.ok&&type.includes('xml')){
+      const body=await result.text();
+      if(body.length<2000000&&/<(?:WMS_Capabilities|WMT_MS_Capabilities|\w+:Capabilities)\b/i.test(body)){
+       catalogue=true;
+       const names=[...body.matchAll(/<Name>\s*([A-Z_][A-Z0-9_]+)\s*<\/Name>/g)]
+        .map(m=>m[1]).filter(x=>/PRECIP|RAIN|WATER/i.test(x));
+       layerCount=names.length;preview=names.slice(0,4);
+      }
+     }
+     answers.push({variant:i+1,httpStatus:result.status,contentType:type,catalogue,precipitationLayers:layerCount,layerNames:preview});
+     if(catalogue)break;
+    }catch{answers.push({variant:i+1,httpStatus:0,error:'request_failed'})}
+   }
+   return json(request,{ok:true,checkedAt:new Date().toISOString(),model:'PIAF',answers});
+  }
+
   if(url.pathname==='/api/radar-map/ingest'&&request.method==='POST'){
    const bearer=request.headers.get('Authorization')||'';
    if(!bearer.startsWith('Bearer '))return json(request,{error:'Signed radar workflow required'},401);
