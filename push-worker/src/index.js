@@ -13,6 +13,26 @@ export class AdminPushService extends WorkerEntrypoint {
    return {status:'good',observedAt:new Date(result.points[0].time).toISOString(),transport:result.transport||'direct'};
   }catch(e){return {status:'bad',error:String(e.message||e).slice(0,480)}}
  }
+ async vigicruesCoverageAdmin(){
+  const db=this.env.DB,now=Date.now();
+  const {stations,deferred}=await activeBackupStationCodes(db,{now});
+  const active=[...new Set([...stations,...deferred])].sort();
+  const skipped=new Set(deferred);
+  const rows=(await db.prepare('SELECT station_code,latest_ms,received_ms FROM vigicrues_backup_snapshots').all()).results||[];
+  const byCode=new Map(rows.map(x=>[x.station_code,x]));
+  const names=(await db.prepare("SELECT p.station_code,MAX(p.station_name) AS station_name FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE u.status='active' GROUP BY p.station_code").all()).results||[];
+  const labels=new Map(names.map(x=>[x.station_code,x.station_name]));
+  const coverage=active.map(code=>{
+   const row=byCode.get(code),received=Number(row?.received_ms),last=Number(row?.latest_ms);
+   const current=row&&Number.isSafeInteger(received)&&Number.isSafeInteger(last)&&
+     received<=now+15*60000&&now-received<=75*60000&&
+     last<=now+15*60000&&now-last<=3*3600000;
+   const status=current?'good':skipped.has(code)?'unavailable':row?'stale':'pending';
+   return {station:code,name:code===STATION?'Roquebrune-sur-Argens':labels.get(code)||code,
+     status,observedAt:Number.isSafeInteger(last)?new Date(last).toISOString():null};
+  });
+  return {stations:coverage,activeCount:active.length,coveredCount:coverage.filter(x=>x.status==='good').length};
+ }
  async broadcastAdmin(data){
   if(!['test','maintenance','incident','custom'].includes(data?.kind)||typeof data.title!=='string'||typeof data.body!=='string'||!data.title.trim()||!data.body.trim()||data.title.length>90||data.body.length>400)throw Error('Invalid admin message');
   const db=this.env.DB;
