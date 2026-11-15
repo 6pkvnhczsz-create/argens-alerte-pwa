@@ -667,6 +667,13 @@ window.argensGermanText = function(text, englishText) {
   const start=value.indexOf(trimmed);
   return value.slice(0,start)+de[trimmed]+value.slice(start+trimmed.length);
  }
+ const range=value.match(/^Sur (\d+) (min|h)$/);
+ if(range)return 'Über '+range[1]+' '+(range[2]==='h'?'Std.':'Min.');
+ const minuteTrend=value.match(/^([↗↘→]) Niveau (en hausse|en baisse|stable) sur (\d+) min(.*)$/);
+ if(minuteTrend){
+  const words=minuteTrend[2]==='en hausse'?'Wasserstand steigt':minuteTrend[2]==='en baisse'?'Wasserstand fällt':'Wasserstand unverändert';
+  return minuteTrend[1]+' '+words+' innerhalb der letzten '+minuteTrend[3]+' Min.'+minuteTrend[4].replace(' · données potentiellement anciennes',' · möglicherweise veraltete Messwerte');
+ }
  const trend=value.match(/^([↗↘→]) Niveau (en hausse|en baisse|stable) sur (\d+) h(.*)$/);
  if(trend) {
   const state=trend[2]==='en hausse'?'Wasserstand steigt':trend[2]==='en baisse'?'Wasserstand fällt':'Wasserstand unverändert';
