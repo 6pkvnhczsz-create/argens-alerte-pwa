@@ -236,6 +236,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <input id="accountLastName" type="text" autocomplete="family-name" maxlength="80" required placeholder="Nom">
 <label for="accountEmail" class="note">Adresse e-mail</label>
 <input id="accountEmail" type="email" autocomplete="email" placeholder="nom@exemple.fr" style="margin:8px 0;padding:12px;border:1px solid #c7dbe3;border-radius:10px">
+<p class="note" id="accountPrivacyNote" style="margin:7px 0 12px"><a href="#privacyDetails" id="accountPrivacyLink" style="color:#087f91;text-decoration:underline;font-weight:700">Consultez notre politique de confidentialité</a> avant de créer un compte.</p>
 <button id="accountRequest" type="button" style="padding:10px;border-radius:9px">Recevoir un code</button>
 <div id="accountVerifyArea" class="hidden" style="margin-top:12px">
 <label for="accountCode" class="note">Code à 6 chiffres</label>
@@ -255,6 +256,31 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <button type="button" id="healthRefresh" style="margin-top:10px;padding:9px 12px;border:1px solid #9db6c2;border-radius:9px;background:white;color:#163447;font:inherit;font-size:13px">↻ Actualiser l’état</button>
 </section>
 </div>
+<section id="legalInfo" class="panel" style="margin-top:18px;font-size:13px;line-height:1.6">
+<div id="legalLinks" style="display:flex;gap:14px;flex-wrap:wrap">
+<a href="#privacyDetails" data-legal-fr="Confidentialité" data-legal-en="Privacy" style="color:#087f91;font-weight:700">Confidentialité</a>
+<a href="#legalDetails" data-legal-fr="Mentions légales" data-legal-en="Legal notice" style="color:#087f91;font-weight:700">Mentions légales</a>
+</div>
+<details id="privacyDetails" style="margin-top:14px"><summary data-legal-fr="Confidentialité – informations sur les données" data-legal-en="Privacy – information about your data" style="cursor:pointer;font-weight:700">Confidentialité – informations sur les données</summary>
+<div class="legal-fr" lang="fr">
+<p><strong>Responsable :</strong> Patrick Hammerschmidt, c/o one-shot Filmproduktionen GmbH, Kalscheurener Straße 19, 50354 Hürth, Allemagne.</p>
+<p>Pour créer et utiliser un compte, nous traitons le prénom, le nom, l’adresse e-mail, les codes temporaires de connexion et les données de session. Pour les notifications, nous traitons notamment les abonnements push, les paramètres de station et les seuils choisis. Ces données servent à fournir les fonctions demandées (art. 6, § 1, b du RGPD). Certaines données techniques nécessaires à la sécurité et au fonctionnement peuvent être traitées sur la base de notre intérêt légitime (art. 6, § 1, f).</p>
+<p>La recherche de stations à proximité peut utiliser votre position si vous l’autorisez. L’application utilise notamment Cloudflare (hébergement et services techniques), Resend (e-mails de connexion), Hub’Eau (mesures), Open-Meteo (météo), OpenStreetMap/Leaflet (cartographie) et Windy (radar externe). Des données techniques, notamment l’adresse IP, peuvent être transmises lors de l’accès à ces services. Des transferts hors de l’Espace économique européen peuvent avoir lieu selon le prestataire et sa configuration.</p>
+<p>Nous conservons les données aussi longtemps que nécessaire pour fournir le service et respecter les obligations applicables. Vous pouvez demander l’accès, la rectification, l’effacement, la limitation, la portabilité lorsque applicable, ou vous opposer à certains traitements. Vous pouvez également déposer une réclamation auprès d’une autorité de protection des données. Pour exercer vos droits, écrivez au responsable à l’adresse postale ci-dessus. Les notifications peuvent être désactivées dans les paramètres du navigateur ou de l’appareil.</p>
+<p>Les estimations hydrologiques sont indicatives et ne remplacent pas les avertissements officiels.</p>
+</div>
+<div class="legal-en" lang="en" hidden>
+<p><strong>Controller:</strong> Patrick Hammerschmidt, c/o one-shot Filmproduktionen GmbH, Kalscheurener Straße 19, 50354 Hürth, Germany.</p>
+<p>To create and use an account, we process first name, last name, email address, temporary sign-in codes and session data. For notifications, we process push subscriptions, station settings and chosen thresholds. This is necessary to provide the requested features (GDPR Article 6(1)(b)). Certain technical data required for security and operation may be processed based on legitimate interests (Article 6(1)(f)).</p>
+<p>Nearby station search may use your location if you allow it. The app uses Cloudflare (hosting and technical services), Resend (sign-in emails), Hub’Eau (measurements), Open-Meteo (weather), OpenStreetMap/Leaflet (maps) and Windy (external radar). Technical data, including IP addresses, may be transmitted when accessing these services. Transfers outside the European Economic Area may occur depending on provider and configuration.</p>
+<p>We retain data for as long as necessary to provide the service and meet applicable obligations. You can request access, correction, erasure, restriction, portability where applicable, or object to certain processing. You can also complain to a data protection authority. To exercise your rights, write to the controller at the postal address above. Notifications can be disabled in browser or device settings.</p>
+<p>Hydrological estimates are indicative and do not replace official warnings.</p>
+</div>
+</details>
+<details id="legalDetails" style="margin-top:12px"><summary data-legal-fr="Mentions légales – éditeur" data-legal-en="Legal notice – publisher" style="cursor:pointer;font-weight:700">Mentions légales – éditeur</summary>
+<div class="legal-fr" lang="fr"><p><strong>Éditeur et responsable du contenu :</strong> Patrick Hammerschmidt, c/o one-shot Filmproduktionen GmbH, Kalscheurener Straße 19, 50354 Hürth, Allemagne. Exploitation à titre personnel, distincte de la société mentionnée uniquement comme adresse de correspondance.</p><p>Infrastructure technique : Cloudflare. Rivière Alerte est un service indépendant, non affilié aux autorités publiques. Les données et estimations ne constituent pas des alertes officielles.</p></div>
+<div class="legal-en" lang="en" hidden><p><strong>Publisher and content responsibility:</strong> Patrick Hammerschmidt, c/o one-shot Filmproduktionen GmbH, Kalscheurener Straße 19, 50354 Hürth, Germany. Operated personally; the company is listed only as a correspondence address.</p><p>Technical infrastructure: Cloudflare. Rivière Alerte is an independent service, not affiliated with public authorities. Data and estimates are not official warnings.</p></div>
+</details></section>
 <nav class="bottom" aria-label="Navigation"><button class="active" data-tab="overview"><span class="nav-icon">⌂</span><span>Accueil</span></button><button data-tab="Carte"><span class="nav-icon">⌖</span><span>Carte</span></button><button data-tab="Alertes"><span class="nav-icon">♧</span><span>Alertes</span></button><button data-tab="Groupes"><span class="nav-icon">◉</span><span>Groupes</span></button><button data-tab="Réglages"><span class="nav-icon">⚙</span><span>Réglages</span></button></nav>
 </div><script>
 const slider=document.querySelector('#slider'),level=document.querySelector('#level'),status=document.querySelector('#status'),delta=document.querySelector('#delta');
@@ -728,6 +754,8 @@ async function syncPushLanguage(language){
 /* English translation layer for the public PWA, including live updates. French remains the source language. */
 (()=>{
 const translations={
+"Consultez notre politique de confidentialité":"Read our privacy information"," avant de créer un compte.":" before creating an account.",
+
 "🌊 Argens Alerte":"🌊 Argens Alerte",
 "Roquebrune-sur-Argens":"Roquebrune-sur-Argens",
 "Pluie estimée · 24 h passées":"Estimated rain · past 24 h",
@@ -786,6 +814,10 @@ function translate(text){const chartTrend=text.match(/^([↗↘→]) Niveau (en 
 function applyNode(node){if(node.nodeType!==3)return;const current=node.nodeValue;if(!current.trim())return;let fr=original.get(node);if(fr===undefined||current!==rendered.get(node)){fr=current;original.set(node,fr)}const next=lang==='en'?translate(fr).replace(/^Sur (\d+ min)$/,'Over $1'):fr;rendered.set(node,next);if(current!==next)node.nodeValue=next}
 function walk(root){if(root.nodeType===3){applyNode(root);return}if(root.nodeType!==1&&root.nodeType!==9)return;const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);while(walker.nextNode())applyNode(walker.currentNode);if(root.nodeType===1||root.nodeType===9){for(const el of [...(root.nodeType===1?[root]:[]),...root.querySelectorAll('[placeholder],[aria-label]')])for(const attr of ['placeholder','aria-label']){if(!el.hasAttribute(attr))continue;const key='i18n'+attr;const fr=el.dataset[key]||el.getAttribute(attr);el.dataset[key]=fr;el.setAttribute(attr,lang==='en'?translate(fr):fr)}}}
 function setLanguage(next){lang=next;localStorage.setItem('argens-language',lang);syncPushLanguage(lang);document.documentElement.lang=lang;document.dispatchEvent(new Event('argens-language-changed'));document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===lang)));walk(document);document.querySelector('#accountFirstName').placeholder=lang==='en'?'First name':'Prénom';document.querySelector('#accountLastName').placeholder=lang==='en'?'Last name':'Nom'}
+function syncLegalLanguage(){const en=document.documentElement.lang==='en';document.querySelectorAll('#legalInfo .legal-fr').forEach(el=>el.hidden=en);document.querySelectorAll('#legalInfo .legal-en').forEach(el=>el.hidden=!en);document.querySelectorAll('#legalInfo [data-legal-fr]').forEach(el=>el.textContent=en?el.dataset.legalEn:el.dataset.legalFr)}
+document.addEventListener('argens-language-changed',syncLegalLanguage);
+document.querySelector('#accountPrivacyLink').addEventListener('click',()=>{document.querySelector('#privacyDetails').open=true});
+syncLegalLanguage();
 document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>setLanguage(b.dataset.lang)));
 document.addEventListener('argens-language-changed',()=>renderAlertRules(activeStation));
 document.addEventListener('argens-language-changed',()=>{renderThresholdLabels(activeStation);if(chartReadings.length)renderForecast(chartReadings,activeStation)});
