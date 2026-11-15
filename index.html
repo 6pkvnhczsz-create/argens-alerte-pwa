@@ -1246,17 +1246,17 @@ setLanguage(lang);
     ios?'Show installation steps':installEvent?'Install app':'How to install');
   put('installBannerLater','Plus tard','Later');
   put('installBannerStepsTitle','Installation sur votre téléphone','Install on your phone');
-  put('installBannerStep1',ios?'Dans Safari, touchez Partager (éventuellement via le menu de la page « … »).':
+  put('installBannerStep1',ios?'Dans Safari, touchez en bas à gauche le bouton de menu avec trois lignes horizontales (☰), comme sur l’image.':
     'Ouvrez le menu du navigateur (⋮).',
-    ios?'In Safari, tap Share (possibly under the page menu “…”).':'Open the browser menu (⋮).');
-  put('installBannerStep2',ios?'Choisissez « Sur l’écran d’accueil ».':'Choisissez « Installer l’application » ou « Ajouter à l’écran d’accueil ».',
-    ios?'Choose “Add to Home Screen”.':'Choose “Install app” or “Add to Home screen”.');
-  put('installBannerStep3',ios?'Activez « Ouvrir comme app web » si proposé, puis touchez « Ajouter ».':'Confirmez l’installation.',
-    ios?'Turn on “Open as Web App” if offered, then tap “Add”.':'Confirm the installation.');
+    ios?'In Safari, tap the menu button with three horizontal lines (☰) at the bottom left, as shown in the example.':'Open the browser menu (⋮).');
+  put('installBannerStep2',ios?'Dans ce menu, touchez « Partager » (icône carré avec flèche vers le haut), puis « Sur l’écran d’accueil ».':'Choisissez « Installer l’application » ou « Ajouter à l’écran d’accueil ».',
+    ios?'In the menu, tap “Share” (the square with an upward arrow), then “Add to Home Screen”.':'Choose “Install app” or “Add to Home screen”.');
+  put('installBannerStep3',ios?'Activez « Ouvrir comme app web » si proposé, puis touchez « Ajouter ». L’icône apparaît sur l’écran d’accueil.':'Confirmez l’installation.',
+    ios?'Turn on “Open as Web App” if offered, then tap “Add”. The icon appears on your Home Screen.':'Confirm the installation.');
   put('installBannerHint',ios?
-    'Si vous venez de WhatsApp ou Facebook, ouvrez la page dans Safari. Si l’option manque, faites défiler le menu Partager et choisissez « Modifier les actions ».':
+    'Selon la version de Safari, le bouton Partager peut aussi être visible directement. Si vous venez de WhatsApp ou Facebook, ouvrez d’abord la page dans Safari. Si « Sur l’écran d’accueil » manque, faites défiler le menu Partager.':
     'Si aucun bouton d’installation n’est proposé, utilisez l’option du menu du navigateur.',
-    ios?'If you opened this page from WhatsApp or Facebook, open it in Safari first. If the option is missing, scroll down in Share and choose “Edit Actions”.':
+    ios?'Depending on your Safari version, the Share button may also be visible directly. If you opened the page from WhatsApp or Facebook, open it in Safari first. If “Add to Home Screen” is missing, scroll down in the Share menu.':
     'If no installation button is available, use the option in your browser menu.');
   settings.textContent=txt('📲 Installer l’application sur cet appareil','📲 Install the app on this device');
   close.setAttribute('aria-label',txt('Fermer','Close'));
