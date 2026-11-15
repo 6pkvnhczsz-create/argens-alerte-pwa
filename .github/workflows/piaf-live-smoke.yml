@@ -18,7 +18,7 @@ jobs:
           import json,time,urllib.request,urllib.error,datetime
           base='https://argens-alerte-push.p-hammerschmidt.workers.dev/api/piaf'
           last=None
-          for attempt in range(9):
+          for attempt in range(3):
             try:
               req=urllib.request.Request(base+'/metadata',headers={'Accept':'application/json','Origin':'https://riviere-alerte.fr'})
               with urllib.request.urlopen(req,timeout=28) as response:
@@ -41,11 +41,11 @@ jobs:
               last='HTTP '+str(ex.code)
               detail=ex.read(500).decode('utf-8','replace')
               print('PIAF live attempt',attempt+1,last,'response:',detail[:400], 'server:',ex.headers.get('Server'))
-              if attempt==8:raise
-              time.sleep(10)
+              if attempt==2:raise
+              time.sleep(3)
             except Exception as ex:
               last=str(ex)
               print('PIAF live attempt',attempt+1,':',last[:350])
-              if attempt==8:raise
-              time.sleep(10)
+              if attempt==2:raise
+              time.sleep(3)
           PY
