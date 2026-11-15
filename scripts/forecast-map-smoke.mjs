@@ -5,8 +5,10 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM,VirtualConsole} from 'jsdom';
 const piafScript=readFileSync(new URL('../piaf-player.js',import.meta.url),'utf8');
+const paletteScript=readFileSync(new URL('../piaf-palette.js',import.meta.url),'utf8');
 const page=readFileSync(new URL('../index.html',import.meta.url),'utf8')
  .replace(/<script src="\.\/i18n-de\.js"><\/script>/,'')
+ .replace('<script src="./piaf-palette.js"></script>','<script>'+paletteScript+'</script>')
  .replace('<script src="./piaf-player.js"></script>','<script>'+piafScript+'</script>');
 const codes=['Y511201001','Y530501501','Y520201001','Y523501002','Y521502002'];
 const names=['Carcès · Argens','Le Muy · Endre','Les Arcs · Argens','Trans-en-Provence · Nartuby','Vidauban · Aille'];
@@ -20,7 +22,7 @@ const model={
  rain:areas.map((id,i)=>({id,name:id,status:'estimated',last3hMm:i+2,last6hMm:i+3})),
  upstream:codes.map((code,i)=>({code,name:names[i],status:'current',levelM:1.1+i*.1,trendCmH:i-2,observedAt:current}))
 };
-const errors=[],coordRequests=[],pins=[],piafOverlays=[];
+const errors=[],coordRequests=[],pins=[],piafOverlays=[],mappedPixels=[];
 const forecastBase=Math.ceil(Date.now()/300000)*300000;
 const forecastFrames=[0,1,2].map(i=>new Date(forecastBase+i*300000).toISOString().replace('.000Z','Z'));
 const piafMock={ok:true,available:true,source:'Météo-France PIAF',kind:'forecast_5min',bounds:[5.85,43.18,6.91,43.85],referenceTime:new Date(forecastBase-300000).toISOString().replace('.000Z','Z'),frames:forecastFrames};
@@ -48,7 +50,17 @@ const dom=new JSDOM(page,{url:'https://riviere-alerte.fr/',runScripts:'dangerous
   w.scrollTo=()=>{};
   w.matchMedia=()=>({matches:false,addListener(){},removeListener(){}});
   w.AbortSignal.timeout=()=>new w.AbortController().signal;
-  w.Image=class {set src(url){this._src=url;setTimeout(()=>this.onload?.(),3)}get src(){return this._src}decode(){return Promise.resolve()}};
+  w.Image=class {constructor(){this.naturalWidth=6;this.naturalHeight=1}set src(url){this._src=url;setTimeout(()=>this.onload?.(),3)}get src(){return this._src}decode(){return Promise.resolve()}};
+  w.HTMLCanvasElement.prototype.getContext=function(){
+   return {drawImage(){},getImageData(){
+    return {data:new Uint8ClampedArray([
+     99,0,110,255, 0,0,254,255, 0,177,254,255,
+     0,240,20,255, 255,255,0,255, 255,20,0,255
+    ])};
+   },putImageData(pixels){mappedPixels.push(Array.from(pixels.data))}};
+  };
+  w.HTMLCanvasElement.prototype.toDataURL=()=>('data:image/png;base64,AAAB');
+
   w.fetch=async url=>{
    const str=String(url);
    let data={data:[]};
@@ -86,13 +98,16 @@ assert.equal(d.getElementById('piafSlider').max,'2');
 assert.equal(piafOverlays.length>=1,true,'A valid PIAF forecast image should be requested');
 assert.equal(d.getElementById('weatherPanel'),null,'Redundant still radar map is removed');
 assert.ok(d.getElementById('piafLegendBlock'),'PIAF legend block must be displayed');
-d.getElementById('piafLegendImage').dispatchEvent(new w.Event('error'));
-assert.equal(d.getElementById('piafLegendFallback').hidden,false,'A missing official legend must display a careful fallback');
-assert.equal(d.querySelectorAll('.piaf-color-key>div').length,6,'Public Météo-France standard radar palette has six indicative intensity bands');
-assert.match(d.getElementById('piafLegendFallbackNote').textContent,/PIAF/);
-assert.match(d.getElementById('piafLegendImage').src,/\/api\/piaf\/legend$/,'Only official WMS legend can label exact rainfall intensity');
-assert.equal(piafOverlays[0].opacity,0.82,'Loaded forecast image becomes visible only after decoding');
-assert.match(piafOverlays[0].url,/\/api\/piaf\/frame\?time=/);
+assert.equal(d.getElementById('piafLegendImage'),null,'The old WMS palette is no longer shown');
+assert.equal(d.querySelectorAll('.piaf-custom-color-key>div').length,6,'The six own intensity bands are visible');
+assert.equal(d.getElementById('piafBand0').textContent,'Très faible');
+assert.match(d.getElementById('piafLegendNote').textContent,/relative/);
+assert.equal(piafOverlays[0].opacity,0.82,'Decoded and recoloured forecast is visible');
+assert.match(piafOverlays[0].url,/^data:image\/png;base64,/,'The map renders recoloured data, never the raw violet WMS frame');
+assert.ok(mappedPixels.length,'Browser canvas should recolour at least one frame');
+assert.deepEqual(mappedPixels[0].slice(0,3),[186,233,255],'Original violet maps to very light blue');
+assert.deepEqual(mappedPixels[0].slice(4,7),[80,184,240],'Original blue maps to light blue');
+assert.deepEqual(mappedPixels[0].slice(8,11),[21,85,165],'Original cyan maps to dark blue');
 d.getElementById('piafSlider').value='1';
 d.getElementById('piafSlider').dispatchEvent(new w.Event('input',{bubbles:true}));
 await new Promise(resolve=>setTimeout(resolve,210));
@@ -161,13 +176,13 @@ for(const lang of ['de','en','fr']){
   assert.match(d.getElementById('piafForecastTitle').textContent,/Regenprognose/);
   assert.match(d.getElementById('stationSearchTitle').textContent,/Station in meiner Nähe finden/);
   assert.match(d.getElementById('stationSearchIntro').textContent,/Heimatstation auswählen/);
-  assert.match(d.getElementById('piafLegendFallbackIntro').textContent,/Radarskala/);
-  assert.match(d.getElementById('piafLegendFallbackNote').textContent,/keine|nicht verfügbar/);
+  assert.match(d.getElementById('piafLegendTitle').textContent,/Relative Intensität/);
+  assert.match(d.getElementById('piafLegendNote').textContent,/keine exakten/);
  }
  assert.equal(d.querySelectorAll('#earlyForecastRows .rain-list-row').length,3);
 }
 d.querySelector('[data-tab="Alertes"]').click();
 assert.equal(d.querySelector('#pushSettings').classList.contains('hidden'),false,'Alerts still clickable');
 assert.deepEqual(errors,[],'No runtime errors after map/list or language changes');
-console.log('PASS: buffered PIAF frame player, official legend source, one less radar still, multilingual labels, upstream trends');
+console.log('PASS: PIAF 6-colour canvas mapping, preloaded animation, three languages, no unverified mm/h thresholds, upstream stations');
 process.exit(0);

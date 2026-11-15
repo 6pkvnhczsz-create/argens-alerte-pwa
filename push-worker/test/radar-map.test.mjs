@@ -112,7 +112,9 @@ test('forecast UI uses buffered PIAF while observed radar remains available sepa
  assert.doesNotMatch(page,/id="weatherPanel"/);
  assert.doesNotMatch(page,/id="officialRadarMap"/);
  assert.match(player,/api\/piaf/);
- assert.match(player,/\/legend/);
+ assert.match(player,/PiafPalette/);
+ assert.match(page,/piaf-custom-color-key/);
+ assert.match(page,/piaf-palette.js/);
  assert.doesNotMatch(page,/apikey\s*:/);
  assert.doesNotMatch(player,/apikey\s*:/);
  assert.match(worker,/api\/radar-map\/raw/);

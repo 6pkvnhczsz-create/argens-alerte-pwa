@@ -317,7 +317,9 @@ test('worker surface is information only, does not rewrite warning functions',()
  assert.match(page,/healthState\.weather=forecasts\.length\?'good':'bad'/);
  assert.doesNotMatch(page,/class="map-add-swarm"/);
  assert.match(page,/id="earlyForecastRows"/);
- assert.match(page,/id="piafLegendImage"/);
+ assert.match(page,/id="piafBand0"/);
+ assert.match(page,/id="piafBand5"/);
+ assert.match(page,/piaf-palette.js/);
  assert.match(page,/keine Radarmessung/i);
  assert.match(page,/Windy \(externer Anbieter\)/i);
  const inline=[...page.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).filter(Boolean);
