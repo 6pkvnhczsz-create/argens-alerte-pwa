@@ -518,7 +518,7 @@ function renderForecast(items,code){
  document.querySelector('#forecastRed').textContent=estimate(thresholds.red);
  const signed=rate>0?'+':'';
  statusEl.textContent=direction+' · '+signed+rate.toFixed(1).replace('.',',')+' cm/h';
- projectedEl.textContent=(en?'Estimated level in 6 h: ':'Niveau estimé dans 6 h : ')+num(projected)+' m';
+ projectedEl.textContent=(en?'Estimated level within the next 6h: ':'Niveau estimé dans 6 h : ')+num(projected)+' m';
  projectedEl.classList.remove('hidden');
  out.classList.remove('hidden');
 }
