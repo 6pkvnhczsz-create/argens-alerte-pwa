@@ -8,7 +8,7 @@ const REG='https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations';
 const OBS='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr';
 const MAX_EDGES=4500,MAX_BYTES=9500000,MAX_STATIONS=800;
 const kmPerDegree=111.2;
-function delta(lat){return {y:0.11,x:0.11/Math.max(0.55,Math.cos(lat*Math.PI/180))}}
+function delta(lat){return {y:0.045,x:0.045/Math.max(0.55,Math.cos(lat*Math.PI/180))}}
 export function localBboxes(lat,lon){
  const d=delta(lat);
  const bounds=[lon-d.x,lat-d.y,lon+d.x,lat+d.y];
@@ -123,6 +123,7 @@ export async function findLocalUpstream(code,{fetchImpl=fetch}={}){
   publicJson(reg.toString(),{fetchImpl,maxBytes:1200000})
  ]);
  if(!Array.isArray(network.features)||network.features.length>=MAX_EDGES||
+  (Number.isFinite(Number(network.numberMatched))&&Number(network.numberMatched)>network.features.length)||
   !Array.isArray(nearby.data)||nearby.data.length>=MAX_STATIONS)
   throw Error('River graph truncated: refusing to infer connectivity');
  const stations=nearby.data.map(x=>({code:String(x.code_station||''),
@@ -130,7 +131,7 @@ export async function findLocalUpstream(code,{fetchImpl=fetch}={}){
   lat:Number(x.latitude_station),lon:Number(x.longitude_station)}));
  return {home:{code:home.code,name:home.name,lat:home.lat,lon:home.lon},
   candidates:connectedUpstream(home,stations,network.features),
-  evidence:'BD TOPAGE 2025 / Hub Eau',extent:'local-approximately-12km',
+  evidence:'BD TOPAGE 2025 / Hub Eau',extent:'local-approximately-5km',
   checkedAt:new Date().toISOString()};
 }
 export async function recentUpstreamReading(station,{fetchImpl=fetch,now=Date.now()}={}){
