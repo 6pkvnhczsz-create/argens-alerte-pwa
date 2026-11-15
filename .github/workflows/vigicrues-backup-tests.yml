@@ -6,6 +6,7 @@ on:
       - 'push-worker/src/vigicrues-snapshot.mjs'
       - 'push-worker/src/water-sources.mjs'
       - 'push-worker/test/vigicrues-snapshot.test.mjs'
+      - 'scripts/sync_vigicrues_backup.py'
       - '.github/workflows/vigicrues-backup-tests.yml'
   workflow_dispatch:
 

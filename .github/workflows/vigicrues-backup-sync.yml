@@ -1,5 +1,7 @@
 name: Vigicrues backup to Cloudflare
 
+# Cloudflare workers.dev requires a descriptive application User-Agent (error 1010).
+
 on:
   schedule:
     - cron: '*/5 * * * *'
