@@ -1513,14 +1513,21 @@ function renderEarlySignals(){
   radar?.status==='not_configured'?
    earlyI18n('Radar officiel : accès non configuré.','Official radar: access not configured.','Amtliches Radar: Zugang nicht eingerichtet.'):
    earlyI18n('Radar officiel : vérification temporairement indisponible.','Official radar: verification temporarily unavailable.','Amtliches Radar: Prüfung vorübergehend nicht verfügbar.'));
- const upstream=d.upstream||[],active=upstream.filter(x=>x.status==='current');
- earlyText('earlyUpstreamStatus',active.length?earlyI18n('Variations de hauteur observées','Observed local water-level trends','Gemessene lokale Pegeltrends'):
+ // Show only stations with recent readings and a valid observed trend.
+ // A missing station is rechecked by the Worker and reappears automatically when available.
+ const upstream=(d.upstream||[]),active=upstream.filter(u=>{
+  const t=Date.parse(u.observedAt);
+  return u.status==='current'&&Number.isFinite(u.levelM)&&Number.isFinite(u.trendCmH)
+   &&Number.isFinite(t)&&Date.now()-t<=90*60000&&t-Date.now()<=15*60000;
+ });
+ earlyText('earlyUpstreamStatus',active.length?
+  earlyI18n('Stations avec mesures récentes : ','Stations with current readings: ','Stationen mit aktuellen Messwerten: ')+active.length:
   earlyI18n('Aucune mesure récente disponible','No recent observations available','Keine aktuellen Messungen'));
- for(const u of upstream){
-  const delta=Number.isFinite(u.trendCmH)?((u.trendCmH>=0?'+':'')+u.trendCmH.toLocaleString(document.documentElement.lang==='de'?'de-DE':'fr-FR',{maximumFractionDigits:1})+' cm/h'):
-   earlyI18n('tendance inconnue','trend unknown','Trend unbekannt');
-  upstreamNode.append(earlyLine(u.name+' · '+(u.status==='current'?delta:
-   earlyI18n('mesure indisponible','reading unavailable','Messung nicht verfügbar'))));
+ for(const u of active){
+  const delta=(u.trendCmH>=0?'+':'')+u.trendCmH.toLocaleString(document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',{maximumFractionDigits:1})+' cm/h';
+  const level=localNumber(u.levelM)+' m';
+  const measured=new Date(u.observedAt).toLocaleTimeString(document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',{timeZone:'Europe/Paris',hour:'2-digit',minute:'2-digit'});
+  upstreamNode.append(earlyLine(u.name+' · '+level+' · '+delta+' · '+measured));
  }
  const age=new Date(d.checkedAt);
  earlyText('earlySignalsChecked',Number.isFinite(age.getTime())?
