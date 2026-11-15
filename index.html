@@ -489,7 +489,8 @@ setInterval(()=>{if(!document.hidden)loadLocalWeather()},30*60*1000);
 document.addEventListener('argens-language-changed',()=>loadLocalWeather());
 function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
- const en=document.documentElement.lang==='en';
+ const en=document.documentElement.lang==='en',de=document.documentElement.lang==='de';
+ const tr=(fr,english)=>de?(window.argensGermanText?window.argensGermanText(fr,english):fr):en?english:fr;
  const projectedEl=document.querySelector('#forecastProjected');projectedEl.classList.add('hidden');
  // Clear forecast-only colors before every recalculation, including stale or missing data.
  const orangeCard=document.querySelector('#forecastOrange').closest('.card');
@@ -497,12 +498,12 @@ function renderForecast(items,code){
  orangeCard.classList.remove('forecast-threshold-orange');
  redCard.classList.remove('forecast-threshold-red');
  box.classList.remove('hidden');out.classList.add('hidden');renderThresholdLabels(code);
- document.querySelector('#forecastHeading').textContent=en?'🔎 6-hour water-level trend':'🔎 Tendance du niveau sur 6 h';
- document.querySelector('#forecastDisclaimer').textContent=en?'Estimate of the next 6 hours based on recent water-level changes. Not an official forecast or warning. Conditions can change quickly, and uncertainty increases over time.':'Estimation sur 6 heures basée sur les dernières variations du niveau d’eau. Ce n’est ni une prévision officielle ni une alerte. Le niveau peut changer rapidement et l’incertitude augmente avec le temps.';
- const unavailable=(msg)=>{statusEl.textContent=msg||(en?'Insufficient recent measurements for a trend.':'Mesures récentes insuffisantes pour établir une tendance.')};
+ document.querySelector('#forecastHeading').textContent=de?'🔎 Wasserstandstrend':tr('🔎 Tendance du niveau sur 6 h','🔎 6-hour water-level trend');
+ document.querySelector('#forecastDisclaimer').textContent=tr('Estimation sur 6 heures basée sur les dernières variations du niveau d’eau. Ce n’est ni une prévision officielle ni une alerte. Le niveau peut changer rapidement et l’incertitude augmente avec le temps.','Estimate of the next 6 hours based on recent water-level changes. Not an official forecast or warning. Conditions can change quickly, and uncertainty increases over time.');
+ const unavailable=(msg)=>{statusEl.textContent=msg||tr('Mesures récentes insuffisantes pour établir une tendance.','Insufficient recent measurements for a trend.')};
  if(items.length<3){unavailable();return}
  const last=items[0],age=Date.now()-last.date.getTime();
- if(age< -15*60000||age>60*60000){unavailable(en?'Latest reading too old to estimate the trend.':'Dernière mesure trop ancienne pour estimer la tendance.');return}
+ if(age< -15*60000||age>60*60000){unavailable(tr('Dernière mesure trop ancienne pour estimer la tendance.','Latest reading too old to estimate the trend.'));return}
  const reference=target=>items.filter(x=>{const d=(last.date-x.date)/60000;return d>=target-10&&d<=target+10}).sort((a,b)=>Math.abs((last.date-a.date)/60000-target)-Math.abs((last.date-b.date)/60000-target))[0];
  const p60=reference(60),p120=reference(120);
  if(!p60||!p120){unavailable();return}
@@ -510,17 +511,17 @@ function renderForecast(items,code){
  const r2=(p60.value-p120.value)/10/((p60.date-p120.date)/3600000);
  if(!Number.isFinite(r1)||!Number.isFinite(r2)){unavailable();return}
  // Allow rising, falling and stable trends. A strongly changing slope is too unreliable to extrapolate.
- if(Math.abs(r1-r2)>Math.max(15,Math.max(Math.abs(r1),Math.abs(r2))*.75)){unavailable(en?'Water level changing too unpredictably for an estimate.':'Évolution du niveau trop variable pour une estimation.');return}
+ if(Math.abs(r1-r2)>Math.max(15,Math.max(Math.abs(r1),Math.abs(r2))*.75)){unavailable(tr('Évolution du niveau trop variable pour une estimation.','Water level changing too unpredictably for an estimate.'));return}
  const rate=(r1+r2)/2,metres=last.value/1000,rateM=rate/100;
- const direction=rate>2?(en?'Rising':'En hausse'):rate< -2?(en?'Falling':'En baisse'):(en?'Stable':'Stable');
+ const direction=rate>2?tr('En hausse','Rising'):rate< -2?tr('En baisse','Falling'):tr('Stable','Stable');
  const projected=metres+rateM*6;
- const num=n=>n.toLocaleString(en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
- const fmt=hours=>{const minutes=Math.ceil(hours*60/5)*5;return (en?'about ':'env. ')+(minutes>=60?Math.floor(minutes/60)+' h'+(minutes%60?' '+minutes%60+' min':''):minutes+' min')};
+ const num=n=>n.toLocaleString(de?'de-DE':en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+ const fmt=hours=>{const minutes=Math.ceil(hours*60/5)*5;return tr('env. ','about ')+(minutes>=60?Math.floor(minutes/60)+' h'+(minutes%60?' '+minutes%60+' min':''):minutes+' min')};
  function estimate(threshold){
-   if(metres>=threshold)return en?'Already above threshold':'Seuil déjà dépassé';
-   if(rateM<=.02)return en?'Not expected to cross':'Franchissement non attendu';
+   if(metres>=threshold)return tr('Seuil déjà dépassé','Already above threshold');
+   if(rateM<=.02)return tr('Franchissement non attendu','Not expected to cross');
    const hours=(threshold-metres)/rateM;
-   return hours>0&&hours<=6?fmt(hours):en?'Not within 6 h':'Pas dans les 6 h';
+   return hours>0&&hours<=6?fmt(hours):tr('Pas dans les 6 h','Not within 6 h');
  }
  const thresholds=activeThresholds(code);
  // Highlight each card independently only when the current level is already at
@@ -532,8 +533,8 @@ function renderForecast(items,code){
  document.querySelector('#forecastOrange').textContent=estimate(thresholds.orange);
  document.querySelector('#forecastRed').textContent=estimate(thresholds.red);
  const signed=rate>0?'+':'';
- statusEl.textContent=direction+' · '+signed+rate.toFixed(1).replace('.',',')+' cm/h';
- projectedEl.textContent=(en?'Estimated level within the next 6h: ':'Niveau estimé dans 6 h : ')+num(projected)+' m';
+ statusEl.textContent=direction+' · '+signed+rate.toFixed(1).replace('.',de?',':en?'.':',')+(de?' cm/Std.':' cm/h');
+ projectedEl.textContent=tr('Niveau estimé dans 6 h : ','Estimated level within the next 6h: ')+num(projected)+' m';
  projectedEl.classList.remove('hidden');
  out.classList.remove('hidden');
 }
