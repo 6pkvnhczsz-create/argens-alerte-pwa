@@ -49,11 +49,28 @@ def api_request(path, *, method="GET", data=None, token=None):
     if data is not None:
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(API + path, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req, timeout=55) as res:
-        payload = res.read(MAX_HDF_BYTES + 1 if path.endswith("/raw") else 1_200_000)
-        if len(payload) > (MAX_HDF_BYTES if path.endswith("/raw") else 1_100_000):
-            raise RuntimeError("HTTP payload is too large")
-        return payload
+    try:
+        with urllib.request.urlopen(req, timeout=55) as res:
+            payload = res.read(MAX_HDF_BYTES + 1 if path.endswith("/raw") else 1_200_000)
+            if len(payload) > (MAX_HDF_BYTES if path.endswith("/raw") else 1_100_000):
+                raise RuntimeError("HTTP payload is too large")
+            return payload
+    except urllib.error.HTTPError as exc:
+        # Log only the Worker's fixed diagnostic fields. No bodies, tokens or
+        # request URLs are printed to public GitHub Actions logs.
+        stage = code = "unknown"
+        try:
+            safe = json.loads(exc.read(500))
+            stage = safe.get("stage", "unknown")
+            code = safe.get("code", "unknown")
+        except (ValueError, TypeError):
+            pass
+        if stage not in ("auth", "download"):
+            stage = "unknown"
+        if not isinstance(code, str) or len(code) > 60:
+            code = "unknown"
+        print("RADAR REQUEST FAILED", "HTTP", exc.code, "stage", stage, "diagnostic", code, flush=True)
+        raise RuntimeError("Radar API request failed") from None
 
 
 def identity_token():
