@@ -73,7 +73,7 @@ body = json.dumps(snapshot, separators=(",", ":")).encode("utf-8")
 request = urllib.request.Request(
     TARGET,
     data=body,
-    headers={"Content-Type": "application/json", "Authorization": "Bearer " + jwt},
+    headers={"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "RiviereAlerteBackup/1.0 (+https://riviere-alerte.fr)", "Authorization": "Bearer " + jwt},
     method="POST",
 )
 try:
