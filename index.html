@@ -767,8 +767,11 @@ async function findStations(lat,lon){
    otherList.replaceChildren(...other.map(x=>x.button));
    for(const entry of stationEntries){
     if(entry.marker&&stationMap){
-     const color=entry.info.status==='recent'?'#15976c':entry.info.status==='old'?'#d48a20':entry.info.status==='checking'?'#71818c':'#c63e4c';
-     entry.marker.setIcon(L.divIcon({className:'',html:'<span style="display:block;width:17px;height:17px;border:2px solid white;border-radius:50%;background:'+color+';box-shadow:0 1px 6px #173b4c99"></span>',iconSize:[17,17],iconAnchor:[8,8]}));
+     const active=entry.info.status==='recent';
+     const color=active?'#15976c':'#9aa5af';
+     // Leaflet divIcon: a teardrop pin with its tip anchored on the station.
+     const pin='<span style="display:block;position:relative;width:27px;height:35px;filter:drop-shadow(0 2px 3px #173b4c55)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 38" width="27" height="35" aria-hidden="true"><path d="M14 1C6.8 1 1 6.8 1 14c0 10 13 23 13 23s13-13 13-23C27 6.8 21.2 1 14 1Z" fill="'+color+'" stroke="#ffffff" stroke-width="2"/><circle cx="14" cy="14" r="5.5" fill="#ffffff"/></svg></span>';
+     entry.marker.setIcon(L.divIcon({className:'',html:pin,iconSize:[27,35],iconAnchor:[13,35],popupAnchor:[0,-31]}));
     }
    }
   }
