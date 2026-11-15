@@ -140,6 +140,31 @@ test('official vigilance reads Var department (83), not another department and s
  assert.throws(()=>parseMeteoVigilance({...fixtureOfficial(),product:{...fixtureOfficial().product,update_time:iso(NOW-25*3600000)}},{now:NOW}),/Outdated/);
  assert.throws(()=>parseMeteoVigilance({product:{update_time:iso(NOW),periods:[]}},{now:NOW}),/No valid/);
 });
+test('official warning colors select the right French department, never defaulting to Var',async()=>{
+ const a=parseMeteoVigilance(fixtureOfficial(),{now:NOW,department:'84',departmentName:'Vaucluse'});
+ assert.equal(a.department,'84');
+ assert.equal(a.departmentName,'Vaucluse');
+ assert.deepEqual(a.periods.map(p=>p.color),['red']);
+ assert.deepEqual(a.periods[0].phenomena,[]);
+ assert.equal(a.link,'https://vigilance.meteofrance.fr/fr');
+ assert.throws(()=>parseMeteoVigilance(fixtureOfficial(),{now:NOW,department:'06'}),/No valid department/);
+ assert.throws(()=>parseMeteoVigilance(fixtureOfficial(),{now:NOW,department:'99'}),/Invalid French department/);
+ const api=await fetchOfficialVigilance({METEO_FRANCE_API_KEY:'TEST_ONLY'},{
+  department:'84',departmentName:'VAUCLUSE',now:NOW,
+  fetchImpl:async()=>({ok:true,json:async()=>fixtureOfficial()})
+ });
+ assert.equal(api.status,'official');
+ assert.equal(api.department,'84');
+ assert.equal(api.periods[0].color,'red');
+ assert.notEqual(api.periods[0].color,parseMeteoVigilance(fixtureOfficial(),{now:NOW}).periods[0].color);
+});
+test('Corsican 2A/2B department IDs are matched literally in official vigilance',()=>{
+ const input=fixtureOfficial();
+ input.product.periods[0].timelaps.domain_ids.push({domain_id:'2A',max_color_id:2,phenomenon_items:[]});
+ input.product.periods[0].timelaps.domain_ids.push({domain_id:'2B',max_color_id:4,phenomenon_items:[]});
+ assert.equal(parseMeteoVigilance(input,{now:NOW,department:'2A'}).periods[0].color,'yellow');
+ assert.equal(parseMeteoVigilance(input,{now:NOW,department:'2B'}).periods[0].color,'red');
+});
 test('without account, Météo-France is unconfigured, never falsely green',async()=>{
  const r=await fetchOfficialVigilance({}, {now:NOW,fetchImpl:async()=>{throw Error('Must not fetch without subscription')}});
  assert.equal(r.status,'not_configured');assert.equal(r.periods.length,0);assert.match(r.link,/meteofrance.fr/);

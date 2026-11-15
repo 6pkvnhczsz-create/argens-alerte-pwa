@@ -6,6 +6,13 @@ export const DEFAULT_BOUNDS=[5.6331,42.8097,7.6331,44.0897]; // ~2° by 1.28° a
 const STATIONS='https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations';
 const LAT_MIN=41.0,LAT_MAX=51.7,LON_MIN=-5.9,LON_MAX=10.2;
 export const validStationCode=code=>typeof code==='string'&&/^[A-Z][A-Z0-9]{7,13}$/.test(code);
+// Preserve French INSEE department identifiers, including Corsica (2A/2B).
+// Never derive them from the station's hydrographic code or approximate position.
+export function normalizeDepartmentCode(value){
+ const text=String(value??'').trim().toUpperCase();
+ const code=/^\d$/.test(text)?'0'+text:text;
+ return /^(?:0[1-9]|[1-8][0-9]|9[0-5]|2A|2B)$/.test(code)?code:null;
+}
 export function isMetropolitan(lat,lon){
  return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=41.2&&lat<=51.4&&lon>=-5.3&&lon<=9.8;
 }
@@ -44,14 +51,16 @@ export async function resolveStation(code,{fetchImpl=fetch}={}){
  if(!station)throw Error('Station not found in official register');
  const lat=Number(station.latitude_station),lon=Number(station.longitude_station);
  if(!isMetropolitan(lat,lon))throw Error('Station outside metropolitan PIAF forecast coverage');
- return {code,lat,lon,name:String(station.libelle_station||station.libelle_site||code).slice(0,120),
+ const department=normalizeDepartmentCode(station.code_departement);
+ const departmentName=department?String(station.libelle_departement||'').trim().slice(0,70):'';
+ return {code,lat,lon,department,departmentName,name:String(station.libelle_station||station.libelle_site||code).slice(0,120),
   river:String(station.libelle_cours_eau||'').slice(0,90),
   riverCode:String(station.code_cours_eau||'').slice(0,30),
   bounds:boundsForStation(lat,lon,code)};
 }
 export async function cachedStation(code,{fetchImpl=fetch,cache=globalThis.caches?.default}={}){
  if(!validStationCode(code))throw Error('Invalid station code');
- const key=new Request('https://riviere-alerte.fr/__piaf_cache/station-v2?code='+code);
+ const key=new Request('https://riviere-alerte.fr/__piaf_cache/station-v3?code='+code);
  if(cache){
   const hit=await cache.match(key);
   if(hit){

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {boundsForStation,validateBounds,resolveStation,validStationCode} from '../src/piaf-station.mjs';
+import {boundsForStation,validateBounds,resolveStation,validStationCode,normalizeDepartmentCode} from '../src/piaf-station.mjs';
 import {localBboxes,nearbyBbox,distanceKm,findLocalUpstream,connectedUpstream,recentUpstreamReading} from '../src/upstream-topage.mjs';
 const edge=(from,to,a,b,sense='dans direction tronçon')=>({
  geometry:{type:'LineString',coordinates:[a,b]},
@@ -26,6 +26,7 @@ test('PIAF view uses the official reference location, not arbitrary browser coor
    data:[{code_station:'H123456789',latitude_station:48.86,longitude_station:2.34,libelle_station:'Paris'}]
  }),{headers:{'Content-Type':'application/json'}})});
  assert.equal(sample.name,'Paris');
+ assert.equal(sample.department,null,'Missing official department must never be guessed from coordinates');
  assert.deepEqual(sample.bounds,paris);
 });
 test('TOPAGE WFS uses official latitude-first bbox but Hub Eau registry longitude-first bbox',()=>{
@@ -108,4 +109,22 @@ test('40-km nearby gauges remain available if TOPAGE network is unreachable (nev
  assert.equal(result.nearby.length,1,'Nearby discovery still works');
  assert.equal(result.nearby[0].code,'Y444444444');
  assert.ok(result.nearby[0].distanceKm<=40);
+});
+
+test('Hub Eau INSEE department codes, not hydrographic prefixes, decide local vigilance',async()=>{
+ for(const [input,expected] of [['6','06'],['83','83'],['2a','2A'],['2B','2B'],['31','31'],['75','75'],['971',null],['99',null],['',null]]){
+  assert.equal(normalizeDepartmentCode(input),expected);
+ }
+ const makeStation=async(code_station,code_departement,libelle_departement)=>resolveStation(code_station,{
+  fetchImpl:async()=>new Response(JSON.stringify({data:[{
+   code_station,latitude_station:43.45,longitude_station:6.63,libelle_station:'Gauge',
+   code_departement,libelle_departement
+  }]}),{headers:{'Content-Type':'application/json'}})
+ });
+ const roq=await makeStation('Y531201001','83','VAR');
+ assert.equal(roq.department,'83');assert.equal(roq.departmentName,'VAR');
+ const other=await makeStation('O200004001','31','HAUTE-GARONNE');
+ assert.equal(other.department,'31');assert.equal(other.departmentName,'HAUTE-GARONNE');
+ const corsica=await makeStation('X123456789','2A','CORSE-DU-SUD');
+ assert.equal(corsica.department,'2A');
 });

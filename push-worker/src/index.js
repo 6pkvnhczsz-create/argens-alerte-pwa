@@ -6,7 +6,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 import { getHydroObservations, readVigicruesObservations, validHydroStation } from './water-sources.mjs';
 import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, activeBackupStationCodes, markVigicruesUnavailable, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
 import { translateFeedbackRecord } from './feedback-translation.mjs';
-import { refreshEarlySignals, loadEarlySignals } from './early-signals.mjs';
+import { refreshEarlySignals, loadEarlySignals, fetchOfficialVigilance } from './early-signals.mjs';
 import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
 import { fetchPiafMetadata, fetchPiafFrame, fetchPiafLegend } from './piaf-map.mjs';
 import { DEFAULT_STATION, validStationCode, cachedStation } from './piaf-station.mjs';
@@ -872,6 +872,40 @@ export default {
    }catch{return json(request,{ok:false,error:'Official radar map unavailable'},503)}
   }
 
+  // Station-targeted official Météo-France departmental vigilance. Only the
+  // official Hub'Eau station register supplies the INSEE department code.
+  // Never interpret other departments' warnings or missing API data as green.
+  if(url.pathname==='/api/vigilance/station'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
+   const code=url.searchParams.get('station')||DEFAULT_STATION;
+   if(!validStationCode(code)||[...url.searchParams].length>1)
+    return json(request,{error:'Invalid hydrometric station'},400);
+   try{
+    const station=await cachedStation(code);
+    if(!station.department)return json(request,{ok:false,status:'unavailable',
+     station:code,reason:'department_unverified',periods:[]},503);
+    const cache=globalThis.caches?.default;
+    const key=new Request('https://riviere-alerte.fr/__meteo_cache/vigilance_station_v1?department='+station.department);
+    let official=null;
+    if(cache){
+     const hit=await cache.match(key);
+     if(hit)official=await hit.json().catch(()=>null);
+    }
+    if(!official||official.department!==station.department){
+     official=await fetchOfficialVigilance(env,{
+      department:station.department,departmentName:station.departmentName});
+     if(cache&&official.status==='official')await cache.put(key,
+      new Response(JSON.stringify(official),{headers:{
+       'Content-Type':'application/json','Cache-Control':'public, max-age=300'}}));
+    }
+    return json(request,{ok:true,station:code,...official});
+   }catch(error){
+    console.warn('Departmental official vigilance unavailable',String(error?.message||'official source').slice(0,90));
+    return json(request,{ok:false,status:'unavailable',station:code,
+     reason:'department_or_source_unavailable',periods:[]},503);
+   }
+  }
   // Read-only information about officially issued weather warnings, model
   // precipitation and upstream measurements. This never changes alert logic.
   if(url.pathname==='/api/early-signals'&&request.method==='GET'){

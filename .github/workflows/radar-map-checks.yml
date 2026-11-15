@@ -9,6 +9,7 @@ on:
       - 'push-worker/src/upstream-topage.mjs'
       - 'push-worker/test/france-station-map.test.mjs'
       - 'national-upstream.js'
+      - 'home-vigilance.js'
       - 'push-worker/test/piaf-map.test.mjs'
       - 'piaf-player.js'
       - 'push-worker/src/index.js'

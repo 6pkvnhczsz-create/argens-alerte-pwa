@@ -6,6 +6,7 @@ on:
       - 'scripts/home-smoke.mjs'
       - 'scripts/forecast-map-smoke.mjs'
       - 'piaf-player.js'
+      - 'home-vigilance.js'
       - 'piaf-palette.js'
       - 'scripts/piaf-palette-test.mjs'
       - '.github/workflows/home-smoke.yml'
