@@ -1193,6 +1193,15 @@ function selectMapStation(station,button,marker){
  if(marker&&stationMap){stationMap.panTo(marker.getLatLng());marker.closePopup()}
  document.querySelector('[data-tab="overview"]').click();
 }
+// Allow optional nearby gauges in Forecasts to use the same home-station
+// selection flow as the map, including immediate storage and Home navigation.
+window.selectArgensHomeStation=function(station){
+ const code=station?.code,name=station?.name;
+ if(typeof code!=='string'||!/^[A-Z][A-Z0-9]{7,13}$/.test(code)||
+    typeof name!=='string'||!name.trim()||name.length>100)return false;
+ selectMapStation({code_station:code,libelle_station:name.trim()},null,null);
+ return true;
+};
 // Station availability is based on actual recent H observations, not directory presence.
 let stationSearchSequence=0;
 const stationAvailabilityCache=new Map();
