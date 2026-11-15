@@ -895,7 +895,21 @@ function walk(root){if(root.nodeType===3){applyNode(root);return}if(root.nodeTyp
 function setLanguage(next){lang=next;localStorage.setItem('argens-language',lang);syncPushLanguage(lang);document.documentElement.lang=lang;document.dispatchEvent(new Event('argens-language-changed'));document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===lang)));walk(document);document.querySelector('#accountFirstName').placeholder=lang==='en'?'First name':'Prénom';document.querySelector('#accountLastName').placeholder=lang==='en'?'Last name':'Nom'}
 function syncLegalLanguage(){const en=document.documentElement.lang==='en';document.querySelectorAll('#legalInfo .legal-fr').forEach(el=>el.hidden=en);document.querySelectorAll('#legalInfo .legal-en').forEach(el=>el.hidden=!en);document.querySelectorAll('#legalInfo [data-legal-fr]').forEach(el=>el.textContent=en?el.dataset.legalEn:el.dataset.legalFr)}
 document.addEventListener('argens-language-changed',syncLegalLanguage);
-document.querySelector('#accountPrivacyLink').addEventListener('click',()=>{document.querySelector('#privacyDetails').open=true});
+// Open legal disclosures explicitly: hash navigation alone does not expand <details>.
+function openLegalDisclosure(id){
+ const panel=document.getElementById(id);
+ if(!panel)return;
+ panel.open=true;
+ panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+document.querySelectorAll('#legalLinks a, #accountPrivacyLink').forEach(link=>{
+ link.addEventListener('click',event=>{
+  const id=link.getAttribute('href')?.slice(1);
+  if(id!=='privacyDetails'&&id!=='legalDetails')return;
+  event.preventDefault();
+  openLegalDisclosure(id);
+ });
+});
 syncLegalLanguage();
 document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>setLanguage(b.dataset.lang)));
 document.addEventListener('argens-language-changed',()=>renderAlertRules(activeStation));
