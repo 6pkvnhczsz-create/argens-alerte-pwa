@@ -30,8 +30,8 @@ test('PIAF view uses the official reference location, not arbitrary browser coor
 });
 test('TOPAGE WFS uses official latitude-first bbox but Hub Eau registry longitude-first bbox',()=>{
  const view=localBboxes(43.5,6.58);
- assert.match(view.topage,/^43\.39000,6\.\d+,43\.61000,6\.\d+,EPSG:4326$/);
- assert.match(view.hubeau,/^6\.\d+,43\.39000,6\.\d+,43\.61000$/);
+ assert.match(view.topage,/^43\.45500,6\.\d+,43\.54500,6\.\d+,EPSG:4326$/);
+ assert.match(view.hubeau,/^6\.\d+,43\.45500,6\.\d+,43\.54500$/);
 });
 test('directed graph accepts genuinely upstream mainstem and tributaries but not nearby/downstream channels',()=>{
  const stations=[
