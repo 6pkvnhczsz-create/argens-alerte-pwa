@@ -80,7 +80,7 @@ const air=(a,b)=>{
  const q=Math.sin(dLat/2)**2+Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLon/2)**2;
  return 6371*2*Math.asin(Math.sqrt(q));
 };
-const expected=coords.map((point,i)=>({point,i,d:air(point,[downstream.lat,downstream.lon])})).sort((a,b)=>b.d-a.d);
+const expected=coords.map((point,i)=>({point,i,d:air(point,[downstream.lat,downstream.lon])})).sort((a,b)=>a.d-b.d);
 for(let i=0;i<pins.length;i++){
  const p=pins[i],e=expected[i];
  assert.equal(p.position[0],e.point[0]);
@@ -90,6 +90,8 @@ for(let i=0;i<pins.length;i++){
  assert.match(p.popup.textContent,/m.*cm\/h/,'Water level and trend available in popup');
 }
 const rows=[...d.querySelectorAll('#earlyUpstreamRows .upstream-distance-row')];
+assert.equal(rows[0].textContent.includes('Le Muy'),true,'Nearest #1 must be Le Muy Endre');
+assert.equal(rows[4].textContent.includes('Carcès'),true,'Farthest #5 must be Carcès Argens');
 assert.equal(rows.length,5,'The rank list must contain all five readings');
 assert.deepEqual(rows.map(row=>row.querySelector('.upstream-distance-rank').textContent),['1','2','3','4','5']);
 for(let i=0;i<rows.length;i++){
@@ -99,6 +101,9 @@ for(let i=0;i<rows.length;i++){
 rows[0].click();
 assert.equal(pins[0].opened,true,'Clicking a row must open its corresponding map marker');
 assert.match(d.getElementById('upstreamMapMessage').textContent,/Luftlinie|distance à vol d.oiseau|straight-line/);
+assert.match(d.querySelector('.bottom [data-tab="Alertes"]').textContent,/Messages d’alerte|Alert messages|Warnmeldungen/);
+assert.equal(d.getElementById('earlySignalsHeading'),null,'Redundant forecast heading must be removed');
+assert.equal(d.getElementById('earlySignalsIntro'),null,'Redundant forecast model-value intro must be removed');
 const html=d.documentElement.outerHTML;
 assert.ok(html.indexOf('id="rainForecastCard"')<html.indexOf('id="recentRainCard"'));
 assert.ok(html.indexOf('id="recentRainCard"')<html.indexOf('id="upstreamForecastCard"'));
