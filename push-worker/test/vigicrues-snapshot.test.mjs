@@ -99,8 +99,10 @@ test('rejects forged OIDC tokens and accepts signed GitHub main workflow',async(
  const fetchImpl=async()=>({ok:true,json:async()=>({keys:[key]})});
  const accepted=await verifyGitHubActionToken(await issue(claims),{now,fetchImpl});
  assert.equal(accepted.runId,'123456');
- await assert.rejects(()=>verifyGitHubActionToken(await issue({...claims,ref:'refs/heads/attacker'}),{now,fetchImpl}),/repository or branch/);
- await assert.rejects(()=>verifyGitHubActionToken(await issue({...claims,workflow_ref:'unexpected.yml'}),{now,fetchImpl}),/workflow or event/);
+ const badBranch=await issue({...claims,ref:'refs/heads/attacker'});
+ await assert.rejects(()=>verifyGitHubActionToken(badBranch,{now,fetchImpl}),/repository or branch/);
+ const badWorkflow=await issue({...claims,workflow_ref:'unexpected.yml'});
+ await assert.rejects(()=>verifyGitHubActionToken(badWorkflow,{now,fetchImpl}),/workflow or event/);
  const tampered=await issue(claims);
  const parts=tampered.split('.');
  parts[1]=enc({...claims,run_id:'changed'});
