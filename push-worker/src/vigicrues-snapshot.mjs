@@ -78,10 +78,10 @@ export async function storedVigicruesObservations(db,code,{limit=100,now=Date.no
  if(!db)throw Error('Backup storage unavailable');
  const row=await db.prepare('SELECT latest_ms,received_ms,readings_json FROM vigicrues_backup_snapshots WHERE station_code=?').bind(code).first();
  if(!row)throw Error('No GitHub backup snapshot received');
- if(!Number.isFinite(row.received_ms)||row.received_ms>now+FUTURE_TOLERANCE_MS||now-row.received_ms>MAX_STORE_AGE_MS)throw Error('GitHub backup delivery outdated');
+ if(!Number.isSafeInteger(row.received_ms)||row.received_ms>now+FUTURE_TOLERANCE_MS||now-row.received_ms>MAX_STORE_AGE_MS)throw Error('GitHub backup delivery outdated');
  const points=JSON.parse(row.readings_json);
  // Re-validate on every read: timestamps advance even when no workflow runs.
- const verified=parseSnapshotPayload({station:STATION,collectedAt:row.received_ms,readings:points.map(x=>[x.time,x.mm])},now);
+ const verified=parseSnapshotPayload({station:STATION,collectedAt:now,readings:points.map(x=>[x.time,x.mm])},now);
  return {source:'vigicrues',transport:'github-actions',points:verified.slice(0,Math.min(limit,700)),receivedAt:new Date(row.received_ms).toISOString()};
 }
 export const SNAPSHOT_MAX_BODY=MAX_INGEST_BYTES;
