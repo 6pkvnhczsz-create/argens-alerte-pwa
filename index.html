@@ -228,7 +228,36 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <p id="swarmIntro" class="note">Regroupez plusieurs stations dans un même groupe. Les groupes sont enregistrés sur cet appareil ; les alertes personnalisées seront disponibles ultérieurement.</p>
 <div class="swarm-create"><input id="swarmName" maxlength="60" placeholder="Nom du groupe (ex. Mon Argens)" aria-label="Nom du groupe"><button id="swarmCreate" type="button">+ Créer</button></div>
 <p id="swarmMessage" class="note" role="status"></p><div id="swarmGroups"></div>
-</section></div><div id="settingsPage" class="hidden"><div class="section-title" id="settingsPageTitle">Réglages</div><section class="panel" id="accountPanel" style="margin-top:15px">
+</section></div><div id="settingsPage" class="hidden"><div class="section-title" id="settingsPageTitle">Réglages</div>
+<section class="panel" id="systemHealthPanel" style="margin-top:15px" aria-label="État des services">
+<strong id="systemHealthTitle">🛡 État des services</strong>
+<div style="display:grid;gap:10px;margin-top:12px;font-size:14px">
+<div style="display:flex;justify-content:space-between;gap:10px"><span id="healthRiverLabel">Mesures du fleuve</span><strong id="healthRiver">⏳ Vérification…</strong></div>
+<div style="display:flex;justify-content:space-between;gap:10px"><span id="healthWeatherLabel">Prévisions météo</span><strong id="healthWeather">⏳ Vérification…</strong></div>
+<div style="display:flex;justify-content:space-between;gap:10px"><span id="healthPushLabel">Serveur de notifications</span><strong id="healthPush">⏳ Vérification…</strong></div>
+</div>
+<p id="healthNote" class="note" style="margin:12px 0 0">État vérifié depuis cet appareil. La disponibilité du serveur ne confirme pas l’envoi des notifications automatiques.</p>
+<button type="button" id="healthRefresh" style="margin-top:10px;padding:9px 12px;border:1px solid #9db6c2;border-radius:9px;background:white;color:#163447;font:inherit;font-size:13px">↻ Actualiser l’état</button>
+</section>
+<section class="panel" id="personalStationPanel" style="margin-top:15px"><strong id="personalStationTitle">🌊 Ma station et mes seuils</strong><p class="note" id="personalStationIntro"><a href="#mapPage" id="personalStationMapLink" style="color:#087f91;font-weight:700;text-decoration:underline">Choisissez votre station</a>, puis définissez vos seuils personnels. Connexion requise.</p><p id="personalStationName" class="note"></p><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0"><label><span id="personalOrangeLabel">🟠 Orange dès (m)</span><input id="personalOrange" type="number" min="0" max="100" step="0.01" value="3" style="width:100%;padding:12px;border:1px solid #cbdce4;border-radius:10px;font:inherit"></label><label><span id="personalRedLabel">🔴 Rouge dès (m)</span><input id="personalRed" type="number" min="0" max="100" step="0.01" value="4.5" style="width:100%;padding:12px;border:1px solid #cbdce4;border-radius:10px;font:inherit"></label></div><button id="savePersonalStation" type="button" style="padding:12px 18px;background:#087f91;color:white;border:0;border-radius:11px;font:inherit;font-weight:700">Enregistrer les seuils</button><p id="personalStationMessage" class="note" role="status"></p><p id="personalStationDisclaimer" class="note">Seuils personnels non officiels. Les alertes sont envoyées lors d’un changement de niveau, après enregistrement.</p></section>
+<section class="panel" id="feedbackPanel" style="margin-top:15px">
+<strong id="feedbackTitle">💬 Votre avis sur l’application</strong>
+<p class="note" id="feedbackIntro">Une idée, une suggestion ou un problème à signaler ? Envoyez-nous un court message. Connexion requise.</p>
+<form id="feedbackForm">
+<label for="feedbackKind" id="feedbackKindLabel">Type de message</label>
+<select id="feedbackKind" style="width:100%;padding:12px;border:1px solid #c7dbe3;border-radius:10px;background:white;margin:8px 0"><option value="idea">Idée ou souhait</option><option value="problem">Signaler un problème</option><option value="other">Autre commentaire</option></select>
+<label for="feedbackText" id="feedbackTextLabel">Votre message</label>
+<textarea id="feedbackText" maxlength="1000" rows="4" required placeholder="Écrivez votre message ici…" style="width:100%;padding:12px;border:1px solid #c7dbe3;border-radius:10px;font:inherit;resize:vertical;margin:8px 0"></textarea>
+<button type="submit" id="feedbackSend" class="push-cta-button">Envoyer le message</button>
+</form><p id="feedbackStatus" class="note" role="status" aria-live="polite"></p>
+</section>
+<section class="panel" id="pushPreferencesPanel" style="margin-top:15px">
+<strong id="pushPreferencesTitle">🔔 Notifications push</strong>
+<p id="pushPreferencesDescription" class="note">Gérez les alertes sur cet appareil.</p>
+<label class="push-preferences-toggle" for="pushPreferencesToggle"><span id="pushPreferencesLabel">Notifications activées</span><input id="pushPreferencesToggle" type="checkbox" disabled aria-describedby="pushPreferencesStatus"></label>
+<p id="pushPreferencesStatus" class="note" role="status" aria-live="polite">Vérification du statut…</p>
+</section>
+<section class="panel" id="accountPanel" style="margin-top:15px">
 <strong id="accountTitle">👤 Mon compte</strong>
 <p class="note" id="accountIntro">Créez votre compte gratuit pour recevoir des notifications en cas de crue de l’Argens ou de fortes pluies prévues. Renseignez votre prénom, votre nom et votre adresse e-mail.</p>
 <div id="accountSignedOut">
@@ -247,31 +276,8 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 </div></div>
 <div id="accountSignedIn" class="hidden"><p id="accountIdentity"></p><button id="accountLogout" type="button">Déconnexion</button><button id="accountDelete" type="button" style="display:block;margin-top:12px;background:#fff2f2;color:#9e2531;border:1px solid #d6a3aa;border-radius:10px;padding:10px 14px;font:inherit;font-size:13px;font-weight:700">Supprimer mon compte</button><div id="accountDeleteConfirm" class="hidden" role="group" aria-labelledby="accountDeleteTitle" style="margin-top:12px;padding:15px;border:2px solid #bc3946;border-radius:12px;background:#fff7f7;color:#54242b"><strong id="accountDeleteTitle"></strong><p id="accountDeleteDescription" style="margin:8px 0 14px;line-height:1.5"></p><div style="display:flex;flex-wrap:wrap;gap:10px"><button id="accountDeleteCancel" type="button" style="background:#e8f0f4;color:#173447;border:1px solid #b9d0da;border-radius:9px;padding:10px 13px;font:inherit"></button><button id="accountDeleteFinal" type="button" style="background:#b42332;color:white;border:0;border-radius:9px;padding:10px 13px;font:inherit;font-weight:700"></button></div></div></div>
 <p id="accountMessage" class="note" role="status"></p>
-</section><section class="panel" id="pushPreferencesPanel" style="margin-top:15px">
-<strong id="pushPreferencesTitle">🔔 Notifications push</strong>
-<p id="pushPreferencesDescription" class="note">Gérez les alertes sur cet appareil.</p>
-<label class="push-preferences-toggle" for="pushPreferencesToggle"><span id="pushPreferencesLabel">Notifications activées</span><input id="pushPreferencesToggle" type="checkbox" disabled aria-describedby="pushPreferencesStatus"></label>
-<p id="pushPreferencesStatus" class="note" role="status" aria-live="polite">Vérification du statut…</p>
-</section><section class="panel" id="feedbackPanel" style="margin-top:15px">
-<strong id="feedbackTitle">💬 Votre avis sur l’application</strong>
-<p class="note" id="feedbackIntro">Une idée, une suggestion ou un problème à signaler ? Envoyez-nous un court message. Connexion requise.</p>
-<form id="feedbackForm">
-<label for="feedbackKind" id="feedbackKindLabel">Type de message</label>
-<select id="feedbackKind" style="width:100%;padding:12px;border:1px solid #c7dbe3;border-radius:10px;background:white;margin:8px 0"><option value="idea">Idée ou souhait</option><option value="problem">Signaler un problème</option><option value="other">Autre commentaire</option></select>
-<label for="feedbackText" id="feedbackTextLabel">Votre message</label>
-<textarea id="feedbackText" maxlength="1000" rows="4" required placeholder="Écrivez votre message ici…" style="width:100%;padding:12px;border:1px solid #c7dbe3;border-radius:10px;font:inherit;resize:vertical;margin:8px 0"></textarea>
-<button type="submit" id="feedbackSend" class="push-cta-button">Envoyer le message</button>
-</form><p id="feedbackStatus" class="note" role="status" aria-live="polite"></p>
-</section><section class="panel" id="personalStationPanel" style="margin-top:15px"><strong id="personalStationTitle">🌊 Ma station et mes seuils</strong><p class="note" id="personalStationIntro"><a href="#mapPage" id="personalStationMapLink" style="color:#087f91;font-weight:700;text-decoration:underline">Choisissez votre station</a>, puis définissez vos seuils personnels. Connexion requise.</p><p id="personalStationName" class="note"></p><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0"><label><span id="personalOrangeLabel">🟠 Orange dès (m)</span><input id="personalOrange" type="number" min="0" max="100" step="0.01" value="3" style="width:100%;padding:12px;border:1px solid #cbdce4;border-radius:10px;font:inherit"></label><label><span id="personalRedLabel">🔴 Rouge dès (m)</span><input id="personalRed" type="number" min="0" max="100" step="0.01" value="4.5" style="width:100%;padding:12px;border:1px solid #cbdce4;border-radius:10px;font:inherit"></label></div><button id="savePersonalStation" type="button" style="padding:12px 18px;background:#087f91;color:white;border:0;border-radius:11px;font:inherit;font-weight:700">Enregistrer les seuils</button><p id="personalStationMessage" class="note" role="status"></p><p id="personalStationDisclaimer" class="note">Seuils personnels non officiels. Les alertes sont envoyées lors d’un changement de niveau, après enregistrement.</p></section><section class="panel" id="systemHealthPanel" style="margin-top:15px" aria-label="État des services">
-<strong id="systemHealthTitle">🛡 État des services</strong>
-<div style="display:grid;gap:10px;margin-top:12px;font-size:14px">
-<div style="display:flex;justify-content:space-between;gap:10px"><span id="healthRiverLabel">Mesures du fleuve</span><strong id="healthRiver">⏳ Vérification…</strong></div>
-<div style="display:flex;justify-content:space-between;gap:10px"><span id="healthWeatherLabel">Prévisions météo</span><strong id="healthWeather">⏳ Vérification…</strong></div>
-<div style="display:flex;justify-content:space-between;gap:10px"><span id="healthPushLabel">Serveur de notifications</span><strong id="healthPush">⏳ Vérification…</strong></div>
-</div>
-<p id="healthNote" class="note" style="margin:12px 0 0">État vérifié depuis cet appareil. La disponibilité du serveur ne confirme pas l’envoi des notifications automatiques.</p>
-<button type="button" id="healthRefresh" style="margin-top:10px;padding:9px 12px;border:1px solid #9db6c2;border-radius:9px;background:white;color:#163447;font:inherit;font-size:13px">↻ Actualiser l’état</button>
 </section>
+
 </div>
 <section id="legalInfo" class="panel" style="margin-top:18px;font-size:13px;line-height:1.6">
 <div id="legalLinks" style="display:flex;gap:14px;flex-wrap:wrap">
