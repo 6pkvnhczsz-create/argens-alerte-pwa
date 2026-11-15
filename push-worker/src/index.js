@@ -710,10 +710,14 @@ export default {
   if(url.pathname==='/api/piaf/frame'&&request.method==='GET'){
    const origin=request.headers.get('Origin');
    if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
-   const time=url.searchParams.get('time');
-   if([...url.searchParams].length!==1||!time||time.length>32)return json(request,{error:'Invalid PIAF time'},400);
+   const time=url.searchParams.get('time'),run=url.searchParams.get('run');
+   const args=[...url.searchParams],names=args.map(([name])=>name);
+   if(!time||time.length>32||(run&&run.length>32)||args.length>2||
+      names.some(name=>name!=='time'&&name!=='run')||new Set(names).size!==names.length)
+    return json(request,{error:'Invalid PIAF time'},400);
    try{
     const info=await cachedPiafMetadata(env);
+    if(run&&run!==info.referenceTime)return json(request,{error:'PIAF model run changed'},409);
     if(!info.frames.includes(time))return json(request,{error:'PIAF frame not listed in current model'},404);
     const cache=globalThis.caches?.default;
     const key=new Request('https://riviere-alerte.fr/__piaf_cache/frame_v1?reference='+encodeURIComponent(info.referenceTime)+'&time='+encodeURIComponent(time));
