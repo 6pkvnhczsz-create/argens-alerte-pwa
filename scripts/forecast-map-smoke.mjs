@@ -89,7 +89,8 @@ for(let i=0;i<5;i++){
  assert.equal(p.popup.querySelector('details.upstream-popup-extra').open,false,'Extra details start collapsed');
 }
 const home=pins[5];
-assert.deepEqual(home.position,[downstream.lat,downstream.lon],'Roquebrune pin must use official reference coordinates');
+assert.equal(home.position[0],downstream.lat,'Roquebrune latitude must match the official station');
+assert.equal(home.position[1],downstream.lon,'Roquebrune longitude must match the official station');
 assert.match(home.opts.title,/Roquebrune-sur-Argens/);
 assert.match(home.opts.icon.className,/upstream-home-pin-wrap/,'Reference pin must be visually distinct');
 assert.equal(home.tooltipOptions,undefined,'Roquebrune must not show two info bubbles');
