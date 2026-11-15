@@ -192,6 +192,13 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .lang-flag{font-size:16px}
 @media(max-width:440px){.top .brand{font-size:20px}.lang-switch button{padding:6px 5px;gap:2px;font-size:11px}.lang-flag{font-size:16px}}
 @media(max-width:370px){.top{gap:4px}.top .brand{font-size:17px}.lang-switch{padding:2px}.lang-switch button{padding:5px 3px;font-size:10px}.lang-flag{font-size:14px}}
+
+/* Weather metric cards: three compact, equal-width columns on small phones. */
+#weatherNumbers{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
+#weatherNumbers .card{min-width:0;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:8px;padding:12px 6px!important;text-align:center}
+#weatherNumbers .card small{font-size:clamp(10px,2.65vw,12px);font-weight:650;line-height:1.35;min-height:3.1em;display:flex;align-items:center;justify-content:center;max-width:100%;overflow-wrap:anywhere;hyphens:auto;white-space:pre-line}
+#weatherNumbers .card strong{font-size:clamp(15px,4.25vw,21px)!important;letter-spacing:-.045em;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:0;max-width:100%}
+@media(max-width:370px){#weatherNumbers{gap:5px!important}#weatherNumbers .card{padding:10px 4px!important;gap:6px}#weatherNumbers .card strong{font-size:15px!important}}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -449,17 +456,21 @@ function setWeatherStation(station){
 // Informational weather widget; intentionally independent of flood alerts and push subscriptions.
 async function loadLocalWeather(){
  const requestId=++weatherRequestId,location={...weatherLocation};
- const en=document.documentElement.lang==='en';
+ const en=document.documentElement.lang==='en',de=document.documentElement.lang==='de';
+ const tr=(fr,english)=>mapText(fr,english);
  const summary=document.querySelector('#weatherSummary'),numbers=document.querySelector('#weatherNumbers');
  const heading=document.querySelector('#weatherHeading'),note=document.querySelector('#weatherNote');
- document.querySelector('#weatherHeadingTitle').textContent=en?'🌦️ Rain and weather ☀️':'🌦️ Pluie et météo ☀️';document.querySelector('#weatherHeadingLocation').textContent=location.name;
- document.querySelector('#weatherPastLabel').textContent=en?'Estimated rain · past 24 h':'Pluie estimée · 24 h passées';
- document.querySelector('#weatherSixLabel').textContent=en?'Forecast rain · 6 h':'Pluie prévue · 6 h';
- document.querySelector('#weatherDayLabel').textContent=en?'Forecast rain · 24 h':'Pluie prévue · 24 h';
- document.querySelector('#radarToggle').textContent=en?'🗺 Show rain radar':'🗺 Afficher le radar de pluie';
- document.querySelector('#radarNote').textContent=en?'Radar by Windy (external service). Internet connection required.':'Radar fourni par Windy (service externe). La carte peut nécessiter une connexion Internet.';
- document.querySelector('#radarLink').textContent=en?'Open radar in Windy':'Ouvrir le radar dans Windy';
- note.textContent=en?'Local Open-Meteo model estimates: past rainfall is not a rain-gauge measurement, and future rainfall is a forecast. Neither represents the whole river catchment or constitutes a flood forecast.':'Estimations locales du modèle Open-Meteo : la pluie passée ne provient pas d’un pluviomètre et la pluie future est une prévision. Ces valeurs ne représentent pas tout le bassin versant et ne constituent pas une prévision de crue.';
+ document.querySelector('#weatherHeadingTitle').textContent=tr('🌦️ Pluie et météo ☀️','🌦️ Rain and weather ☀️');document.querySelector('#weatherHeadingLocation').textContent=location.name;
+ document.querySelector('#weatherPanel').setAttribute('aria-label',tr('Météo et pluie','Weather and rain'));
+ document.querySelector('#weatherPanel iframe').setAttribute('title',tr('Radar de pluie · région de l’Argens','Rain radar · Argens area'));
+ summary.textContent=tr('Chargement des données météo…','Loading weather data…');
+ document.querySelector('#weatherPastLabel').textContent=tr('Pluie estimée · 24 h passées','Estimated rain · past 24 h');
+ document.querySelector('#weatherSixLabel').textContent=tr('Pluie prévue · 6 h','Forecast rain · 6 h');
+ document.querySelector('#weatherDayLabel').textContent=tr('Pluie prévue · 24 h','Forecast rain · 24 h');
+ document.querySelector('#radarToggle').textContent=tr('🗺 Afficher le radar de pluie','🗺 Show rain radar');
+ document.querySelector('#radarNote').textContent=tr('Radar fourni par Windy (service externe). La carte peut nécessiter une connexion Internet.','Radar by Windy (external service). Internet connection required.');
+ document.querySelector('#radarLink').textContent=tr('Ouvrir le radar dans Windy','Open radar in Windy');
+ note.textContent=tr('Estimations locales du modèle Open-Meteo : la pluie passée ne provient pas d’un pluviomètre et la pluie future est une prévision. Ces valeurs ne représentent pas tout le bassin versant et ne constituent pas une prévision de crue.','Local Open-Meteo model estimates: past rainfall is not a rain-gauge measurement, and future rainfall is a forecast. Neither represents the whole river catchment or constitutes a flood forecast.');
  try{
   const url='https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(location.lat)+'&longitude='+encodeURIComponent(location.lon)+'&current=temperature_2m&hourly=precipitation&past_days=2&forecast_days=3&timezone=auto';
   const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(12000)});
@@ -474,15 +485,16 @@ async function loadLocalWeather(){
   const future=points.filter(p=>p.t>=start&&Number.isFinite(p.v));
   if(!future.length)throw Error('no forecast');
   const sum=hours=>future.filter(p=>p.t<start+hours*3600000).reduce((a,p)=>a+p.v,0);
-  const fmt=n=>n.toLocaleString(en?'en-GB':'fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})+' mm';
+  const locale=de?'de-DE':en?'en-GB':'fr-FR';
+ const fmt=n=>n.toLocaleString(locale,{minimumFractionDigits:1,maximumFractionDigits:1})+' mm';
   const past=points.filter(p=>p.t>=start-24*3600000&&p.t<start&&Number.isFinite(p.v));
-  document.querySelector('#weatherPast').textContent=past.length>=20?fmt(past.reduce((a,p)=>a+p.v,0)):(en?'Unavailable':'Indisponible');
+  document.querySelector('#weatherPast').textContent=past.length>=20?fmt(past.reduce((a,p)=>a+p.v,0)):tr('Indisponible','Unavailable');
   document.querySelector('#weatherSix').textContent=fmt(sum(6));
   document.querySelector('#weatherDay').textContent=fmt(sum(24));
   const temp=data.current?.temperature_2m;
-  summary.textContent=(en?'Current temperature: ':'Température actuelle : ')+(Number.isFinite(temp)?temp.toLocaleString(en?'en-GB':'fr-FR',{maximumFractionDigits:1})+' °C':en?'not available':'indisponible');
+  summary.textContent=tr('Température actuelle : ','Current temperature: ')+(Number.isFinite(temp)?temp.toLocaleString(locale,{maximumFractionDigits:1})+' °C':tr('indisponible','not available'));
   numbers.classList.remove('hidden');healthState.weather='good';renderSystemHealth();
- }catch(err){if(requestId!==weatherRequestId)return;healthState.weather='bad';renderSystemHealth();numbers.classList.add('hidden');summary.textContent=en?'Weather data temporarily unavailable. Radar may still be accessible.':'Données météo temporairement indisponibles. Le radar reste éventuellement accessible.';console.warn('Weather panel',err)}
+ }catch(err){if(requestId!==weatherRequestId)return;healthState.weather='bad';renderSystemHealth();numbers.classList.add('hidden');summary.textContent=tr('Données météo temporairement indisponibles. Le radar reste éventuellement accessible.','Weather data temporarily unavailable. Radar may still be accessible.');console.warn('Weather panel',err)}
 }
 loadLocalWeather();
 setInterval(()=>{if(!document.hidden)loadLocalWeather()},30*60*1000);
