@@ -115,6 +115,48 @@ test('OAuth and official bulletin network failures report safe separate stages',
   assert.ok(!JSON.stringify(r).includes('PRIVATE_CRED'));
  }
 });
+test('Météo-France OAuth HTTP 200 with HTML is classified safely without leaking the body',async()=>{
+ const privateText='TOP_SECRET';
+ const res=await fetchOfficialVigilance({METEO_FRANCE_BASIC:'TEST_HTML_BLOCK'},{
+  now:NOW,
+  fetchImpl:async url=>url.endsWith('/token')?
+   {ok:true,headers:{get:()=> 'text/html; charset=utf-8'},redirected:true,json:async()=>{throw Error(privateText)}}:
+   {ok:true,json:async()=>fixtureOfficial()}
+ });
+ assert.equal(res.diagnostic,'token_html_redirect');
+ assert.ok(!JSON.stringify(res).includes(privateText));
+ const plain=await fetchOfficialVigilance({METEO_FRANCE_BASIC:'TEST_PLAIN_BLOCK'},{
+  now:NOW,fetchImpl:async()=>({ok:true,headers:{get:()=> 'text/plain'},json:async()=>{throw Error('another private value')}})});
+ assert.equal(plain.diagnostic,'token_text_response');
+});
+
+test('Météo-France API key auth bypasses OAuth portal and parses official Var bulletin',async()=>{
+ let calls=0;
+ const fetchImpl=async(url,options)=>{
+  calls++;
+  assert.ok(!url.endsWith('/token'),'Do not hit OAuth portal in API key mode');
+  assert.equal(options.headers.apikey,'SENSITIVE_DO_NOT_LOG');
+  assert.ok(!('Authorization' in options.headers));
+  return {ok:true,json:async()=>fixtureOfficial()};
+ };
+ const r=await fetchOfficialVigilance({
+   METEO_FRANCE_API_KEY:'SENSITIVE_DO_NOT_LOG',
+   METEO_FRANCE_BASIC:'Invalid old OAuth key'
+  },{now:NOW,fetchImpl});
+ assert.equal(r.status,'official');
+ assert.equal(r.periods[0].color,'orange');
+ assert.equal(calls,1);
+ assert.ok(!JSON.stringify(r).includes('SENSITIVE_DO_NOT_LOG'));
+});
+test('API key failure does not claim any valid official warnings',async()=>{
+ const r=await fetchOfficialVigilance({METEO_FRANCE_API_KEY:'DO_NOT_LOG'},{
+  now:NOW,fetchImpl:async()=>({ok:false,status:401})
+ });
+ assert.equal(r.status,'unavailable');
+ assert.equal(r.diagnostic,'bulletin_http_401');
+ assert.equal(r.periods.length,0);
+ assert.ok(!JSON.stringify(r).includes('DO_NOT_LOG'));
+});
 test('independent data errors never generate flood alerts or artificial official levels',async()=>{
  const fetchImpl=async()=>({ok:false,status:503});
  const data=await buildEarlySignals({}, {now:NOW,fetchImpl});
