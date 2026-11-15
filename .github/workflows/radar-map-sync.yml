@@ -50,4 +50,19 @@ jobs:
             data=json.load(res)
           print('Status:',res.status,'available:',data.get('available'),'observedAt:',data.get('observedAt'),'source:',data.get('source'))
           assert data.get('available') is True and data.get('source')=='Météo-France'
+          # Check the actual public PNG with a real browser origin, not just JSON metadata.
+          image_url='https://argens-alerte-push.p-hammerschmidt.workers.dev/api/radar-map/image'
+          image_req=urllib.request.Request(image_url,headers={
+            'Accept':'image/png','Origin':'https://riviere-alerte.fr',
+            'User-Agent':'RiviereAlerteRadarSync/1.0 (+https://riviere-alerte.fr)'})
+          with urllib.request.urlopen(image_req,timeout=20) as image_response:
+            blob=image_response.read(480001)
+            mime=image_response.headers.get('Content-Type','')
+            allow=image_response.headers.get('Access-Control-Allow-Origin')
+          assert mime=='image/png' and allow=='https://riviere-alerte.fr'
+          assert blob.startswith(b'\x89PNG\r\n\x1a\n') and len(blob)<=480000
+          width=int.from_bytes(blob[16:20],'big')
+          height=int.from_bytes(blob[20:24],'big')
+          assert (width,height)==(720,500)
+          print('PUBLIC MAP: valid PNG',width,'x',height,'bytes:',len(blob),'CORS:',allow)
           PY
