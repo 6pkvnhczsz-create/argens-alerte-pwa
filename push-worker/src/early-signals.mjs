@@ -6,9 +6,11 @@ import { getHydroObservations } from './water-sources.mjs';
 
 export const EARLY_SIGNALS_STATION='Y531201001';
 export const UPSTREAM_STATIONS=[
+ {code:'Y511201001',name:'Carcès · Argens',river:'Argens'},
  {code:'Y530501501',name:'Le Muy · Argens',river:'Argens'},
  {code:'Y520201001',name:'Les Arcs · Aille',river:'Aille'},
- {code:'Y523501001',name:'Trans-en-Provence · Nartuby',river:'Nartuby'}
+ {code:'Y523501002',name:'Trans-en-Provence · Nartuby',river:'Nartuby'},
+ {code:'Y521502002',name:'Vidauban · Endre',river:'Endre'}
 ];
 // Representative grid points, *not* a watershed-wide rainfall measurement.
 export const RAIN_AREAS=[
