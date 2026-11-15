@@ -49,7 +49,7 @@ Im öffentlichen Bereich von Rivière Alerte gibt es eine zusätzliche, FR/EN/DE
 
 **Regen:** Open-Meteo-Rückblick mit 3-/6-Stunden-Summen für drei repräsentative Standorte an Argens/Nartuby. WICHTIG: Das sind Modellschätzungen, keine tatsächlichen Radarmessungen oder Messungen für das ganze Einzugsgebiet. Die bereits vorhandene Windy-Radarkarte bleibt bestehen. Für echte automatisierte Radarmessungen wird zusätzlich ein Météo-France-Abonnement „API Données Radar“ und eine validierte Rasterverarbeitung benötigt; diese ist noch nicht aktiviert.
 
-**Oberlieger-Pegel:** Hub’Eau-Messwerte von Le Muy/Argens (Y530501501), Les Arcs/Aille (Y520201001) und Trans-en-Provence/Nartuby (Y523501001). Angezeigt werden nur aktuelle Messwerte und lokale Steigungsraten; kein Vergleich absoluter Pegelhöhen zwischen verschiedenen Stationen und keine erfundene Ankunftszeit einer Welle.
+**Oberlieger-Pegel:** Hub’Eau-Messwerte von Carcès/Argens (Y511201001), Le Muy/Argens (Y530501501), Les Arcs/Aille (Y520201001), Trans-en-Provence/Pont des Écoles/Nartuby (Y523501002) und Vidauban/Endre (Y521502002). Alle fünf Stationen wurden bei einem unabhängigen Abruf am 15.11.2026 mit aktuellen Messwerten bestätigt. Angezeigt werden nur aktuelle Messwerte und lokale Steigungsraten; kein Vergleich absoluter Pegelhöhen zwischen verschiedenen Stationen und keine erfundene Ankunftszeit einer Welle.
 
 **Sicherheit:** Diese Funktionen sind reine Zusatzinformationen. Individuelle Warnschwellen, Haupt-Push-Warnungen und Pegelfarben bleiben unverändert. Neue automatische Push-Frühwarnungen erst nach historischer Kalibrierung und Tests.
 
