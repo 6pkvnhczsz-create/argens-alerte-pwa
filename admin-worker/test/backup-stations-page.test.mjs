@@ -34,7 +34,7 @@ test('station list is fetched only from the dedicated, Access-protected endpoint
  assert.ok(healthStart>-1 && healthEnd>healthStart);
  assert.doesNotMatch(health, /vigicruesCoverageAdmin/);
  assert.doesNotMatch(health, /vigicruesCoverage,/);
- assert.match(src, /url.pathname==='/api/vigicrues-coverage'/);
+ assert.ok(src.includes("url.pathname==='/api/vigicrues-coverage'"));
  assert.match(src, /response\(await env\.PUSH_SERVICE\.vigicruesCoverageAdmin\(\)\)/);
  assert.match(inlineScript, /fetch\('\/api\/vigicrues-coverage',\{cache:'no-store'\}\)/);
  const access=src.indexOf("if(!request.headers.get('Cf-Access-Jwt-Assertion'))");
