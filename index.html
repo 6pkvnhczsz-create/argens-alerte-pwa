@@ -743,13 +743,13 @@ async function findStations(lat,lon){
    matches=(json.data||[]).filter(s=>Number.isFinite(Number(s.latitude_station))&&Number.isFinite(Number(s.longitude_station))).map(s=>({...s,distance:km(lat,lon,Number(s.latitude_station),Number(s.longitude_station))})).sort((a,b)=>a.distance-b.distance);
    if(matches.length>=10||radius===1.5)break;
   }
-  const seen=new Set();matches=matches.filter(s=>{if(seen.has(s.code_station))return false;seen.add(s.code_station);return true}).slice(0,12);
+  const seen=new Set();matches=matches.filter(s=>{if(seen.has(s.code_station))return false;seen.add(s.code_station);return true}).slice(0,24);
   message.textContent=matches.length?mapText('Touchez une station sur la carte ou dans la liste.','Tap a station on the map or in the list.'):mapText('Aucune station trouvée à proximité.','No nearby stations found.');
   let L=null;
   try{L=await ensureStationMap(lat,lon);stationMarkers.clearLayers()}catch(e){message.textContent+=' '+mapText('Carte indisponible : utilisez la liste.','Map unavailable: use the list.')}
   const availabilityFilter=document.createElement('label');
   availabilityFilter.style.cssText='display:flex;align-items:center;gap:9px;margin:12px 0;padding:10px;border-radius:10px;background:#eaf4f6;font-size:14px;font-weight:600';
-  const availabilityCheckbox=document.createElement('input');availabilityCheckbox.type='checkbox';
+  const availabilityCheckbox=document.createElement('input');availabilityCheckbox.type='checkbox';availabilityCheckbox.checked=true;
   const availabilityFilterText=document.createElement('span');
   const syncFilterText=()=>{availabilityFilterText.textContent=mapText('Stations avec données récentes uniquement','Stations with recent data only')};
   syncFilterText();document.addEventListener('argens-language-changed',syncFilterText,{once:true});
@@ -758,7 +758,7 @@ async function findStations(lat,lon){
   const stationEntries=[];
   const applyAvailabilityFilter=()=>{
    for(const entry of stationEntries){
-    const hidden=availabilityCheckbox.checked&&entry.info.status!=='recent';
+    const hidden=availabilityCheckbox.checked&&(entry.info.status!=='recent'||stationEntries.filter(x=>x.info.status==='recent'&&x.station.distance<entry.station.distance).length>=12);
     entry.button.hidden=hidden;
     if(entry.marker&&stationMap){if(hidden)stationMarkers.removeLayer(entry.marker);else stationMarkers.addLayer(entry.marker)}
    }
@@ -787,6 +787,7 @@ async function findStations(lat,lon){
    stationEntries.push({station,button:btn,marker,availability,info:{status:'checking'}});
   
   }
+  applyAvailabilityFilter(); // Hide unchecked stations until their recent measurements are confirmed.
   // Check at most four stations concurrently to avoid overwhelming the public API.
   const pending=[...stationEntries];
   await Promise.all(Array.from({length:Math.min(4,pending.length)},async()=>{
@@ -800,7 +801,9 @@ async function findStations(lat,lon){
    }
   }));
   if(searchId!==stationSearchSequence)return;
-  if(stationMap){if(bounds.length)stationMap.fitBounds(bounds,{padding:[24,24],maxZoom:12});else stationMap.setView([lat,lon],10);setTimeout(()=>stationMap.invalidateSize(),100)}
+  const recentCount=stationEntries.filter(x=>x.info.status==='recent').length;
+  message.textContent=recentCount?mapText('Stations avec mesures récentes : ','Stations with recent readings: ')+recentCount:mapText('Aucune station avec mesures récentes trouvée dans cette zone. Désactivez le filtre pour consulter les autres stations.','No stations with recent readings found in this area. Turn off the filter to see other stations.');
+  if(stationMap){const visible=stationEntries.filter(x=>!x.button.hidden&&x.marker).map(x=>x.marker.getLatLng());if(visible.length)stationMap.fitBounds(visible,{padding:[24,24],maxZoom:12});else stationMap.setView([lat,lon],10);setTimeout(()=>stationMap.invalidateSize(),100)}
  }catch(e){message.textContent=mapText('Recherche indisponible pour le moment. Réessayez plus tard.','Search temporarily unavailable. Please try again.')}
 }
 async function searchPlace(){const q=document.querySelector('#place').value.trim();if(!q)return;message.textContent='Recherche de la commune…';try{const res=await fetch('https://api-adresse.data.gouv.fr/search/?limit=1&q='+encodeURIComponent(q));if(!res.ok)throw Error();const j=await res.json();const point=j.features?.[0]?.geometry?.coordinates;if(!point){message.textContent='Lieu introuvable en France.';return}await findStations(point[1],point[0])}catch(e){message.textContent='Recherche de commune indisponible.'}}
