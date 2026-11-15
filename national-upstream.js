@@ -11,6 +11,45 @@
  let map=null,layer=null,seq=0,lastRun=0,lastCode='',loaded=null;
  const nearPanel=el('nearbyGaugesBlock');
  let nearbyRequest=0,nearbyCode='',nearbyAt=0,nearbyItems=null;
+
+ const homeDialog=el('homeStationDialog');
+ let pendingHomeChoice=null;
+ function renderHomeDialog(){
+  if(!pendingHomeChoice)return;
+  text('homeStationDialogTitle',lang('Changer de station personnelle ?',
+   'Change your home station?','Heimatstation wechseln?'));
+  text('homeStationDialogName',pendingHomeChoice.name);
+  text('homeStationDialogDescription',lang(
+   'Voulez-vous utiliser cette station comme nouvelle station personnelle ? Elle restera enregistrée sur cet appareil. Les seuils des alertes push ne changent pas.',
+   'Would you like to use this gauge as your new home station? It will remain saved on this device. Your push alert thresholds will not change.',
+   'Möchten Sie diese Station als neue Heimatstation auswählen? Sie bleibt auf diesem Gerät gespeichert. Deine Push-Warnschwellen ändern sich dadurch nicht.'));
+  text('homeStationDialogConfirm',lang('✓ Choisir comme station personnelle',
+   '✓ Set as home station','✓ Als Heimatstation auswählen'));
+  text('homeStationDialogCancel',lang('Annuler','Cancel','Abbrechen'));
+ }
+ function askHomeStation(stationCode,stationName){
+  if(!homeDialog||typeof homeDialog.showModal!=='function')return;
+  if(typeof stationCode!=='string'||!/^[A-Z][A-Z0-9]{7,13}$/.test(stationCode)||
+     typeof stationName!=='string'||!stationName.trim())return;
+  pendingHomeChoice={code:stationCode,name:stationName.trim().slice(0,100)};
+  renderHomeDialog();
+  if(!homeDialog.open)homeDialog.showModal();
+  el('homeStationDialogCancel').focus();
+ }
+ homeDialog.addEventListener('close',()=>{pendingHomeChoice=null});
+ homeDialog.addEventListener('click',event=>{if(event.target===homeDialog)homeDialog.close()});
+ el('homeStationDialogCancel').addEventListener('click',()=>homeDialog.close());
+ el('homeStationDialogConfirm').addEventListener('click',()=>{
+  const choice=pendingHomeChoice;
+  if(!choice)return;
+  homeDialog.close();
+  if(typeof window.selectArgensHomeStation==='function'){
+   window.selectArgensHomeStation(choice);
+  }
+ });
+ document.addEventListener('argens-language-changed',()=>{
+  if(homeDialog.open)renderHomeDialog();
+ });
  const isVisible=()=>!el('forecastPage').classList.contains('hidden');
  function scope(){
   const argens=code===DEFAULT;
@@ -94,20 +133,7 @@
    const title=document.createElement('strong');title.textContent=stationName+d;
    const reading=document.createElement('span');reading.textContent=value;
    button.append(title,reading);
-   button.addEventListener('click',()=>{
-    if(typeof st.code!=='string'||!/^[A-Z][A-Z0-9]{7,13}$/.test(st.code)||
-       typeof window.selectArgensHomeStation!=='function')return;
-    const question=lang(
-     'Voulez-vous choisir « '+stationName+' » comme station personnelle ?',
-     'Would you like to set “'+stationName+'” as your home station?',
-     'Möchten Sie „'+stationName+'“ als Ihre Heimatstation auswählen?');
-    const note=lang(
-     'Le choix sera enregistré sur cet appareil. Vos seuils d’alertes push resteront inchangés tant que vous ne les aurez pas enregistrés dans Réglages.',
-     'This selection will be saved on this device. Your push alert thresholds will stay unchanged until you save them in Settings.',
-     'Die Auswahl wird auf diesem Gerät gespeichert. Ihre Push-Warnschwellen bleiben unverändert, bis Sie diese in den Einstellungen speichern.');
-    if(!window.confirm(question+'\n\n'+note))return;
-    window.selectArgensHomeStation({code:st.code,name:stationName});
-   });
+   button.addEventListener('click',()=>askHomeStation(st.code,stationName));
    list.append(button);
   }
  }
