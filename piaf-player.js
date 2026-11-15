@@ -4,7 +4,7 @@
 (()=>{
  const root=document.getElementById('piafForecastPanel');if(!root)return;
  const API='https://argens-alerte-push.p-hammerschmidt.workers.dev/api/piaf';
- const BOUNDS=[[43.18,5.85],[43.85,6.91]];
+ const DEFAULT_CODE='Y531201001';
  const id=x=>document.getElementById(x);
  const lang=(fr,en,de)=>document.documentElement.lang==='de'?de:document.documentElement.lang==='en'?en:fr;
  const time=x=>new Date(x).toLocaleTimeString(
@@ -13,10 +13,23 @@
  const slider=id('piafSlider'),play=id('piafPlay'),mapNode=id('piafForecastMap'),controls=id('piafForecastControls');
  const palette=window.PiafPalette;
  let map=null,overlay=null,model=null,frameIndex=0,loading=false,lastCheck=0,requestSerial=0;
+ let selectedCode=DEFAULT_CODE,stationPin=null;
+ function mapBounds(){return [[model.bounds[1],model.bounds[0]],[model.bounds[3],model.bounds[2]]]}
+ function setStation(code){
+  if(typeof code!=='string'||!/^[A-Z][A-Z0-9]{7,13}$/.test(code)||code===selectedCode)return;
+  selectedCode=code;requestSerial++;lastCheck=0;pause();cancelPrefetch();drawSerial++;
+  if(overlay&&map)map.removeLayer(overlay);
+  overlay=null;model=null;frameIndex=0;loading=false;
+  mapNode.hidden=true;controls.hidden=true;slider.disabled=true;play.disabled=true;
+  if(mapVisible())load();
+ }
+ document.addEventListener('argens-station-selected',e=>setStation(e.detail?.code));
+ document.addEventListener('argens-home-station-restored',e=>setStation(e.detail?.code));
  let playback=false,playTimer=null,drawSerial=0,preloadRun=0;
  const cache=new Map(),queued=[],pending=new Map();
  let working=0,sliderTimer=null;
- const imageURL=i=>API+'/frame?time='+encodeURIComponent(model.frames[i])+'&run='+encodeURIComponent(model.referenceTime);
+ const imageURL=i=>API+'/frame?time='+encodeURIComponent(model.frames[i])+'&run='+
+  encodeURIComponent(model.referenceTime)+'&station='+encodeURIComponent(model.station.code);
  const text=(el,s)=>{const e=id(el);if(e)e.textContent=s};
  const mapVisible=()=>!id('forecastPage').classList.contains('hidden');
  const canPreload=()=>model&&mapVisible()&&!document.hidden;
@@ -122,7 +135,7 @@
     }
     return false;
    }
-   const layer=window.L.imageOverlay(cache.get(desired),BOUNDS,{opacity:0,interactive:false});
+   const layer=window.L.imageOverlay(cache.get(desired),mapBounds(),{opacity:0,interactive:false});
    return new Promise(resolve=>{
     let finished=false;
     const finish=ok=>{
@@ -202,33 +215,40 @@
     'Die eigene Farbskala konnte nicht geladen werden.'));
    return;
   }
-  if(model&&Date.now()-lastCheck<110000){map?.invalidateSize();return}
-  loading=true;pause();const request=++requestSerial;
+  if(model&&model.station?.code===selectedCode&&Date.now()-lastCheck<110000){map?.invalidateSize();return}
+  loading=true;pause();const request=++requestSerial,requestedCode=selectedCode;
   text('piafForecastStatus',lang('Chargement de la prévision PIAF…','Loading PIAF forecast…','PIAF-Regenprognose wird geladen…'));
   try{
-   const response=await fetch(API+'/metadata',{cache:'no-store',signal:AbortSignal.timeout(18000)});
+   const response=await fetch(API+'/metadata?station='+encodeURIComponent(requestedCode),
+    {cache:'no-store',signal:AbortSignal.timeout(18000)});
    if(!response.ok)throw Error('No official PIAF forecast');
    const d=await response.json(),frames=d.frames;
    if(d.available!==true||d.source!=='Météo-France PIAF'||d.kind!=='forecast_5min'||
       !Array.isArray(frames)||frames.length<1||frames.length>37||
-      !Array.isArray(d.bounds)||d.bounds.join(',')!=='5.85,43.18,6.91,43.85'||
+      !d.station||d.station.code!==requestedCode||
+      !Number.isFinite(d.station.lat)||!Number.isFinite(d.station.lon)||
+      !Array.isArray(d.bounds)||d.bounds.length!==4||d.bounds.some(v=>!Number.isFinite(v))||
+      d.bounds[0]< -5.9||d.bounds[2]>10.2||d.bounds[1]<41||d.bounds[3]>51.7||
+      d.bounds[2]-d.bounds[0]>.001+1.06||d.bounds[3]-d.bounds[1]>.001+.67||
+      d.station.lat<41.2||d.station.lat>51.4||d.station.lon< -5.3||d.station.lon>9.8||
       !Number.isFinite(Date.parse(d.referenceTime))||Date.now()-Date.parse(d.referenceTime)>75*60000||
       !frames.every((t,i)=>/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(t)&&
        Number.isFinite(Date.parse(t))&&Date.parse(t)>Date.now()-4*60000&&
        Date.parse(t)<Date.now()+181*60000&&(i===0||Date.parse(t)>Date.parse(frames[i-1]))))
     throw Error('Incomplete or outdated PIAF metadata');
    const L=await window.loadMapLibrary();
-   if(!mapVisible()||request!==requestSerial)return;
+   if(!mapVisible()||request!==requestSerial||requestedCode!==selectedCode)return;
    mapNode.hidden=false;controls.hidden=false;
    if(!map){
     map=L.map(mapNode,{scrollWheelZoom:false,zoomControl:true});
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
      maxZoom:14,attribution:'© OpenStreetMap contributors'}).addTo(map);
-    L.circleMarker([43.4497,6.6331],{
-     radius:5,color:'#143c5d',weight:2,fillColor:'#fff',fillOpacity:1
-    }).bindTooltip('Roquebrune-sur-Argens').addTo(map);
    }
-   map.fitBounds(BOUNDS,{padding:[6,6],animate:false});
+   if(stationPin)map.removeLayer(stationPin);
+   stationPin=L.circleMarker([d.station.lat,d.station.lon],{
+    radius:5,color:'#143c5d',weight:2,fillColor:'#fff',fillOpacity:1
+   }).bindTooltip(d.station.name||d.station.code).addTo(map);
+   map.fitBounds([[d.bounds[1],d.bounds[0]],[d.bounds[3],d.bounds[2]]],{padding:[6,6],animate:false});
    requestAnimationFrame(()=>map?.invalidateSize());
    cancelPrefetch();model=d;frameIndex=0;lastCheck=Date.now();
    slider.max=String(frames.length-1);slider.value='0';slider.disabled=frames.length<2;
