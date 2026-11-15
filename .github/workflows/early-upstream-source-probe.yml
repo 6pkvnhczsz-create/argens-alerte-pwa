@@ -26,7 +26,11 @@ jobs:
           stations = {
            'Y530501501':'Le Muy / Argens',
            'Y520201001':'Les Arcs / Aille',
-           'Y523501001':'Trans en Provence / Nartuby'
+           'Y523501001':'Trans en Provence / Nartuby',
+           'Y523501002':'Trans en Provence Pont des Ecoles / Nartuby',
+           'Y523581101':'Draguignan / Nartuby',
+           'Y521502002':'Vidauban aval / Endre',
+           'Y511201001':'Carcès / Argens'
           }
           for code,name in stations.items():
               url='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?'+urllib.parse.urlencode({
