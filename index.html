@@ -1521,6 +1521,125 @@ async function loadOfficialRadarMap(){
 document.addEventListener('argens-language-changed',()=>{if(!document.querySelector('#forecastPage').classList.contains('hidden'))loadOfficialRadarMap()});
 setInterval(()=>{if(!document.hidden&&!document.querySelector('#forecastPage').classList.contains('hidden'))loadOfficialRadarMap()},5*60*1000);
 
+// Georeferenced upstream stations: locations are verified against the official
+// Hub'Eau station registry; real-time levels and trends still come exclusively
+// from the existing validated early-signals API, not this coordinate request.
+let upstreamDisplayedGauges=[],upstreamMapInstance=null,upstreamMapMarkers=null,upstreamMapUpdateId=0;
+const upstreamStationPositions=new Map(),upstreamPositionRequests=new Map(),upstreamPositionFailures=new Map();
+const UPSTREAM_POSITION_API='https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations';
+async function officialUpstreamPosition(code){
+ if(!/^[A-Z][0-9]{8,12}$/.test(code))return null;
+ if(upstreamStationPositions.has(code))return upstreamStationPositions.get(code);
+ if(Date.now()-(upstreamPositionFailures.get(code)||0)<90000)return null;
+ if(upstreamPositionRequests.has(code))return upstreamPositionRequests.get(code);
+ const promise=(async()=>{
+  try{
+   const params=new URLSearchParams({code_station:code,format:'json',size:'5'});
+   const response=await fetch(UPSTREAM_POSITION_API+'?'+params,{headers:{Accept:'application/json'},cache:'force-cache',signal:AbortSignal.timeout(10000)});
+   if(!response.ok)throw Error('Station metadata unavailable');
+   const data=await response.json();
+   const row=(Array.isArray(data.data)?data.data:[]).find(x=>String(x.code_station||'').replace(/^#/,'')===code);
+   if(!row)throw Error('Station code missing in registry');
+   const lat=Number(row.latitude_station),lon=Number(row.longitude_station);
+   if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat<42.9||lat>44.2||lon<5.4||lon>7.3)throw Error('Station coordinates outside the Argens region');
+   const point={lat,lon};
+   upstreamStationPositions.set(code,point);
+   upstreamPositionFailures.delete(code);
+   return point;
+  }catch{
+   upstreamPositionFailures.set(code,Date.now());
+   return null;
+  }finally{upstreamPositionRequests.delete(code)}
+ })();
+ upstreamPositionRequests.set(code,promise);
+ return promise;
+}
+function drawUpstreamFallback(items,fmt){
+ const box=document.getElementById('earlyUpstreamRows');
+ box.replaceChildren();box.hidden=items.length===0;
+ for(const g of items){
+  const row=document.createElement('div');row.className='upstream-fallback-row';
+  row.textContent=g.name+' · '+fmt(g.levelM)+' m · '+(g.trendCmH>0?'+':'')+fmt(g.trendCmH)+' cm/h';
+  box.append(row);
+ }
+}
+async function updateUpstreamMap(){
+ const id=++upstreamMapUpdateId;
+ const mapNode=document.getElementById('upstreamMap');
+ const forecastPage=document.getElementById('forecastPage');
+ if(!mapNode||!forecastPage||forecastPage.classList.contains('hidden'))return;
+ const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
+ const fmt=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
+ const gauges=upstreamDisplayedGauges.filter(x=>{
+  const at=Date.parse(x.observedAt);
+  return x.status==='current'&&Number.isFinite(x.levelM)&&Number.isFinite(x.trendCmH)&&Number.isFinite(at)
+   &&Date.now()-at<=90*60000&&at-Date.now()<=15*60000;
+ });
+ if(!gauges.length){
+  mapNode.hidden=true;
+  if(upstreamMapMarkers)upstreamMapMarkers.clearLayers();
+  drawUpstreamFallback([],fmt);
+  earlyText('upstreamMapMessage',earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Oberlieger-Messwerte'));
+  return;
+ }
+ // Show verified levels immediately while reference coordinates load.
+ drawUpstreamFallback(gauges,fmt);
+ earlyText('upstreamMapMessage',earlyI18n('Chargement des emplacements officiels…','Loading verified station locations…','Offizielle Stationspositionen werden geladen…'));
+ const positions=await Promise.all(gauges.map(async g=>({g,point:await officialUpstreamPosition(g.code)})));
+ if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden'))return;
+ const mapped=positions.filter(x=>x.point),missing=positions.filter(x=>!x.point).map(x=>x.g);
+ if(!mapped.length){
+  mapNode.hidden=true;
+  if(upstreamMapMarkers)upstreamMapMarkers.clearLayers();
+  earlyText('upstreamMapMessage',earlyI18n('Emplacements temporairement indisponibles · mesures ci-dessous','Station locations unavailable · readings listed below','Stationspositionen nicht verfügbar · Messwerte stehen darunter'));
+  return;
+ }
+ try{
+  const L=await loadMapLibrary();
+  if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden'))return;
+  mapNode.hidden=false;
+  if(!upstreamMapInstance){
+   upstreamMapInstance=L.map(mapNode,{scrollWheelZoom:false,zoomControl:true});
+   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:15,attribution:'© OpenStreetMap contributors'
+   }).addTo(upstreamMapInstance);
+   upstreamMapMarkers=L.layerGroup().addTo(upstreamMapInstance);
+  }
+  upstreamMapMarkers.clearLayers();
+  for(const {g,point} of mapped){
+   const trend=g.trendCmH>0?'+':'';
+   const glyph=g.trendCmH>0?'↗':g.trendCmH<0?'↘':'→';
+   const shortName=String(g.name).split(' · ')[0].slice(0,45);
+   const bubble=document.createElement('div');
+   const title=document.createElement('strong');title.className='upstream-tooltip-title';title.textContent=shortName;
+   const reading=document.createElement('span');reading.className='upstream-tooltip-reading';reading.textContent=fmt(g.levelM)+' m';
+   const change=document.createElement('span');change.className='upstream-tooltip-trend '+(g.trendCmH>0?'trend-up':g.trendCmH<0?'trend-down':'trend-flat');
+   change.textContent=glyph+' '+trend+fmt(g.trendCmH)+' cm/h';
+   bubble.append(title,reading,change);
+   const pin=L.divIcon({className:'upstream-station-pin-wrap',
+    html:'<span class="upstream-station-pin" aria-hidden="true"></span>',
+    iconSize:[24,32],iconAnchor:[12,27]});
+   const station=L.marker([point.lat,point.lon],{icon:pin,riseOnHover:true,keyboard:true});
+   station.bindTooltip(bubble,{permanent:true,direction:point.lon<6.38?'right':'left',
+    offset:point.lon<6.38?[12,-4]:[-12,-4],opacity:1,className:'upstream-map-tooltip'});
+   station.bindPopup(shortName+' · '+fmt(g.levelM)+' m · '+glyph+' '+trend+fmt(g.trendCmH)+' cm/h');
+   upstreamMapMarkers.addLayer(station);
+  }
+  const bounds=L.latLngBounds(mapped.map(x=>[x.point.lat,x.point.lon]));
+  upstreamMapInstance.fitBounds(bounds,{padding:[48,48],maxZoom:10,animate:false});
+  requestAnimationFrame(()=>upstreamMapInstance?.invalidateSize());
+  drawUpstreamFallback(missing,fmt);
+  earlyText('upstreamMapMessage',
+   earlyI18n('Stations localisées avec coordonnées officielles : ','Stations mapped using official coordinates: ','Stationen mit amtlichen Koordinaten: ')+mapped.length+'/'+gauges.length+
+   (missing.length?earlyI18n(' · autres mesures ci-dessous',' · remaining readings below',' · übrige Messwerte darunter'):''));
+ }catch(error){
+  if(id!==upstreamMapUpdateId)return;
+  mapNode.hidden=true;
+  drawUpstreamFallback(gauges,fmt);
+  earlyText('upstreamMapMessage',earlyI18n('Carte indisponible · mesures ci-dessous','Map unavailable · readings below','Karte nicht verfügbar · Messwerte darunter'));
+ }
+}
+
 function renderEarlySignals(){
  const d=earlySignalsSnapshot,locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
  const fmt=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
