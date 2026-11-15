@@ -4,12 +4,13 @@
 // Private Worker-to-Worker RPC; not exposed as a public HTTP route.
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { getHydroObservations, readVigicruesObservations, validHydroStation } from './water-sources.mjs';
+import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
  async vigicruesHealthAdmin(){
   try{
-   const {points}=await readVigicruesObservations(STATION,{limit:10});
-   return {status:'good',observedAt:new Date(points[0].time).toISOString()};
+   const result=await bestVigicruesBackup(this.env,STATION,10);
+   return {status:'good',observedAt:new Date(result.points[0].time).toISOString(),transport:result.transport||'direct'};
   }catch(e){return {status:'bad',error:String(e.message||e).slice(0,480)}}
  }
  async broadcastAdmin(data){
@@ -130,8 +131,19 @@ async function deliver(sub,payload,env){
 function cors(request){const origin=request.headers.get('Origin');return {'Access-Control-Allow-Origin':ALLOWED_ORIGINS.has(origin)?origin:'null','Access-Control-Allow-Methods':'GET, POST, PUT, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization','Vary':'Origin'}}
 function json(request,value,status=200){return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8',...cors(request),'Cache-Control':'no-store'}})}
 function levelFor(metres,rate){return metres>=4.5?'red':metres>=3||(rate!==null&&rate>=30)?'orange':'green'}
-async function currentObservation(){
- const {points,source}=await getHydroObservations(STATION,{limit:100});
+
+async function bestVigicruesBackup(env,code,limit=100){
+ try{
+  return await storedVigicruesObservations(env.DB,code,{limit});
+ }catch(snapshotError){
+  console.warn('Stored Vigicrues backup not available',code,String(snapshotError?.message||snapshotError));
+  // Preserve the existing direct API as an emergency tertiary path.
+  // It currently returns HTTP 403 from Cloudflare, but may become reachable later.
+  return readVigicruesObservations(code,{limit});
+ }
+}
+async function currentObservation(env){
+ const {points,source}=await getHydroObservations(STATION,{limit:100,backupReader:(code,limit)=>bestVigicruesBackup(env,code,limit)});
  const last=points[0];
  const ref=points.find(x=>(last.time-x.time)>=30*60000&&(last.time-x.time)<=180*60000);
  const rate=ref?(last.mm-ref.mm)/10/((last.time-ref.time)/3600000):null;
@@ -212,8 +224,8 @@ async function checkRainForecast(env){
  console.log('Rain alert',saved.level,'->',current,'max mm',max,'window start',new Date(peakStart).toISOString(),'sent',sent,'failed',failures);
 }
 
-async function personalStationObservation(code){
- const {points,source}=await getHydroObservations(code,{limit:100});
+async function personalStationObservation(code,env){
+ const {points,source}=await getHydroObservations(code,{limit:100,backupReader:(station,limit)=>bestVigicruesBackup(env,station,limit)});
  const last=points[0];
  const reference=points.find(x=>last.time-x.time>=30*60000&&last.time-x.time<=180*60000);
  const rate=reference?(last.mm-reference.mm)/10/((last.time-reference.time)/3600000):null;
@@ -267,7 +279,7 @@ async function checkPersonalStations(env){
  const rows=await env.DB.prepare("SELECT p.user_id,p.station_code,p.station_name,p.orange_m,p.red_m,p.updated_at FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE u.status='active'").all();
  const users=rows.results||[];const observations=new Map();
  for(const u of users){
-  if(!observations.has(u.station_code))observations.set(u.station_code,personalStationObservation(u.station_code).catch(e=>{console.error('Personal station read failed',u.station_code,String(e));return null}));
+  if(!observations.has(u.station_code))observations.set(u.station_code,personalStationObservation(u.station_code,env).catch(e=>{console.error('Personal station read failed',u.station_code,String(e));return null}));
  }
  for(const u of users){
   const obs=await observations.get(u.station_code);if(!obs)continue;
@@ -309,7 +321,7 @@ async function checkPersonalStations(env){
  }
 }
 async function scheduledCheck(env){
- const obs=await currentObservation();
+ const obs=await currentObservation(env);
  await recordMonitorStatus(env,true,obs);
  const row=await env.DB.prepare('SELECT alert_level FROM alert_state WHERE station_code = ?').bind(STATION).first();
  const previous=row?.alert_level||'unknown';
@@ -388,7 +400,7 @@ async function accountRoute(request,env,url){
   let notification={status:'unchanged'};
   if(changed){
    try{
-    const obs=await personalStationObservation(code);
+    const obs=await personalStationObservation(code,env);
     const result=await notifyUpdatedStationSettings(env,user,{station_code:code,station_name:verifiedName,orange_m:orange,red_m:red},obs);
     // Persist only after successful sends (or green). If push fails, allow the scheduler to retry.
     if(result.level==='green'||(result.devices>0&&result.sent>0&&result.failed===0)){
@@ -551,16 +563,33 @@ export default {
    try{const raw=await request.text();if(raw.length>2500)return json(request,{error:'Too large'},413);const {endpoint}=JSON.parse(raw);if(typeof endpoint!=='string'||endpoint.length>2048)return json(request,{error:'Invalid endpoint'},400);const row=await env.DB.prepare('SELECT s.endpoint FROM push_subscriptions s JOIN push_user_devices d ON d.endpoint=s.endpoint WHERE s.endpoint=? AND d.user_id=?').bind(endpoint,user.id).first();return json(request,{active:!!row})}catch{return json(request,{active:false})}
   }
 
-  // Read-only emergency fallback for the public PWA. The client calls this only
-  // when the direct Hub'Eau request fails or has stale/unusable observations.
+  // Only the exact repository main-branch GitHub Actions workflow may write
+  // verified measurements. An untrusted HTTP client cannot forge flood readings.
+  if(url.pathname==='/api/vigicrues-ingest'&&request.method==='POST'){
+   try{
+    const auth=request.headers.get('Authorization')||'';
+    if(!auth.startsWith('Bearer '))return json(request,{error:'GitHub identity required'},401);
+    const identity=await verifyGitHubActionToken(auth.slice(7));
+    if(Number(request.headers.get('Content-Length'))>SNAPSHOT_MAX_BODY)return json(request,{error:'Payload too large'},413);
+    const body=await request.text();
+    if(body.length>SNAPSHOT_MAX_BODY)return json(request,{error:'Payload too large'},413);
+    const received=await ingestSnapshot(env.DB,JSON.parse(body),{runId:identity.runId});
+    return json(request,received);
+   }catch(error){
+    console.error('Vigicrues signed ingestion rejected',String(error?.message||error));
+    return json(request,{error:'Backup submission rejected'},401);
+   }
+  }
+  // PWA uses this only when direct Hub'Eau observations are unavailable.
   if(url.pathname==='/api/vigicrues-backup'&&request.method==='GET'){
    const origin=request.headers.get('Origin');
    if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
    const code=url.searchParams.get('station');
    if(!validHydroStation(code))return json(request,{error:'Invalid station'},400);
    try{
-    const {points}=await readVigicruesObservations(code,{limit:700});
-    return json(request,{ok:true,source:'vigicrues',station:code,observed_at:new Date(points[0].time).toISOString(),
+    const {points,transport}=await bestVigicruesBackup(env,code,700);
+    return json(request,{ok:true,source:'vigicrues',transport:transport||'direct',station:code,
+      observed_at:new Date(points[0].time).toISOString(),
       data:points.map(p=>({resultat_obs:p.mm,date_obs:new Date(p.time).toISOString()}))});
    }catch(e){
     console.warn('Public Vigicrues fallback unavailable',code,String(e));
