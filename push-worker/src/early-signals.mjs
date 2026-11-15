@@ -47,7 +47,7 @@ export async function fetchUpstreamStation(station,{now=Date.now(),fetchImpl=fet
 export function parseRainEstimate(data,now=Date.now()){
  const times=data?.hourly?.time,values=data?.hourly?.precipitation;
  if(!Array.isArray(times)||!Array.isArray(values)||times.length!==values.length)throw Error('Missing precipitation series');
- const rows=times.map((t,i)=>({t:Number(t)*1000,v:Number(values[i])}))
+ const rows=times.map((t,i)=>({t:typeof t==='number'?t*1000:NaN,v:typeof values[i]==='number'?values[i]:NaN}))
   .filter(x=>Number.isFinite(x.t)&&Number.isFinite(x.v)&&x.v>=0&&x.v<=300&&x.t<=now&&x.t>=now-8*3600000);
  const last3=rows.filter(x=>x.t>now-3*3600000),last6=rows.filter(x=>x.t>now-6*3600000);
  if(last3.length<2||last6.length<4)throw Error('Incomplete recent rainfall estimate');
