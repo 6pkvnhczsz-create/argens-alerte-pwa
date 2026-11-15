@@ -686,7 +686,7 @@ export default {
     return json(request,{error:'Invalid station'},400);
    try{
     const cache=globalThis.caches?.default;
-    const key=new Request('https://riviere-alerte.fr/__hydro_cache/upstream_v2?station='+code);
+    const key=new Request('https://riviere-alerte.fr/__hydro_cache/upstream_v3?station='+code);
     let result=null;
     if(cache){const hit=await cache.match(key);if(hit)result=await hit.json().catch(()=>null)}
     if(!result||result.home?.code!==code){
@@ -702,17 +702,12 @@ export default {
      }));
      return results;
     }
+    // Prefer five verified upstream stations with actual recent measurements.
+    // Never fill gaps with geographically nearby but unconnected gauges.
     const verified=await measureBatch((result.candidates||[]).slice(0,10));
-    const stations=verified.filter(Boolean);
-    const nearSource=(result.nearby||[]).slice(0,14);
-    const nearbyMeasured=await measureBatch(nearSource);
-    const nearby=nearSource.map((station,i)=>({
-     ...station, ...(nearbyMeasured[i]||{}),
-     classification:'nearby_not_verified',
-     status:nearbyMeasured[i]?'current':'no_recent_measurement'
-    }));
+    const stations=verified.filter(Boolean).slice(0,5);
     return json(request,{ok:true,status:stations.length?'verified':'no_current_verified',
-     home:result.home,stations,nearby,nearbyRadiusKm:40,checkedAt:new Date().toISOString(),
+     home:result.home,stations,checkedAt:new Date().toISOString(),
      source:result.evidence,extent:result.extent,connectivityCoverage:result.connectivityCoverage,
      directoryTruncated:result.directoryTruncated===true,
      hydrologicalConnectivity:'directed_verified_local_only',
