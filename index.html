@@ -212,7 +212,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <p id="installBannerHint" class="note"></p>
   </div>
 </section>
-<div id="overview"><div class="hero"><div class="hero-orb" aria-hidden="true"></div><small>NIVEAU D’EAU ACTUEL</small><div class="station-heading"><span id="stationTitle">Roquebrune-sur-Argens</span><span id="stationUpdated" class="station-updated" aria-label="Date et heure de la dernière mesure"></span></div><div class="level"><span class="level-glass"><span id="level">—</span><span style="font-size:25px;letter-spacing:0"> m</span></span></div><div class="level-connector" aria-hidden="true"><svg viewBox="0 0 300 44" preserveAspectRatio="none" focusable="false"><path d="M150 0 V23 H50 V44" /></svg></div><div class="threshold-row" aria-label="Seuils indicatifs"><span class="threshold threshold-green" data-threshold="green">0–3 m</span><span class="threshold threshold-orange" data-threshold="orange">3–4,5 m</span><span class="threshold threshold-red" data-threshold="red">≥ 4,5 m</span></div><div id="status" class="threshold-message" role="status">Données en attente</div><div id="thresholdNotice" class="threshold-notice" hidden><div id="thresholdNoticeText">Aucun seuil d’alerte n’est défini pour cette station. Définissez vos seuils personnels dans les réglages.</div><button id="thresholdSettingsLink" type="button" style="margin-top:14px;padding:12px 18px;border:1px solid #ffffff99;border-radius:11px;background:#ffffffed;color:#195469;font:inherit;font-weight:700;cursor:pointer">⚙ Définir mes seuils</button></div><div class="sub" id="trend">Chargement des mesures</div><div class="hero-chart-head"><div class="hero-chart-label">ÉVOLUTION DU NIVEAU</div><div class="range-switch" role="group" aria-label="Période du graphique"><button type="button" data-hours="1" aria-pressed="true">1 h</button><button type="button" data-hours="6">6 h</button><button type="button" data-hours="12">12 h</button><button type="button" data-hours="24">24 h</button><button type="button" data-hours="48">48 h</button></div></div><div class="range-info" id="rangeInfo"></div><div class="chart-with-scale"><div class="height-scale height-scale-left" id="heightScaleLeft" aria-label="Hauteurs en mètres"></div><svg class="chart" id="chart" viewBox="0 0 340 110" preserveAspectRatio="none" aria-label="Évolution des dernières mesures"><path d="M0 106 H340" stroke="#456476" stroke-dasharray="5 5"/></svg><div class="height-scale height-scale-right" id="heightScaleRight" aria-hidden="true"></div></div><div class="chart-times" id="chartTimes" aria-label="Heures des mesures"></div><div class="hidden"><span id="readingTime"></span></div><div class="hero-source-footer">Source: HUB’EAU</div></div>
+<div id="overview"><div class="hero"><div class="hero-orb" aria-hidden="true"></div><small>NIVEAU D’EAU ACTUEL</small><div class="station-heading"><span id="stationTitle">Roquebrune-sur-Argens</span><span id="stationUpdated" class="station-updated" aria-label="Date et heure de la dernière mesure"></span></div><div class="level"><span class="level-glass"><span id="level">—</span><span style="font-size:25px;letter-spacing:0"> m</span></span></div><div class="level-connector" aria-hidden="true"><svg viewBox="0 0 300 44" preserveAspectRatio="none" focusable="false"><path d="M150 0 V23 H50 V44" /></svg></div><div class="threshold-row" aria-label="Seuils indicatifs"><span class="threshold threshold-green" data-threshold="green">0–3 m</span><span class="threshold threshold-orange" data-threshold="orange">3–4,5 m</span><span class="threshold threshold-red" data-threshold="red">≥ 4,5 m</span></div><div id="status" class="threshold-message" role="status">Données en attente</div><div id="thresholdNotice" class="threshold-notice" hidden><div id="thresholdNoticeText">Aucun seuil d’alerte n’est défini pour cette station. Définissez vos seuils personnels dans les réglages.</div><button id="thresholdSettingsLink" type="button" style="margin-top:14px;padding:12px 18px;border:1px solid #ffffff99;border-radius:11px;background:#ffffffed;color:#195469;font:inherit;font-weight:700;cursor:pointer">⚙ Définir mes seuils</button></div><div class="sub" id="trend">Chargement des mesures</div><div class="hero-chart-head"><div class="hero-chart-label">ÉVOLUTION DU NIVEAU</div><div class="range-switch" role="group" aria-label="Période du graphique"><button type="button" data-hours="1" aria-pressed="true">1 h</button><button type="button" data-hours="6">6 h</button><button type="button" data-hours="12">12 h</button><button type="button" data-hours="24">24 h</button><button type="button" data-hours="48">48 h</button></div></div><div class="range-info" id="rangeInfo"></div><div class="chart-with-scale"><div class="height-scale height-scale-left" id="heightScaleLeft" aria-label="Hauteurs en mètres"></div><svg class="chart" id="chart" viewBox="0 0 340 110" preserveAspectRatio="none" aria-label="Évolution des dernières mesures"><path d="M0 106 H340" stroke="#456476" stroke-dasharray="5 5"/></svg><div class="height-scale height-scale-right" id="heightScaleRight" aria-hidden="true"></div></div><div class="chart-times" id="chartTimes" aria-label="Heures des mesures"></div><div class="hidden"><span id="readingTime"></span></div><div class="hero-source-footer" id="waterDataSource" aria-live="polite">Source: HUB’EAU</div></div>
 <div id="forecastPanel" class="panel" style="margin-top:15px;text-align:center" aria-live="polite">
 <strong id="forecastHeading">🔎 Projection des seuils</strong>
 <p id="forecastStatus" class="note" style="margin:10px 0">Calcul en attente de mesures récentes…</p><div id="forecastProjected" class="hidden" style="font-size:17px;font-weight:700;line-height:1.45;margin:12px 0;padding:13px 10px;background:#f3f8fa;border:1px solid #e2edf1;border-radius:15px;color:#123f57;text-align:center"></div>
@@ -550,7 +550,7 @@ function renderForecast(items,code){
  projectedEl.classList.remove('hidden');
  out.classList.remove('hidden');
 }
-function noReading(text){document.querySelectorAll('#forecastResults .card').forEach(card=>card.classList.remove('forecast-threshold-orange','forecast-threshold-red'));document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'Not enough reliable data to estimate the short-term trend.':'Données insuffisantes pour estimer l’évolution à court terme.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";scheduleLevelConnector();document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='status orange';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren()}
+function noReading(text){document.querySelectorAll('#forecastResults .card').forEach(card=>card.classList.remove('forecast-threshold-orange','forecast-threshold-red'));document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'Not enough reliable data to estimate the short-term trend.':'Données insuffisantes pour estimer l’évolution à court terme.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";scheduleLevelConnector();document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='threshold-message';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren()}
 function drawChart(items){
  const svg=document.querySelector('#chart'),axis=document.querySelector('#chartTimes'),info=document.querySelector('#rangeInfo');
  svg.replaceChildren();axis.replaceChildren();document.querySelector('#heightScaleLeft').replaceChildren();document.querySelector('#heightScaleRight').replaceChildren();
@@ -574,13 +574,35 @@ function drawChart(items){
  for(let i=0;i<3;i++){const label=document.createElement('span'),t=start+(newest-start)*i/2;label.textContent=fmt.format(new Date(t));axis.append(label)}
 }
 async function loadMeasurements(code,{silent=false}={}){
- const seq=++loadSequence;activeStation=code;if(!silent){chartReadings=[];noReading('Chargement des mesures…')}
+ const seq=++loadSequence;activeStation=code;if(!silent){chartReadings=[];noReading(mapText('Chargement des mesures…','Loading readings…'))}
  try{
-  const startDate=new Date(Date.now()-52*3600000).toISOString();const url='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite='+encodeURIComponent(code)+'&grandeur_hydro=H&date_debut_obs='+encodeURIComponent(startDate)+'&size=1000&sort=desc&format=json';
-  const response=await fetch(url,{cache:'no-store'});if(!response.ok)throw Error('API unavailable');
-  const payload=await response.json();if(seq!==loadSequence)return;
-  const items=(payload.data||[]).map(x=>({value:Number(x.resultat_obs),date:new Date(x.date_obs)})).filter(x=>Number.isFinite(x.value)&&Number.isFinite(x.date.getTime())).sort((a,b)=>b.date-a.date);
-  if(!items.length){if(!silent)noReading('Aucune mesure de hauteur disponible pour cette station.');throw Error('No readings')}chartReadings=items;
+  const startDate=new Date(Date.now()-52*3600000).toISOString();
+  const url='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite='+encodeURIComponent(code)+'&grandeur_hydro=H&date_debut_obs='+encodeURIComponent(startDate)+'&size=1000&sort=desc&format=json';
+  const parseRows=rows=>(Array.isArray(rows)?rows:[]).filter(x=>x&&x.resultat_obs!==null&&x.resultat_obs!==undefined&&x.resultat_obs!=='').map(x=>({value:Number(x.resultat_obs),date:new Date(x.date_obs)}))
+    .filter(x=>Number.isFinite(x.value)&&x.value>=-5000&&x.value<=30000&&Number.isFinite(x.date.getTime()))
+    .sort((a,b)=>b.date-a.date);
+  const fresh=items=>items.length>0&&Date.now()-items[0].date.getTime()<=3*3600000&&Date.now()-items[0].date.getTime()>=-15*60000;
+  let items=[],source='hubeau';
+  try{
+   const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(12000)});
+   if(!response.ok)throw Error('Hub Eau HTTP '+response.status);
+   const payload=await response.json();
+   items=parseRows(payload.data);
+   if(!fresh(items))throw Error('No fresh Hub Eau observations');
+  }catch(primaryError){
+   const response=await fetch(PUSH_API_URL+'/api/vigicrues-backup?station='+encodeURIComponent(code),{cache:'no-store',signal:AbortSignal.timeout(22000)});
+   if(!response.ok)throw Error('Vigicrues backup HTTP '+response.status+' (Hub: '+primaryError.message+')');
+   const backup=await response.json();
+   if(backup?.source!=='vigicrues'||backup.station!==code||!Array.isArray(backup.data))throw Error('Invalid backup response');
+   items=parseRows(backup.data);
+   if(!fresh(items)||items.length<2)throw Error('Backup observations missing or stale');
+   source='vigicrues';
+  }
+  if(seq!==loadSequence)return;
+  chartReadings=items;
+  const footer=document.querySelector('#waterDataSource');
+  footer.dataset.source=source;
+  footer.textContent=source==='vigicrues'?mapText('Source : Vigicrues (secours)','Source: Vigicrues (backup)'):mapText('Source : Hub’Eau','Source: Hub’Eau');
   const last=items[0],previous=items.find(x=>x.date<last.date);
   healthState.river='good';healthState.riverAt=last.date.getTime();renderSystemHealth();
   // Compare to a reading 30–180 minutes earlier; avoid extrapolating from tiny intervals.
@@ -596,8 +618,36 @@ async function loadMeasurements(code,{silent=false}={}){
   drawChart(chartReadings);
   renderThresholdLabels(code);renderAlertRules(code);
   renderForecast(chartReadings,code);
- }catch(e){if(seq===loadSequence){healthState.river='bad';renderSystemHealth();if(!silent)noReading('Service de mesures temporairement indisponible.');else console.warn('Background refresh failed',e)}throw e}
+ }catch(e){
+  if(seq===loadSequence){
+   const lastKnown=chartReadings[0]?.date;
+   chartReadings=[];
+   healthState.river='bad';healthState.riverAt=null;renderSystemHealth();
+   noReading(mapText('Sources de mesure indisponibles.','Water-level sources unavailable.'));
+   const footer=document.querySelector('#waterDataSource');
+   footer.dataset.source='unavailable';
+   footer.textContent=mapText('Sources : Hub’Eau et Vigicrues indisponibles','Sources: Hub’Eau and Vigicrues unavailable');
+   if(lastKnown){
+    const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
+    document.querySelector('#stationUpdated').textContent=mapText('Dernière mesure connue : ','Last known reading: ')+
+      new Intl.DateTimeFormat(locale,{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}).format(lastKnown);
+   }
+   console.warn('Both river data sources unavailable',String(e));
+  }
+  throw e;
+ }
 }
+
+function refreshWaterSourceLanguage(){
+ const footer=document.querySelector('#waterDataSource');
+ if(!footer)return;
+ const source=footer.dataset.source;
+ if(source==='vigicrues')footer.textContent=mapText('Source : Vigicrues (secours)','Source: Vigicrues (backup)');
+ else if(source==='unavailable')footer.textContent=mapText('Sources : Hub’Eau et Vigicrues indisponibles','Sources: Hub’Eau and Vigicrues unavailable');
+ else footer.textContent=mapText('Source : Hub’Eau','Source: Hub’Eau');
+}
+document.addEventListener('argens-language-changed',refreshWaterSourceLanguage);
+
 document.querySelector('#thresholdSettingsLink').addEventListener('click',()=>{document.querySelector('[data-tab="Réglages"]').click();document.querySelector('#personalStationPanel').scrollIntoView({behavior:'smooth',block:'start'});});
 slider.addEventListener('input',()=>{const n=Number(slider.value),s=document.querySelector('#simulation');s.className='status '+(n<2?'green':n<3?'orange':'red');s.textContent='Aperçu : '+(n<2?'vert':n<3?'orange':'rouge')+' · '+n.toFixed(2).replace('.',',')+' m'});
 loadMeasurements(activeStation).catch(()=>{});

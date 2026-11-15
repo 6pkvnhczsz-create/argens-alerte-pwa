@@ -3,8 +3,15 @@
 
 // Private Worker-to-Worker RPC; not exposed as a public HTTP route.
 import { WorkerEntrypoint } from 'cloudflare:workers';
+import { getHydroObservations, readVigicruesObservations, validHydroStation } from './water-sources.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
+ async vigicruesHealthAdmin(){
+  try{
+   const {points}=await readVigicruesObservations(STATION,{limit:10});
+   return {status:'good',observedAt:new Date(points[0].time).toISOString()};
+  }catch(e){return {status:'bad',error:String(e.message||e).slice(0,180)}}
+ }
  async broadcastAdmin(data){
   if(!['test','maintenance','incident','custom'].includes(data?.kind)||typeof data.title!=='string'||typeof data.body!=='string'||!data.title.trim()||!data.body.trim()||data.title.length>90||data.body.length>400)throw Error('Invalid admin message');
   const db=this.env.DB;
@@ -124,17 +131,11 @@ function cors(request){const origin=request.headers.get('Origin');return {'Acces
 function json(request,value,status=200){return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8',...cors(request),'Cache-Control':'no-store'}})}
 function levelFor(metres,rate){return metres>=4.5?'red':metres>=3||(rate!==null&&rate>=30)?'orange':'green'}
 async function currentObservation(){
- const url=API+'?code_entite='+STATION+'&grandeur_hydro=H&size=100&sort=desc&format=json';
- const response=await fetch(url,{headers:{Accept:'application/json'},cf:{cacheTtl:0}});
- if(!response.ok)throw Error('Hub Eau HTTP '+response.status);
- const data=await response.json();
- const points=(data.data||[]).map(x=>({mm:Number(x.resultat_obs),time:new Date(x.date_obs).getTime()})).filter(x=>Number.isFinite(x.mm)&&Number.isFinite(x.time)).sort((a,b)=>b.time-a.time);
- if(!points.length)throw Error('No measurements');
- const last=points[0],age=Date.now()-last.time;
- if(age>3*3600000||age< -15*60000)throw Error('Stale measurements');
+ const {points,source}=await getHydroObservations(STATION,{limit:100});
+ const last=points[0];
  const ref=points.find(x=>(last.time-x.time)>=30*60000&&(last.time-x.time)<=180*60000);
  const rate=ref?(last.mm-ref.mm)/10/((last.time-ref.time)/3600000):null;
- return {metres:last.mm/1000,rate,level:levelFor(last.mm/1000,rate),observedAt:new Date(last.time).toISOString()};
+ return {metres:last.mm/1000,rate,level:levelFor(last.mm/1000,rate),observedAt:new Date(last.time).toISOString(),source};
 }
 const labels={green:'Vert',orange:'Orange',red:'Rouge'};
 function notification(obs,previous,lang='fr'){
@@ -212,16 +213,11 @@ async function checkRainForecast(env){
 }
 
 async function personalStationObservation(code){
- const url=API+'?code_entite='+encodeURIComponent(code)+'&grandeur_hydro=H&size=10&sort=desc&format=json';
- const response=await fetch(url,{headers:{Accept:'application/json'},cf:{cacheTtl:0}});
- if(!response.ok)throw Error('Station '+code+' HTTP '+response.status);
- const data=await response.json();
- const points=(data.data||[]).map(x=>({mm:Number(x.resultat_obs),time:new Date(x.date_obs).getTime()})).filter(x=>Number.isFinite(x.mm)&&Number.isFinite(x.time)).sort((a,b)=>b.time-a.time);
- if(!points.length)throw Error('No observations for '+code);
- const age=Date.now()-points[0].time;if(age>3*3600000||age< -15*60000)throw Error('Stale observations for '+code);
- const reference=points.find(x=>points[0].time-x.time>=30*60000&&points[0].time-x.time<=180*60000);
- const rate=reference?(points[0].mm-reference.mm)/10/((points[0].time-reference.time)/3600000):null;
- return {metres:points[0].mm/1000,rate,observedAt:new Date(points[0].time).toISOString()};
+ const {points,source}=await getHydroObservations(code,{limit:100});
+ const last=points[0];
+ const reference=points.find(x=>last.time-x.time>=30*60000&&last.time-x.time<=180*60000);
+ const rate=reference?(last.mm-reference.mm)/10/((last.time-reference.time)/3600000):null;
+ return {metres:last.mm/1000,rate,observedAt:new Date(last.time).toISOString(),source};
 }
 function personalPushMessage({station,metres,threshold,rate,level,rapid,settingsUpdate,en,de}){
  if(de){
@@ -553,6 +549,23 @@ export default {
    if(!env.DB)return json(request,{error:'Database unavailable'},503);
    const user=await authUser(request,env.DB);if(!user)return json(request,{active:false},200);
    try{const raw=await request.text();if(raw.length>2500)return json(request,{error:'Too large'},413);const {endpoint}=JSON.parse(raw);if(typeof endpoint!=='string'||endpoint.length>2048)return json(request,{error:'Invalid endpoint'},400);const row=await env.DB.prepare('SELECT s.endpoint FROM push_subscriptions s JOIN push_user_devices d ON d.endpoint=s.endpoint WHERE s.endpoint=? AND d.user_id=?').bind(endpoint,user.id).first();return json(request,{active:!!row})}catch{return json(request,{active:false})}
+  }
+
+  // Read-only emergency fallback for the public PWA. The client calls this only
+  // when the direct Hub'Eau request fails or has stale/unusable observations.
+  if(url.pathname==='/api/vigicrues-backup'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
+   const code=url.searchParams.get('station');
+   if(!validHydroStation(code))return json(request,{error:'Invalid station'},400);
+   try{
+    const {points}=await readVigicruesObservations(code,{limit:700});
+    return json(request,{ok:true,source:'vigicrues',station:code,observed_at:new Date(points[0].time).toISOString(),
+      data:points.map(p=>({resultat_obs:p.mm,date_obs:new Date(p.time).toISOString()}))});
+   }catch(e){
+    console.warn('Public Vigicrues fallback unavailable',code,String(e));
+    return json(request,{ok:false,error:'Backup measurements unavailable'},503);
+   }
   }
   if(url.pathname==='/health'&&request.method==='GET')return json(request,{ok:true,service:'argens-alerte-push',pushConfigured:Boolean(env.VAPID_PRIVATE_KEY&&env.VAPID_PUBLIC_KEY&&env.VAPID_SUBJECT)});
   if(url.pathname==='/subscribe'&&request.method==='POST'){
