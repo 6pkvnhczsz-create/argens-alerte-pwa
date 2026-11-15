@@ -74,36 +74,33 @@ assert.deepEqual(new Set(coordRequests),new Set([...codes,'Y531201001']),'Distan
 assert.equal(pins.length,5,'Exactly five current stations must appear as map pins');
 assert.equal(d.getElementById('upstreamMap').hidden,false,'Map must become visible');
 assert.equal(d.querySelectorAll('#upstreamMap .upstream-map-tooltip').length,0,'No permanent tooltip boxes');
-const air=(a,b)=>{
- const rad=x=>x*Math.PI/180;
- const dLat=rad(a[0]-b[0]),dLon=rad(a[1]-b[1]);
- const q=Math.sin(dLat/2)**2+Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLon/2)**2;
- return 6371*2*Math.asin(Math.sqrt(q));
-};
-const expected=coords.map((point,i)=>({point,i,d:air(point,[downstream.lat,downstream.lon])})).sort((a,b)=>a.d-b.d);
+const flowIndex=[1,3,4,2,0]; // Endre, Nartuby, Aille, Argens Les Arcs, Argens Carcès
 for(let i=0;i<pins.length;i++){
- const p=pins[i],e=expected[i];
- assert.equal(p.position[0],e.point[0]);
- assert.equal(p.position[1],e.point[1]);
- assert.match(p.opts.title,new RegExp('^'+(i+1)+'\\. '),'Map marker is numbered in ranked order');
+ const p=pins[i],point=coords[flowIndex[i]];
+ assert.equal(p.position[0],point[0]);
+ assert.equal(p.position[1],point[1]);
+ assert.match(p.opts.title,new RegExp('^'+(i+1)+'\.'),'Map pins must be numbered by tributary junction order');
  assert.equal(p.tooltipOptions.permanent,false,'Permanent labels should not obscure map');
- assert.match(p.popup.textContent,/m.*cm\/h/,'Water level and trend available in popup');
+ assert.match(p.popup.textContent,/m.*cm\/h/,'Water level and trend available on tap');
 }
 const rows=[...d.querySelectorAll('#earlyUpstreamRows .upstream-distance-row')];
-assert.equal(rows[0].textContent.includes('Le Muy'),true,'Nearest #1 must be Le Muy Endre');
-assert.equal(rows[4].textContent.includes('Carcès'),true,'Farthest #5 must be Carcès Argens');
-assert.equal(rows.length,5,'The rank list must contain all five readings');
-assert.deepEqual(rows.map(row=>row.querySelector('.upstream-distance-rank').textContent),['1','2','3','4','5']);
-for(let i=0;i<rows.length;i++){
- assert.match(rows[i].textContent,/Luftlinie|à vol d’oiseau|straight line/,'Distances labeled as straight-line, never flood travel time');
- assert.match(rows[i].textContent,/m.*cm\/h/,'Readings and trends present in ranking');
+assert.equal(rows.length,5,'All five recent upstream observations should be present');
+assert.deepEqual(rows.map(x=>x.querySelector('.upstream-distance-rank').textContent),['1','2','3','4','5']);
+assert.deepEqual(rows.map(row=>row.querySelector('.upstream-distance-info strong').textContent),
+ flowIndex.map(i=>names[i]),'Hydrographic branch order must be independent from air distance');
+for(const row of rows){
+ assert.doesNotMatch(row.textContent,/Luftlinie|à vol d’oiseau|straight line| km/,'Must not show irrelevant airline distances');
+ assert.match(row.textContent,/m.*cm\/h/,'Water level and trends stay visible');
 }
+assert.match(rows[0].textContent,/Endre/);
+assert.match(rows[1].textContent,/Nartuby/);
+assert.match(rows[2].textContent,/Aille/);
 rows[0].click();
-assert.equal(pins[0].opened,true,'Clicking a row must open its corresponding map marker');
-assert.match(d.getElementById('upstreamMapMessage').textContent,/Luftlinie|distance à vol d.oiseau|straight-line/);
+assert.equal(pins[0].opened,true,'Selecting a list entry should open the corresponding pin');
+assert.match(d.getElementById('upstreamMapMessage').textContent,/Ordre des confluences|Junction order|Einmündungen/);
 assert.match(d.querySelector('.bottom [data-tab="Alertes"]').textContent,/Messages d’alerte|Alert messages|Warnmeldungen/);
 assert.equal(d.getElementById('earlySignalsHeading'),null,'Redundant forecast heading must be removed');
-assert.equal(d.getElementById('earlySignalsIntro'),null,'Redundant forecast model-value intro must be removed');
+assert.equal(d.getElementById('earlySignalsIntro'),null,'Redundant model-value intro must be removed');
 const html=d.documentElement.outerHTML;
 assert.ok(html.indexOf('id="rainForecastCard"')<html.indexOf('id="recentRainCard"'));
 assert.ok(html.indexOf('id="recentRainCard"')<html.indexOf('id="upstreamForecastCard"'));
