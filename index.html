@@ -240,6 +240,35 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .official-radar-legend .radar-gradient{height:10px;margin:6px auto 2px;border-radius:8px;background:linear-gradient(90deg,#3bb9f2,#0d6fcb,#0da374,#fddb49,#f99523,#d83841,#a62d92)}
 .official-radar-legend .radar-legend-ticks{display:flex;justify-content:space-between;font-size:10px}
 #officialRadarTime{margin:8px auto!important;color:#3a6b77}
+
+/* Compact hydrology table: three clear rows instead of a stack of mini cards. */
+#forecastPage .forecast-compact-list{margin:14px 0 4px;width:100%;border:1px solid #dfeaf0;border-radius:14px;overflow:hidden;background:#fff;text-align:left}
+#forecastPage .rain-list-header,#forecastPage .rain-list-row{display:grid;grid-template-columns:minmax(0,1fr) 83px 83px;gap:8px;align-items:center;padding:12px 11px}
+#forecastPage .rain-list-header{background:#eaf3f7;color:#4d7282;font-size:11px;font-weight:750;letter-spacing:.02em}
+#forecastPage .rain-list-row+.rain-list-row{border-top:1px solid #e4edf1}
+#forecastPage .rain-list-location{display:flex;align-items:center;gap:7px;min-width:0;font-size:13px;font-weight:650;color:#1a4b60}
+#forecastPage .rain-list-location .rain-list-icon{flex:none;font-size:17px}
+#forecastPage .rain-list-location span:last-child{overflow-wrap:anywhere}
+#forecastPage .rain-list-value{text-align:center;font-weight:750;color:#176777;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+#forecastPage .rain-list-empty{padding:16px 12px;text-align:center;color:#6a7f88;font-size:13px}
+#forecastPage .upstream-map{width:100%;height:410px;min-height:350px;border:1px solid #d4e6ec;border-radius:15px;margin:13px auto 0;overflow:hidden;background:#e8f1f4;text-align:left;z-index:0}
+#forecastPage .upstream-map[hidden],#forecastPage .upstream-map-fallback[hidden]{display:none!important}
+#forecastPage .upstream-map-message{font-size:11px;color:#6b8490;margin:8px auto!important}
+#forecastPage .upstream-map-fallback{display:grid;gap:7px;text-align:left;margin:10px auto 0}
+#forecastPage .upstream-map-fallback .upstream-fallback-row{padding:9px 12px;background:#f3f8fa;border-radius:9px;font-size:12px;color:#294d5c}
+#forecastPage .upstream-station-pin-wrap{background:transparent;border:0}
+#forecastPage .upstream-station-pin{display:block;width:19px;height:19px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#0b748e;border:3px solid #fff;box-shadow:0 1px 6px #1e425877}
+#forecastPage .upstream-map-tooltip.leaflet-tooltip{border:1px solid #d2e3ea;border-radius:11px;padding:7px 9px;background:#fffffffa;box-shadow:0 2px 10px #1c405626;white-space:normal;max-width:155px;min-width:110px;color:#1b4659;pointer-events:none}
+#forecastPage .upstream-map-tooltip .upstream-tooltip-title{display:block;font-size:11px;font-weight:750;line-height:1.2}
+#forecastPage .upstream-map-tooltip .upstream-tooltip-reading{display:block;margin-top:2px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+#forecastPage .upstream-map-tooltip .upstream-tooltip-trend{display:block;margin-top:2px;font-size:11px;font-weight:700}
+#forecastPage .upstream-map-tooltip .trend-up{color:#b45d1c}
+#forecastPage .upstream-map-tooltip .trend-down{color:#1a776d}
+#forecastPage .upstream-map-tooltip .trend-flat{color:#657b89}
+#forecastPage .upstream-map .leaflet-control-attribution{font-size:9px}
+#forecastPage .upstream-map-tooltip.leaflet-tooltip:before{display:none}
+.bottom{z-index:2000}
+@media(max-width:430px){#forecastPage .rain-list-header,#forecastPage .rain-list-row{grid-template-columns:minmax(0,1fr) 78px 78px;gap:3px;padding:11px 7px}#forecastPage .rain-list-value{font-size:13px}#forecastPage .upstream-map{height:400px}#forecastPage .upstream-map-tooltip.leaflet-tooltip{max-width:130px;min-width:92px;padding:5px 7px}#forecastPage .upstream-map-tooltip .upstream-tooltip-title{font-size:10px}}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -283,8 +312,25 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <span class="forecast-card-icon" aria-hidden="true">🌦️</span>
     <strong id="earlyForecastTitle">Pluie prévue · Météo-France</strong>
     <p id="earlyForecastStatus" class="note" role="status">Chargement…</p>
-    <div id="earlyForecastRows" class="forecast-data-grid"></div>
+    <div id="earlyForecastRows" class="forecast-compact-list" aria-label="Prévisions de pluie pour 6 et 24 heures"></div>
     <p id="earlyForecastDisclaimer" class="note forecast-disclaimer">Prévision des modèles AROME/ARPEGE via Open-Meteo, pas une mesure radar ni une prévision de crue.</p>
+   </article>
+
+   <article class="panel forecast-card" id="recentRainCard">
+    <span class="forecast-card-icon" aria-hidden="true">🌧️</span>
+    <strong id="earlyRainTitle">Pluie récente estimée</strong>
+    <p id="earlyRainStatus" class="note" role="status">Chargement…</p>
+    <div id="earlyRainRows" class="forecast-compact-list" aria-label="Précipitations estimées sur 3 et 6 heures"></div>
+    <p id="earlyRainDisclaimer" class="note forecast-disclaimer">Estimations du modèle Open-Meteo, pas de données radar mesurées.</p>
+   </article>
+   <article class="panel forecast-card" id="upstreamForecastCard">
+    <span class="forecast-card-icon" aria-hidden="true">🌊</span>
+    <strong id="earlyUpstreamTitle">Stations en amont</strong>
+    <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
+    <div id="upstreamMap" class="upstream-map" role="region" aria-label="Stations de mesure de l’Argens sur la carte" hidden></div>
+    <p id="upstreamMapMessage" class="note upstream-map-message" role="status"></p>
+    <div id="earlyUpstreamRows" class="upstream-map-fallback" hidden></div>
+    <p id="earlyUpstreamDisclaimer" class="note forecast-disclaimer">Tendances mesurées localement ; les hauteurs des stations ne sont pas comparables entre elles.</p>
    </article>
  <section id="weatherPanel" class="panel forecast-card radar-panel" aria-label="Radar des précipitations">
   <span class="forecast-card-icon" aria-hidden="true">📡</span>
@@ -307,20 +353,6 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
    <p class="forecast-disclaimer" style="margin-top:10px"><a id="officialRadarSource" href="https://www.data.gouv.fr/dataservices/api-donnees-radar" target="_blank" rel="noopener noreferrer">Source : Météo-France · Données Radar (API)</a></p>
   </details>
  </section>
-   <article class="panel forecast-card" id="recentRainCard">
-    <span class="forecast-card-icon" aria-hidden="true">🌧️</span>
-    <strong id="earlyRainTitle">Pluie récente estimée</strong>
-    <p id="earlyRainStatus" class="note" role="status">Chargement…</p>
-    <div id="earlyRainRows" class="forecast-data-grid"></div>
-    <p id="earlyRainDisclaimer" class="note forecast-disclaimer">Estimations du modèle Open-Meteo, pas de données radar mesurées.</p>
-   </article>
-   <article class="panel forecast-card" id="upstreamForecastCard">
-    <span class="forecast-card-icon" aria-hidden="true">🌊</span>
-    <strong id="earlyUpstreamTitle">Stations en amont</strong>
-    <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
-    <div id="earlyUpstreamRows" class="forecast-upstream-grid"></div>
-    <p id="earlyUpstreamDisclaimer" class="note forecast-disclaimer">Tendances mesurées localement ; les hauteurs des stations ne sont pas comparables entre elles.</p>
-   </article>
   </div>
   <div class="forecast-updated">
    <p id="earlySignalsChecked" class="note" role="status"></p>
