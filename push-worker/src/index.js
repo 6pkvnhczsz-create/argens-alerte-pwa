@@ -7,6 +7,7 @@ import { getHydroObservations, readVigicruesObservations, validHydroStation } fr
 import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, activeBackupStationCodes, markVigicruesUnavailable, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
 import { translateFeedbackRecord } from './feedback-translation.mjs';
 import { refreshEarlySignals, loadEarlySignals } from './early-signals.mjs';
+import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
  async vigicruesHealthAdmin(){
@@ -628,6 +629,59 @@ export default {
     return json(request,{error:'Invalid unavailability report'},422);
    }
   }
+
+  // Genuine radar image is optional and informational. Only the exact main
+  // GitHub Actions radar workflow can download the large HDF5 product or upload
+  // a validated geo-referenced preview; public browsers see only PNG + status.
+  if(url.pathname==='/api/radar-map/raw'&&request.method==='GET'){
+   const bearer=request.headers.get('Authorization')||'';
+   if(!bearer.startsWith('Bearer '))return json(request,{error:'Signed radar workflow required'},401);
+   try{
+    await verifyRadarWorkflowToken(bearer.slice(7));
+    const r=await fetchOfficialRadarH5(env);
+    return new Response(r.body,{status:200,headers:{'Content-Type':'application/x-hdf','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+   }catch(e){
+    console.error('Radar raw download failed',String(e?.message||'Unavailable').slice(0,80));
+    return json(request,{error:'Radar product unavailable'},503);
+   }
+  }
+  if(url.pathname==='/api/radar-map/ingest'&&request.method==='POST'){
+   const bearer=request.headers.get('Authorization')||'';
+   if(!bearer.startsWith('Bearer '))return json(request,{error:'Signed radar workflow required'},401);
+   let identity;
+   try{identity=await verifyRadarWorkflowToken(bearer.slice(7))}
+   catch{return json(request,{error:'Radar workflow identity rejected'},401)}
+   if(!env.DB)return json(request,{error:'Radar storage unavailable'},503);
+   if(Number(request.headers.get('Content-Length'))>850000)return json(request,{error:'Radar payload too large'},413);
+   try{
+    const raw=await request.text();
+    if(raw.length>850000)return json(request,{error:'Radar payload too large'},413);
+    return json(request,await storeRadarFrame(env.DB,JSON.parse(raw),{runId:identity.runId}));
+   }catch(e){
+    console.error('Radar frame rejected',String(e?.message||'Invalid frame').slice(0,85));
+    return json(request,{error:'Radar image validation or storage failed'},422);
+   }
+  }
+  if(url.pathname==='/api/radar-map/info'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
+   try{
+    const frame=await readRadarFrame(env.DB);
+    return json(request,{ok:true,available:true,source:'Météo-France',kind:'observed_5min_rain',bounds:frame.bounds,observedAt:frame.observedAt,coveragePct:frame.coveragePct,wetPct:frame.wetPct,notAFloodForecast:true});
+   }catch{return json(request,{ok:true,available:false,source:'Météo-France',notAFloodForecast:true})}
+  }
+  if(url.pathname==='/api/radar-map/image'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
+   try{
+    const frame=await readRadarFrame(env.DB);
+    const bytes=Uint8Array.from(atob(frame.imageB64),x=>x.charCodeAt(0));
+    const headers={'Content-Type':'image/png','Cache-Control':'public, max-age=120','X-Content-Type-Options':'nosniff','Vary':'Origin'};
+    if(origin)headers['Access-Control-Allow-Origin']=origin;
+    return new Response(bytes,{headers});
+   }catch{return json(request,{ok:false,error:'Official radar map unavailable'},503)}
+  }
+
   // Read-only information about officially issued weather warnings, model
   // precipitation and upstream measurements. This never changes alert logic.
   if(url.pathname==='/api/early-signals'&&request.method==='GET'){

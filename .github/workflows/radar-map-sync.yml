@@ -1,0 +1,53 @@
+name: Météo-France radar map for Argens
+
+# Produces a georeferenced rainfall image, never a flood alert.
+# 15-minute cadence reduces GitHub Actions minutes and Météo-France traffic.
+# The Cloudflare Worker holds the private API key; GitHub requests short-lived
+# OIDC identities scoped to this exact main-branch workflow.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/radar-map-sync.yml'
+      - 'scripts/sync_meteo_radar_map.py'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: radar-map-sync
+  cancel-in-progress: false
+
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated raster processing dependencies
+        run: python -m pip install --disable-pip-version-check 'numpy>=1.26,<3' 'h5py>=3.10,<4' 'pillow>=10,<13' 'pyproj>=3.6,<4'
+      - name: Validate source projection and publish the measured map
+        run: python scripts/sync_meteo_radar_map.py
+      - name: Verify official preview exists (public metadata only)
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,urllib.request
+          req=urllib.request.Request(
+            'https://argens-alerte-push.p-hammerschmidt.workers.dev/api/radar-map/info',
+            headers={'User-Agent':'RiviereAlerteRadarSync/1.0 (+https://riviere-alerte.fr)','Accept':'application/json'})
+          with urllib.request.urlopen(req,timeout=15) as res:
+            data=json.load(res)
+          print('Status:',res.status,'available:',data.get('available'),'observedAt:',data.get('observedAt'),'source:',data.get('source'))
+          assert data.get('available') is True and data.get('source')=='Météo-France'
+          PY

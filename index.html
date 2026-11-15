@@ -233,6 +233,13 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #forecastPage #radarToggle{cursor:pointer;font-weight:700;color:#17677d;list-style-position:inside;text-align:center}
 #forecastPage #radarLink{display:inline-block;margin-top:8px;font-size:13px;font-weight:700;color:#087f91}
 @media(max-width:400px){#forecastPage .forecast-data-grid,#forecastPage .forecast-upstream-grid{grid-template-columns:1fr}#forecastPage .forecast-datum{min-height:95px}#forecastPage .datum-values{max-width:250px}}
+/* Optional genuine Météo-France 500-m radar overlay (no API key in browser). */
+#officialRadarMap{height:360px;width:100%;margin:12px auto;border-radius:15px;overflow:hidden;border:1px solid #cedee5;background:#e6edf0}
+#officialRadarMap[hidden],#officialRadarLegend[hidden],#officialRadarTime[hidden],#windyRadarFrame[hidden],#radarNote[hidden],#radarLink[hidden]{display:none!important}
+.official-radar-legend{max-width:360px;margin:9px auto;text-align:center;font-size:11px;color:#3b6173}
+.official-radar-legend .radar-gradient{height:10px;margin:6px auto 2px;border-radius:8px;background:linear-gradient(90deg,#3bb9f2,#0d6fcb,#0da374,#fddb49,#f99523,#d83841,#a62d92)}
+.official-radar-legend .radar-legend-ticks{display:flex;justify-content:space-between;font-size:10px}
+#officialRadarTime{margin:8px auto!important;color:#3a6b77}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -287,7 +294,14 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
   <p id="radarDataNote" class="note forecast-disclaimer">Les données radar Météo-France sont accessibles par API, mais doivent encore être converties en carte.</p>
   <details id="radarDetails" open>
    <summary id="radarToggle">🗺️ Afficher la carte radar</summary>
-   <iframe title="Radar de pluie · région de l’Argens" loading="lazy" referrerpolicy="no-referrer" src="https://embed.windy.com/embed2.html?lat=43.44&amp;lon=6.64&amp;detailLat=43.44&amp;detailLon=6.64&amp;width=650&amp;height=360&amp;zoom=8&amp;level=surface&amp;overlay=radar&amp;product=radar&amp;menu=&amp;message=&amp;marker=&amp;calendar=&amp;pressure=&amp;type=map&amp;location=coordinates&amp;detail=&amp;metricWind=km%2Fh&amp;metricTemp=%C2%B0C" style="display:block;width:100%;height:330px;border:0;border-radius:15px;margin-top:12px" allowfullscreen></iframe>
+   <div id="officialRadarMap" class="official-radar-map" hidden role="region" aria-label="Radar Météo-France · bassin de l’Argens"></div>
+   <div id="officialRadarLegend" class="official-radar-legend" hidden>
+    <strong id="radarLegendTitle">Intensité estimée · mm/h</strong>
+    <div class="radar-gradient" aria-hidden="true"></div>
+    <div class="radar-legend-ticks"><span>0,2</span><span>1</span><span>3</span><span>7</span><span>15</span><span>30</span><span>60+</span></div>
+   </div>
+   <p id="officialRadarTime" class="note" role="status" hidden></p>
+   <iframe id="windyRadarFrame" title="Radar de pluie · région de l’Argens" loading="lazy" referrerpolicy="no-referrer" src="https://embed.windy.com/embed2.html?lat=43.44&amp;lon=6.64&amp;detailLat=43.44&amp;detailLon=6.64&amp;width=650&amp;height=360&amp;zoom=8&amp;level=surface&amp;overlay=radar&amp;product=radar&amp;menu=&amp;message=&amp;marker=&amp;calendar=&amp;pressure=&amp;type=map&amp;location=coordinates&amp;detail=&amp;metricWind=km%2Fh&amp;metricTemp=%C2%B0C" style="display:block;width:100%;height:330px;border:0;border-radius:15px;margin-top:12px" allowfullscreen></iframe>
    <p class="note forecast-disclaimer" id="radarNote">Carte provisoire par Windy (service externe). Ce visuel n’utilise pas encore le radar Météo-France.</p>
    <a href="https://www.windy.com/?radar,43.44,6.64,8" target="_blank" rel="noopener noreferrer" id="radarLink">Ouvrir le radar dans Windy</a>
    <p class="forecast-disclaimer" style="margin-top:10px"><a id="officialRadarSource" href="https://www.data.gouv.fr/dataservices/api-donnees-radar" target="_blank" rel="noopener noreferrer">Source : Météo-France · Données Radar (API)</a></p>
@@ -521,23 +535,17 @@ checkPushHealth();
 setInterval(()=>{if(!document.hidden){checkPushHealth();renderSystemHealth()}},5*60*1000);
 // Weather follows the station selected on the map; this does not change server-side alerts.
 let weatherLocation={lat:43.44,lon:6.64,name:'Roquebrune-sur-Argens'};
-function setWeatherStation(station){
- const lat=Number(station.latitude_station),lon=Number(station.longitude_station);
- if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
- weatherLocation={lat,lon,name:station.libelle_station||station.libelle_site||station.code_station};
- const frame=document.querySelector('#weatherPanel iframe');
- if(frame){const url=new URL('https://embed.windy.com/embed2.html');url.searchParams.set('lat',lat.toFixed(4));url.searchParams.set('lon',lon.toFixed(4));url.searchParams.set('detailLat',lat.toFixed(4));url.searchParams.set('detailLon',lon.toFixed(4));url.searchParams.set('width','650');url.searchParams.set('height','360');url.searchParams.set('zoom','8');url.searchParams.set('level','surface');url.searchParams.set('overlay','radar');url.searchParams.set('product','radar');frame.src=url.toString()}
- loadLocalWeather();
-}
+// The rainfall view is always Argens, regardless of the selected French gauge.
+function setWeatherStation(_station){loadLocalWeather()}
+
 // Informational weather widget; intentionally independent of flood alerts and push subscriptions.
 // The displayed rain forecasts now come solely from the Météo-France models
 // in the Early Signals snapshot. This presenter does not fetch duplicate rain
 // forecasts from Open-Meteo. Radar visualization remains clearly attributed.
 function loadLocalWeather(){
- const l=weatherLocation;
  earlyText('weatherHeadingTitle',earlyI18n('Radar des précipitations','Rain radar','Regenradar'));
- earlyText('weatherHeadingLocation',l.name);
- const iframe=document.querySelector('#weatherPanel iframe');
+ earlyText('weatherHeadingLocation',earlyI18n('Bassin de l’Argens','Argens catchment','Argens-Einzugsgebiet'));
+ const iframe=document.querySelector('#windyRadarFrame');
  if(iframe)iframe.title=earlyI18n('Radar de pluie · région de l’Argens','Rain radar · Argens basin','Regenradar · Argens-Einzugsgebiet');
  earlyText('radarToggle',earlyI18n('🗺️ Afficher la carte radar','🗺️ Show radar map','🗺️ Radarkarte anzeigen'));
  earlyText('radarNote',earlyI18n(
@@ -741,7 +749,7 @@ document.addEventListener('touchend',async()=>{
 },{passive:true});
 document.addEventListener('touchcancel',()=>{pullStart=null;pullDistance=0;pullIndicator.style.transform='translate(-50%,-130%)'},{passive:true});
 
-document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{const tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector('#overview').classList.toggle('hidden',tab!=='overview');document.querySelector('#forecastPage').classList.toggle('hidden',tab!=='Prévisions');document.querySelector('#mapPage').classList.toggle('hidden',tab!=='Carte');document.querySelector('#pushSettings').classList.toggle('hidden',tab!=='Alertes');document.querySelector('#settingsPage').classList.toggle('hidden',tab!=='Réglages');document.querySelector('#swarmPage').classList.add('hidden');if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;document.querySelector('#place').value='Roquebrune-sur-Argens';searchPlace()}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{const tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector('#overview').classList.toggle('hidden',tab!=='overview');document.querySelector('#forecastPage').classList.toggle('hidden',tab!=='Prévisions');document.querySelector('#mapPage').classList.toggle('hidden',tab!=='Carte');document.querySelector('#pushSettings').classList.toggle('hidden',tab!=='Alertes');document.querySelector('#settingsPage').classList.toggle('hidden',tab!=='Réglages');document.querySelector('#swarmPage').classList.add('hidden');if(tab==='Prévisions')requestAnimationFrame(()=>loadOfficialRadarMap());if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;document.querySelector('#place').value='Roquebrune-sur-Argens';searchPlace()}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
 
 // Web Push requires a deployed backend and a public VAPID key. Never request permission until configured.
 const PUSH_API_URL='https://argens-alerte-push.p-hammerschmidt.workers.dev';const PUSH_VAPID_PUBLIC_KEY='BNmAS3Gm-VN8T9-_TsA4viBni7q-TwNk0dMEcWR6QYdb0T-fHEQ0Nz8s2sIlCrIBPW_A9LdqI8paKvVqCStUOrA';
@@ -1457,6 +1465,73 @@ function earlyText(id,value){const node=document.getElementById(id);if(node)node
 function earlyLine(text){
  const div=document.createElement('div');div.textContent=text;div.style.cssText='margin:7px 0;line-height:1.4';return div;
 }
+// The public PNG is derived exclusively from measured Météo-France 5-minute
+// rainfall. Only verified fresh overlays are shown; fallback is explicitly Windy.
+let officialRadarMap=null,officialRadarOverlay=null,officialRadarImageTime='',radarMapRequest=0;
+const RADAR_MAP_API='https://argens-alerte-push.p-hammerschmidt.workers.dev/api/radar-map';
+function showWindyRadarFallback(){
+ const map=document.getElementById('officialRadarMap');
+ map.hidden=true;
+ document.getElementById('officialRadarLegend').hidden=true;
+ document.getElementById('officialRadarTime').hidden=true;
+ for(const id of ['windyRadarFrame','radarNote','radarLink'])document.getElementById(id).hidden=false;
+ if(officialRadarOverlay&&officialRadarMap){officialRadarMap.removeLayer(officialRadarOverlay);officialRadarOverlay=null}
+}
+async function loadOfficialRadarMap(){
+ if(document.querySelector('#forecastPage').classList.contains('hidden'))return;
+ const requestId=++radarMapRequest;
+ try{
+  const response=await fetch(RADAR_MAP_API+'/info',{cache:'no-store',signal:AbortSignal.timeout(11000)});
+  if(!response.ok)throw Error('Radar preview metadata unavailable');
+  const info=await response.json();
+  if(!info.available||info.source!=='Météo-France'||info.kind!=='observed_5min_rain'||!Array.isArray(info.bounds)||info.bounds.length!==4)throw Error('Measured radar map is not yet available');
+  const timestamp=Date.parse(info.observedAt);
+  if(!Number.isFinite(timestamp)||Date.now()-timestamp>45*60000||timestamp-Date.now()>10*60000)throw Error('Radar data too old');
+  const [west,south,east,north]=info.bounds;
+  if(![west,south,east,north].every(Number.isFinite)||west>=east||south>=north||west<4||east>8||south<42||north>45)throw Error('Unexpected radar georeferencing');
+  const L=await loadMapLibrary();
+  if(requestId!==radarMapRequest||document.querySelector('#forecastPage').classList.contains('hidden'))return;
+  const mapNode=document.getElementById('officialRadarMap');
+  mapNode.hidden=false;
+  for(const id of ['windyRadarFrame','radarNote','radarLink'])document.getElementById(id).hidden=true;
+  document.getElementById('officialRadarLegend').hidden=false;
+  document.getElementById('officialRadarTime').hidden=false;
+  if(!officialRadarMap){
+   officialRadarMap=L.map(mapNode,{scrollWheelZoom:false,zoomControl:true});
+   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:14,attribution:'© OpenStreetMap contributors'}).addTo(officialRadarMap);
+   L.circleMarker([43.44,6.64],{radius:6,color:'#163f54',weight:2,fillColor:'#fff',fillOpacity:1})
+    .bindTooltip('Roquebrune-sur-Argens').addTo(officialRadarMap);
+  }
+  const bounds=[[south,west],[north,east]];
+  if(officialRadarImageTime!==info.observedAt||!officialRadarOverlay){
+   if(officialRadarOverlay)officialRadarMap.removeLayer(officialRadarOverlay);
+   const url=RADAR_MAP_API+'/image?t='+encodeURIComponent(info.observedAt);
+   officialRadarOverlay=L.imageOverlay(url,bounds,{opacity:0.82,interactive:false});
+   officialRadarOverlay.once('error',()=>{if(requestId===radarMapRequest)showWindyRadarFallback()});
+   officialRadarOverlay.addTo(officialRadarMap);
+   officialRadarImageTime=info.observedAt;
+  }
+  officialRadarMap.fitBounds(bounds,{padding:[8,8],animate:false});
+  setTimeout(()=>officialRadarMap?.invalidateSize(),100);
+  const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
+  earlyText('officialRadarTime',earlyI18n('Radar mesuré : ','Measured radar: ','Radarmessung: ')+new Date(timestamp).toLocaleString(locale,{timeZone:'Europe/Paris',dateStyle:'short',timeStyle:'short'})+' · Météo-France · 500 m');
+  earlyText('radarLegendTitle',earlyI18n('Intensité sur 5 min, exprimée en mm/h','5-minute intensity, expressed in mm/h','5-Minuten-Regenintensität, umgerechnet in mm/h'));
+  earlyText('radarDataNote',earlyI18n(
+   'Mosaïque de pluie mesurée Météo-France, période de 5 minutes. Ni prévision ni seuil d’alerte.',
+   'Météo-France measured 5-minute rainfall mosaic. Not a forecast or alert threshold.',
+   'Gemessene 5-Minuten-Regenmengen von Météo-France. Keine Regenprognose und kein Warnschwellenwert.'));
+ }catch(error){
+  if(requestId!==radarMapRequest)return;
+  showWindyRadarFallback();
+  earlyText('radarDataNote',earlyI18n(
+   'La carte Météo-France n’est pas encore disponible ou ses données sont trop anciennes. Carte Windy en remplacement.',
+   'The Météo-France radar map is not yet available or is too old. Windy map shown instead.',
+   'Die Météo-France-Radarkarte ist noch nicht verfügbar oder zu alt. Ersatzweise wird Windy angezeigt.'));
+ }
+}
+document.addEventListener('argens-language-changed',()=>{if(!document.querySelector('#forecastPage').classList.contains('hidden'))loadOfficialRadarMap()});
+setInterval(()=>{if(!document.hidden&&!document.querySelector('#forecastPage').classList.contains('hidden'))loadOfficialRadarMap()},5*60*1000);
+
 function renderEarlySignals(){
  const d=earlySignalsSnapshot,locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
  const fmt=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
