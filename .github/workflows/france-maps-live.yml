@@ -57,7 +57,12 @@ jobs:
               data=json.load(res)
             assert data.get('hydrologicalConnectivity')=='directed_verified_local_only'
             assert data.get('home',{}).get('code')=='O200004001'
-            print('LOCAL TOPAGE STATUS',data['status'],'verified current gauges',len(data.get('stations',[])))
+            assert data.get('nearbyRadiusKm')==40,data
+            assert isinstance(data.get('nearby'),list),data
+            assert all(x.get('classification')=='nearby_not_verified' and 0<=x.get('distanceKm',-1)<=40 for x in data['nearby']),data
+            assert isinstance(data.get('stations'),list),data
+            assert all(x['code'] not in {y['code'] for y in data['stations']} for x in data['nearby']),data
+            print('40-KM TOPAGE STATUS',data['status'],'verified upstream',len(data.get('stations',[])),'nearby not verified',len(data.get('nearby',[])))
           except urllib.error.HTTPError as e:
             print('LOCAL TOPAGE NOT VERIFIED',e.code,e.read(120).decode('utf-8','replace'))
           PY
