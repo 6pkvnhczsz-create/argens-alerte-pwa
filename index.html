@@ -723,12 +723,14 @@ let storedHomeStation=readStoredHomeStation();
 function rememberHomeStation(code,name){
  if(typeof code!=='string'||!/^[A-Z][A-Z0-9]{7,13}$/.test(code))return;
  storedHomeStation={code,name:String(name||code).trim().slice(0,100)};
+ window.argensHomeStationName=storedHomeStation.name;
  try{localStorage.setItem(HOME_STATION_KEY,JSON.stringify(storedHomeStation))}catch(e){
   console.warn('Home station cannot be stored on this device',e);
  }
 }
 let activeStation=storedHomeStation?.code||HOME_DEFAULT.code,loadSequence=0;
 window.argensHomeStationCode=activeStation;
+window.argensHomeStationName=storedHomeStation?.name||HOME_DEFAULT.name;
 if(storedHomeStation)stationTitle.textContent=storedHomeStation.name;let chartHours=1,chartReadings=[];document.querySelectorAll('[data-hours]').forEach(b=>b.addEventListener('click',()=>{chartHours=Number(b.dataset.hours);document.querySelectorAll('[data-hours]').forEach(x=>x.setAttribute('aria-pressed',String(Number(x.dataset.hours)===chartHours)));drawChart(chartReadings)}));
 // Client-side service checks: reachability is not proof of scheduled push delivery.
 const healthState={river:'pending',riverAt:null,weather:'pending',push:'pending'};
