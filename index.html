@@ -240,6 +240,35 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .official-radar-legend .radar-gradient{height:10px;margin:6px auto 2px;border-radius:8px;background:linear-gradient(90deg,#3bb9f2,#0d6fcb,#0da374,#fddb49,#f99523,#d83841,#a62d92)}
 .official-radar-legend .radar-legend-ticks{display:flex;justify-content:space-between;font-size:10px}
 #officialRadarTime{margin:8px auto!important;color:#3a6b77}
+
+/* Compact hydrology table: three clear rows instead of a stack of mini cards. */
+#forecastPage .forecast-compact-list{margin:14px 0 4px;width:100%;border:1px solid #dfeaf0;border-radius:14px;overflow:hidden;background:#fff;text-align:left}
+#forecastPage .rain-list-header,#forecastPage .rain-list-row{display:grid;grid-template-columns:minmax(0,1fr) 83px 83px;gap:8px;align-items:center;padding:12px 11px}
+#forecastPage .rain-list-header{background:#eaf3f7;color:#4d7282;font-size:11px;font-weight:750;letter-spacing:.02em}
+#forecastPage .rain-list-row+.rain-list-row{border-top:1px solid #e4edf1}
+#forecastPage .rain-list-location{display:flex;align-items:center;gap:7px;min-width:0;font-size:13px;font-weight:650;color:#1a4b60}
+#forecastPage .rain-list-location .rain-list-icon{flex:none;font-size:17px}
+#forecastPage .rain-list-location span:last-child{overflow-wrap:anywhere}
+#forecastPage .rain-list-value{text-align:center;font-weight:750;color:#176777;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+#forecastPage .rain-list-empty{padding:16px 12px;text-align:center;color:#6a7f88;font-size:13px}
+#forecastPage .upstream-map{width:100%;height:410px;min-height:350px;border:1px solid #d4e6ec;border-radius:15px;margin:13px auto 0;overflow:hidden;background:#e8f1f4;text-align:left;z-index:0}
+#forecastPage .upstream-map[hidden],#forecastPage .upstream-map-fallback[hidden]{display:none!important}
+#forecastPage .upstream-map-message{font-size:11px;color:#6b8490;margin:8px auto!important}
+#forecastPage .upstream-map-fallback{display:grid;gap:7px;text-align:left;margin:10px auto 0}
+#forecastPage .upstream-map-fallback .upstream-fallback-row{padding:9px 12px;background:#f3f8fa;border-radius:9px;font-size:12px;color:#294d5c}
+#forecastPage .upstream-station-pin-wrap{background:transparent;border:0}
+#forecastPage .upstream-station-pin{display:block;width:19px;height:19px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#0b748e;border:3px solid #fff;box-shadow:0 1px 6px #1e425877}
+#forecastPage .upstream-map-tooltip.leaflet-tooltip{border:1px solid #d2e3ea;border-radius:11px;padding:7px 9px;background:#fffffffa;box-shadow:0 2px 10px #1c405626;white-space:normal;max-width:155px;min-width:110px;color:#1b4659;pointer-events:none}
+#forecastPage .upstream-map-tooltip .upstream-tooltip-title{display:block;font-size:11px;font-weight:750;line-height:1.2}
+#forecastPage .upstream-map-tooltip .upstream-tooltip-reading{display:block;margin-top:2px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+#forecastPage .upstream-map-tooltip .upstream-tooltip-trend{display:block;margin-top:2px;font-size:11px;font-weight:700}
+#forecastPage .upstream-map-tooltip .trend-up{color:#b45d1c}
+#forecastPage .upstream-map-tooltip .trend-down{color:#1a776d}
+#forecastPage .upstream-map-tooltip .trend-flat{color:#657b89}
+#forecastPage .upstream-map .leaflet-control-attribution{font-size:9px}
+#forecastPage .upstream-map-tooltip.leaflet-tooltip:before{display:none}
+.bottom{z-index:2000}
+@media(max-width:430px){#forecastPage .rain-list-header,#forecastPage .rain-list-row{grid-template-columns:minmax(0,1fr) 78px 78px;gap:3px;padding:11px 7px}#forecastPage .rain-list-value{font-size:13px}#forecastPage .upstream-map{height:400px}#forecastPage .upstream-map-tooltip.leaflet-tooltip{max-width:130px;min-width:92px;padding:5px 7px}#forecastPage .upstream-map-tooltip .upstream-tooltip-title{font-size:10px}}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -283,8 +312,25 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <span class="forecast-card-icon" aria-hidden="true">🌦️</span>
     <strong id="earlyForecastTitle">Pluie prévue · Météo-France</strong>
     <p id="earlyForecastStatus" class="note" role="status">Chargement…</p>
-    <div id="earlyForecastRows" class="forecast-data-grid"></div>
+    <div id="earlyForecastRows" class="forecast-compact-list" aria-label="Prévisions de pluie pour 6 et 24 heures"></div>
     <p id="earlyForecastDisclaimer" class="note forecast-disclaimer">Prévision des modèles AROME/ARPEGE via Open-Meteo, pas une mesure radar ni une prévision de crue.</p>
+   </article>
+
+   <article class="panel forecast-card" id="recentRainCard">
+    <span class="forecast-card-icon" aria-hidden="true">🌧️</span>
+    <strong id="earlyRainTitle">Pluie récente estimée</strong>
+    <p id="earlyRainStatus" class="note" role="status">Chargement…</p>
+    <div id="earlyRainRows" class="forecast-compact-list" aria-label="Précipitations estimées sur 3 et 6 heures"></div>
+    <p id="earlyRainDisclaimer" class="note forecast-disclaimer">Estimations du modèle Open-Meteo, pas de données radar mesurées.</p>
+   </article>
+   <article class="panel forecast-card" id="upstreamForecastCard">
+    <span class="forecast-card-icon" aria-hidden="true">🌊</span>
+    <strong id="earlyUpstreamTitle">Stations en amont</strong>
+    <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
+    <div id="upstreamMap" class="upstream-map" role="region" aria-label="Stations de mesure de l’Argens sur la carte" hidden></div>
+    <p id="upstreamMapMessage" class="note upstream-map-message" role="status"></p>
+    <div id="earlyUpstreamRows" class="upstream-map-fallback" hidden></div>
+    <p id="earlyUpstreamDisclaimer" class="note forecast-disclaimer">Tendances mesurées localement ; les hauteurs des stations ne sont pas comparables entre elles.</p>
    </article>
  <section id="weatherPanel" class="panel forecast-card radar-panel" aria-label="Radar des précipitations">
   <span class="forecast-card-icon" aria-hidden="true">📡</span>
@@ -307,20 +353,6 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
    <p class="forecast-disclaimer" style="margin-top:10px"><a id="officialRadarSource" href="https://www.data.gouv.fr/dataservices/api-donnees-radar" target="_blank" rel="noopener noreferrer">Source : Météo-France · Données Radar (API)</a></p>
   </details>
  </section>
-   <article class="panel forecast-card" id="recentRainCard">
-    <span class="forecast-card-icon" aria-hidden="true">🌧️</span>
-    <strong id="earlyRainTitle">Pluie récente estimée</strong>
-    <p id="earlyRainStatus" class="note" role="status">Chargement…</p>
-    <div id="earlyRainRows" class="forecast-data-grid"></div>
-    <p id="earlyRainDisclaimer" class="note forecast-disclaimer">Estimations du modèle Open-Meteo, pas de données radar mesurées.</p>
-   </article>
-   <article class="panel forecast-card" id="upstreamForecastCard">
-    <span class="forecast-card-icon" aria-hidden="true">🌊</span>
-    <strong id="earlyUpstreamTitle">Stations en amont</strong>
-    <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
-    <div id="earlyUpstreamRows" class="forecast-upstream-grid"></div>
-    <p id="earlyUpstreamDisclaimer" class="note forecast-disclaimer">Tendances mesurées localement ; les hauteurs des stations ne sont pas comparables entre elles.</p>
-   </article>
   </div>
   <div class="forecast-updated">
    <p id="earlySignalsChecked" class="note" role="status"></p>
@@ -759,7 +791,7 @@ document.addEventListener('touchend',async()=>{
 },{passive:true});
 document.addEventListener('touchcancel',()=>{pullStart=null;pullDistance=0;pullIndicator.style.transform='translate(-50%,-130%)'},{passive:true});
 
-document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{const tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector('#overview').classList.toggle('hidden',tab!=='overview');document.querySelector('#forecastPage').classList.toggle('hidden',tab!=='Prévisions');document.querySelector('#mapPage').classList.toggle('hidden',tab!=='Carte');document.querySelector('#pushSettings').classList.toggle('hidden',tab!=='Alertes');document.querySelector('#settingsPage').classList.toggle('hidden',tab!=='Réglages');document.querySelector('#swarmPage').classList.add('hidden');if(tab==='Prévisions')requestAnimationFrame(()=>loadOfficialRadarMap());if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;document.querySelector('#place').value='Roquebrune-sur-Argens';searchPlace()}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{const tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector('#overview').classList.toggle('hidden',tab!=='overview');document.querySelector('#forecastPage').classList.toggle('hidden',tab!=='Prévisions');document.querySelector('#mapPage').classList.toggle('hidden',tab!=='Carte');document.querySelector('#pushSettings').classList.toggle('hidden',tab!=='Alertes');document.querySelector('#settingsPage').classList.toggle('hidden',tab!=='Réglages');document.querySelector('#swarmPage').classList.add('hidden');if(tab==='Prévisions')requestAnimationFrame(()=>{updateUpstreamMap();loadOfficialRadarMap()});if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;document.querySelector('#place').value='Roquebrune-sur-Argens';searchPlace()}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
 
 // Web Push requires a deployed backend and a public VAPID key. Never request permission until configured.
 const PUSH_API_URL='https://argens-alerte-push.p-hammerschmidt.workers.dev';const PUSH_VAPID_PUBLIC_KEY='BNmAS3Gm-VN8T9-_TsA4viBni7q-TwNk0dMEcWR6QYdb0T-fHEQ0Nz8s2sIlCrIBPW_A9LdqI8paKvVqCStUOrA';
@@ -1489,6 +1521,125 @@ async function loadOfficialRadarMap(){
 document.addEventListener('argens-language-changed',()=>{if(!document.querySelector('#forecastPage').classList.contains('hidden'))loadOfficialRadarMap()});
 setInterval(()=>{if(!document.hidden&&!document.querySelector('#forecastPage').classList.contains('hidden'))loadOfficialRadarMap()},5*60*1000);
 
+// Georeferenced upstream stations: locations are verified against the official
+// Hub'Eau station registry; real-time levels and trends still come exclusively
+// from the existing validated early-signals API, not this coordinate request.
+let upstreamDisplayedGauges=[],upstreamMapInstance=null,upstreamMapMarkers=null,upstreamMapUpdateId=0;
+const upstreamStationPositions=new Map(),upstreamPositionRequests=new Map(),upstreamPositionFailures=new Map();
+const UPSTREAM_POSITION_API='https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations';
+async function officialUpstreamPosition(code){
+ if(!/^[A-Z][0-9]{8,12}$/.test(code))return null;
+ if(upstreamStationPositions.has(code))return upstreamStationPositions.get(code);
+ if(Date.now()-(upstreamPositionFailures.get(code)||0)<90000)return null;
+ if(upstreamPositionRequests.has(code))return upstreamPositionRequests.get(code);
+ const promise=(async()=>{
+  try{
+   const params=new URLSearchParams({code_station:code,format:'json',size:'5'});
+   const response=await fetch(UPSTREAM_POSITION_API+'?'+params,{headers:{Accept:'application/json'},cache:'force-cache',signal:AbortSignal.timeout(10000)});
+   if(!response.ok)throw Error('Station metadata unavailable');
+   const data=await response.json();
+   const row=(Array.isArray(data.data)?data.data:[]).find(x=>String(x.code_station||'').replace(/^#/,'')===code);
+   if(!row)throw Error('Station code missing in registry');
+   const lat=Number(row.latitude_station),lon=Number(row.longitude_station);
+   if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat<42.9||lat>44.2||lon<5.4||lon>7.3)throw Error('Station coordinates outside the Argens region');
+   const point={lat,lon};
+   upstreamStationPositions.set(code,point);
+   upstreamPositionFailures.delete(code);
+   return point;
+  }catch{
+   upstreamPositionFailures.set(code,Date.now());
+   return null;
+  }finally{upstreamPositionRequests.delete(code)}
+ })();
+ upstreamPositionRequests.set(code,promise);
+ return promise;
+}
+function drawUpstreamFallback(items,fmt){
+ const box=document.getElementById('earlyUpstreamRows');
+ box.replaceChildren();box.hidden=items.length===0;
+ for(const g of items){
+  const row=document.createElement('div');row.className='upstream-fallback-row';
+  row.textContent=g.name+' · '+fmt(g.levelM)+' m · '+(g.trendCmH>0?'+':'')+fmt(g.trendCmH)+' cm/h';
+  box.append(row);
+ }
+}
+async function updateUpstreamMap(){
+ const id=++upstreamMapUpdateId;
+ const mapNode=document.getElementById('upstreamMap');
+ const forecastPage=document.getElementById('forecastPage');
+ if(!mapNode||!forecastPage||forecastPage.classList.contains('hidden'))return;
+ const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
+ const fmt=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
+ const gauges=upstreamDisplayedGauges.filter(x=>{
+  const at=Date.parse(x.observedAt);
+  return x.status==='current'&&Number.isFinite(x.levelM)&&Number.isFinite(x.trendCmH)&&Number.isFinite(at)
+   &&Date.now()-at<=90*60000&&at-Date.now()<=15*60000;
+ });
+ if(!gauges.length){
+  mapNode.hidden=true;
+  if(upstreamMapMarkers)upstreamMapMarkers.clearLayers();
+  drawUpstreamFallback([],fmt);
+  earlyText('upstreamMapMessage',earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Oberlieger-Messwerte'));
+  return;
+ }
+ // Show verified levels immediately while reference coordinates load.
+ drawUpstreamFallback(gauges,fmt);
+ earlyText('upstreamMapMessage',earlyI18n('Chargement des emplacements officiels…','Loading verified station locations…','Offizielle Stationspositionen werden geladen…'));
+ const positions=await Promise.all(gauges.map(async g=>({g,point:await officialUpstreamPosition(g.code)})));
+ if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden'))return;
+ const mapped=positions.filter(x=>x.point),missing=positions.filter(x=>!x.point).map(x=>x.g);
+ if(!mapped.length){
+  mapNode.hidden=true;
+  if(upstreamMapMarkers)upstreamMapMarkers.clearLayers();
+  earlyText('upstreamMapMessage',earlyI18n('Emplacements temporairement indisponibles · mesures ci-dessous','Station locations unavailable · readings listed below','Stationspositionen nicht verfügbar · Messwerte stehen darunter'));
+  return;
+ }
+ try{
+  const L=await loadMapLibrary();
+  if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden'))return;
+  mapNode.hidden=false;
+  if(!upstreamMapInstance){
+   upstreamMapInstance=L.map(mapNode,{scrollWheelZoom:false,zoomControl:true});
+   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:15,attribution:'© OpenStreetMap contributors'
+   }).addTo(upstreamMapInstance);
+   upstreamMapMarkers=L.layerGroup().addTo(upstreamMapInstance);
+  }
+  upstreamMapMarkers.clearLayers();
+  for(const {g,point} of mapped){
+   const trend=g.trendCmH>0?'+':'';
+   const glyph=g.trendCmH>0?'↗':g.trendCmH<0?'↘':'→';
+   const shortName=String(g.name).split(' · ')[0].slice(0,45);
+   const bubble=document.createElement('div');
+   const title=document.createElement('strong');title.className='upstream-tooltip-title';title.textContent=shortName;
+   const reading=document.createElement('span');reading.className='upstream-tooltip-reading';reading.textContent=fmt(g.levelM)+' m';
+   const change=document.createElement('span');change.className='upstream-tooltip-trend '+(g.trendCmH>0?'trend-up':g.trendCmH<0?'trend-down':'trend-flat');
+   change.textContent=glyph+' '+trend+fmt(g.trendCmH)+' cm/h';
+   bubble.append(title,reading,change);
+   const pin=L.divIcon({className:'upstream-station-pin-wrap',
+    html:'<span class="upstream-station-pin" aria-hidden="true"></span>',
+    iconSize:[24,32],iconAnchor:[12,27]});
+   const station=L.marker([point.lat,point.lon],{icon:pin,riseOnHover:true,keyboard:true});
+   station.bindTooltip(bubble,{permanent:true,direction:point.lon<6.38?'right':'left',
+    offset:point.lon<6.38?[12,-4]:[-12,-4],opacity:1,className:'upstream-map-tooltip'});
+   station.bindPopup(shortName+' · '+fmt(g.levelM)+' m · '+glyph+' '+trend+fmt(g.trendCmH)+' cm/h');
+   upstreamMapMarkers.addLayer(station);
+  }
+  const bounds=L.latLngBounds(mapped.map(x=>[x.point.lat,x.point.lon]));
+  upstreamMapInstance.fitBounds(bounds,{padding:[48,48],maxZoom:10,animate:false});
+  requestAnimationFrame(()=>upstreamMapInstance?.invalidateSize());
+  drawUpstreamFallback(missing,fmt);
+  earlyText('upstreamMapMessage',
+   earlyI18n('Stations localisées avec coordonnées officielles : ','Stations mapped using official coordinates: ','Stationen mit amtlichen Koordinaten: ')+mapped.length+'/'+gauges.length+
+   (missing.length?earlyI18n(' · autres mesures ci-dessous',' · remaining readings below',' · übrige Messwerte darunter'):''));
+ }catch(error){
+  if(id!==upstreamMapUpdateId)return;
+  mapNode.hidden=true;
+  drawUpstreamFallback(gauges,fmt);
+  earlyText('upstreamMapMessage',earlyI18n('Carte indisponible · mesures ci-dessous','Map unavailable · readings below','Karte nicht verfügbar · Messwerte darunter'));
+ }
+}
+
 function renderEarlySignals(){
  const d=earlySignalsSnapshot,locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
  const fmt=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
@@ -1532,24 +1683,36 @@ function renderEarlySignals(){
  const officialNode=document.getElementById('earlyOfficialPeriods');
  for(const node of [forecastNode,rainNode,upstreamNode,officialNode])node.replaceChildren();
 
- function addDatum(parent,title,icon,values){
-  const tile=document.createElement('div');
-  tile.className='forecast-datum';
-  const symbol=document.createElement('span');symbol.className='datum-icon';symbol.textContent=icon;symbol.setAttribute('aria-hidden','true');
-  const label=document.createElement('strong');label.textContent=title;
-  const slots=document.createElement('div');slots.className='datum-values';
-  for(const [period,value] of values){
-   const item=document.createElement('span');
-   const amount=document.createElement('b');amount.textContent=value;
-   const duration=document.createElement('span');duration.textContent=period;
-   item.append(amount,duration);slots.append(item);
+ function initRainList(parent,periods){
+  const header=document.createElement('div');header.className='rain-list-header';
+  for(let i=0;i<3;i++){
+   const cell=document.createElement('span');cell.textContent=i===0?earlyI18n('Secteur','Area','Gebiet'):periods[i-1];cell.style.textAlign=i===0?'left':'center';header.append(cell);
   }
-  tile.append(symbol,label,slots);parent.append(tile);
+  parent.append(header);
  }
+ function addRainRow(parent,title,icon,values){
+  const row=document.createElement('div');row.className='rain-list-row';
+  const place=document.createElement('span');place.className='rain-list-location';
+  const symbol=document.createElement('span');symbol.className='rain-list-icon';symbol.textContent=icon;symbol.setAttribute('aria-hidden','true');
+  const name=document.createElement('span');name.textContent=title;place.append(symbol,name);row.append(place);
+  for(const value of values){const amount=document.createElement('span');amount.className='rain-list-value';amount.textContent=value;row.append(amount)}
+  parent.append(row);
+ }
+ function emptyRainList(parent){
+  const empty=document.createElement('div');empty.className='rain-list-empty';
+  empty.textContent=earlyI18n('Aucune donnée actuellement disponible','No current data available','Derzeit keine Daten verfügbar');
+  parent.append(empty);
+ }
+ initRainList(forecastNode,['6 h','24 h']);
+ initRainList(rainNode,['3 h','6 h']);
  if(!d||d.ok!==true){
   const unavailable=earlyI18n('Données temporairement indisponibles','Data temporarily unavailable','Daten vorübergehend nicht verfügbar');
   for(const id of ['earlyOfficialStatus','earlyForecastStatus','earlyRainStatus','earlyUpstreamStatus','earlyRadarStatus'])earlyText(id,unavailable);
   earlyText('earlySignalsChecked','');
+  upstreamDisplayedGauges=[];
+  document.getElementById('upstreamMap').hidden=true;
+  document.getElementById('earlyUpstreamRows').hidden=true;
+  earlyText('upstreamMapMessage',unavailable);
   healthState.weather='bad';renderSystemHealth();
   return;
  }
@@ -1578,14 +1741,16 @@ function renderEarlySignals(){
  earlyText('earlyForecastStatus',forecasts.length?
   earlyI18n('Cumuls prévus pour les 6 et 24 prochaines heures','Predicted totals for the next 6 and 24 hours','Vorhergesagter Regen für die nächsten 6 und 24 Stunden'):
   earlyI18n('Prévisions indisponibles','Forecasts unavailable','Prognosen derzeit nicht verfügbar'));
- for(const f of forecasts)addDatum(forecastNode,titles[f.id]||f.name,icons[f.id]||'🌦️',
-  [['6 h',fmt(f.next6hMm)+' mm'],['24 h',fmt(f.next24hMm)+' mm']]);
+ for(const f of forecasts)addRainRow(forecastNode,titles[f.id]||f.name,icons[f.id]||'🌦️',
+  [fmt(f.next6hMm)+' mm',fmt(f.next24hMm)+' mm']);
+ if(!forecasts.length)emptyRainList(forecastNode);
  const rain=(d.rain||[]).filter(x=>x.status==='estimated'&&Number.isFinite(x.last3hMm)&&Number.isFinite(x.last6hMm));
  earlyText('earlyRainStatus',rain.length?
   earlyI18n('Estimations des dernières 3 et 6 heures','Estimated totals from the last 3 and 6 hours','Geschätzter Regen der letzten 3 und 6 Stunden'):
   earlyI18n('Estimations indisponibles','Rainfall estimates unavailable','Regenabschätzungen derzeit nicht verfügbar'));
- for(const x of rain)addDatum(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
-  [['3 h',fmt(x.last3hMm)+' mm'],['6 h',fmt(x.last6hMm)+' mm']]);
+ for(const x of rain)addRainRow(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
+  [fmt(x.last3hMm)+' mm',fmt(x.last6hMm)+' mm']);
+ if(!rain.length)emptyRainList(rainNode);
  const gauges=(d.upstream||[]).filter(x=>{
   const timestamp=Date.parse(x.observedAt);
   return x.status==='current'&&Number.isFinite(x.levelM)&&Number.isFinite(x.trendCmH)
@@ -1594,19 +1759,13 @@ function renderEarlySignals(){
  earlyText('earlyUpstreamStatus',gauges.length?
   earlyI18n('Stations avec mesures actuelles : ','Gauges with current readings: ','Pegel mit aktuellen Messwerten: ')+gauges.length:
   earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Oberlieger-Messwerte verfügbar'));
- for(const g of gauges){
-  const card=document.createElement('div');card.className='upstream-datum';
-  const arrow=document.createElement('span');arrow.className='datum-icon';arrow.textContent=g.trendCmH>0?'↗':g.trendCmH<0?'↘':'→';
-  arrow.classList.add(g.trendCmH>0?'trend-up':'trend-down');
-  const name=document.createElement('strong');name.textContent=g.name;
-  const reading=document.createElement('div');reading.textContent=fmt(g.levelM)+' m';
-  reading.style.fontWeight='750';reading.style.fontSize='18px';reading.style.color='#164d62';
-  const change=document.createElement('div');
-  change.textContent=(g.trendCmH>0?'+':'')+fmt(g.trendCmH)+' cm/h';
-  change.className=g.trendCmH>0?'trend-up':'trend-down';
-  const measured=document.createElement('small');
-  measured.textContent=earlyI18n('Mesure : ','Measured: ','Messung: ')+new Date(g.observedAt).toLocaleTimeString(locale,{timeZone:'Europe/Paris',hour:'2-digit',minute:'2-digit'});
-  card.append(arrow,name,reading,change,measured);upstreamNode.append(card);
+ upstreamDisplayedGauges=gauges;
+ if(!gauges.length){
+  document.getElementById('upstreamMap').hidden=true;
+  document.getElementById('earlyUpstreamRows').hidden=true;
+  earlyText('upstreamMapMessage',earlyI18n('Aucune station avec des mesures récentes','No upstream stations currently reporting','Keine flussaufwärts gelegene Station mit aktuellen Messungen'));
+ }else if(!document.getElementById('forecastPage').classList.contains('hidden')){
+  requestAnimationFrame(()=>updateUpstreamMap());
  }
  const radar=d.radar;
  earlyText('earlyRadarStatus',radar?.status==='catalogue_only'?
