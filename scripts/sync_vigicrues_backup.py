@@ -6,6 +6,7 @@ import datetime as dt
 import json
 import math
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 
