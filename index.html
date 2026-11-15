@@ -279,6 +279,20 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <div id="earlyForecastRows" class="forecast-data-grid"></div>
     <p id="earlyForecastDisclaimer" class="note forecast-disclaimer">Prévision des modèles AROME/ARPEGE via Open-Meteo, pas une mesure radar ni une prévision de crue.</p>
    </article>
+ <section id="weatherPanel" class="panel forecast-card radar-panel" aria-label="Radar des précipitations">
+  <span class="forecast-card-icon" aria-hidden="true">📡</span>
+  <strong id="weatherHeadingTitle">Radar des précipitations</strong>
+  <div id="weatherHeadingLocation" class="note">Roquebrune-sur-Argens</div>
+  <p id="earlyRadarStatus" class="note" role="status">Vérification de la source officielle…</p>
+  <p id="radarDataNote" class="note forecast-disclaimer">Les données radar Météo-France sont accessibles par API, mais doivent encore être converties en carte.</p>
+  <details id="radarDetails" open>
+   <summary id="radarToggle">🗺️ Afficher la carte radar</summary>
+   <iframe title="Radar de pluie · région de l’Argens" loading="lazy" referrerpolicy="no-referrer" src="https://embed.windy.com/embed2.html?lat=43.44&amp;lon=6.64&amp;detailLat=43.44&amp;detailLon=6.64&amp;width=650&amp;height=360&amp;zoom=8&amp;level=surface&amp;overlay=radar&amp;product=radar&amp;menu=&amp;message=&amp;marker=&amp;calendar=&amp;pressure=&amp;type=map&amp;location=coordinates&amp;detail=&amp;metricWind=km%2Fh&amp;metricTemp=%C2%B0C" style="display:block;width:100%;height:330px;border:0;border-radius:15px;margin-top:12px" allowfullscreen></iframe>
+   <p class="note forecast-disclaimer" id="radarNote">Carte provisoire par Windy (service externe). Ce visuel n’utilise pas encore le radar Météo-France.</p>
+   <a href="https://www.windy.com/?radar,43.44,6.64,8" target="_blank" rel="noopener noreferrer" id="radarLink">Ouvrir le radar dans Windy</a>
+   <p class="forecast-disclaimer" style="margin-top:10px"><a id="officialRadarSource" href="https://www.data.gouv.fr/dataservices/api-donnees-radar" target="_blank" rel="noopener noreferrer">Source : Météo-France · Données Radar (API)</a></p>
+  </details>
+ </section>
    <article class="panel forecast-card" id="recentRainCard">
     <span class="forecast-card-icon" aria-hidden="true">🌧️</span>
     <strong id="earlyRainTitle">Pluie récente estimée</strong>
@@ -299,19 +313,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
    <button id="earlySignalsRefresh" type="button">↻ Actualiser les données</button>
   </div>
  </section>
- <section id="weatherPanel" class="panel forecast-card radar-panel" aria-label="Radar des précipitations">
-  <span class="forecast-card-icon" aria-hidden="true">📡</span>
-  <strong id="weatherHeadingTitle">Radar des précipitations</strong>
-  <div id="weatherHeadingLocation" class="note">Roquebrune-sur-Argens</div>
-  <p id="earlyRadarStatus" class="note" role="status">Vérification de la source officielle…</p>
-  <p id="radarDataNote" class="note forecast-disclaimer">Les données radar Météo-France sont accessibles par API, mais doivent encore être converties en carte.</p>
-  <details id="radarDetails" open>
-   <summary id="radarToggle">🗺️ Afficher la carte radar</summary>
-   <iframe title="Radar de pluie · région de l’Argens" loading="lazy" referrerpolicy="no-referrer" src="https://embed.windy.com/embed2.html?lat=43.44&amp;lon=6.64&amp;detailLat=43.44&amp;detailLon=6.64&amp;width=650&amp;height=360&amp;zoom=8&amp;level=surface&amp;overlay=radar&amp;product=radar&amp;menu=&amp;message=&amp;marker=&amp;calendar=&amp;pressure=&amp;type=map&amp;location=coordinates&amp;detail=&amp;metricWind=km%2Fh&amp;metricTemp=%C2%B0C" style="display:block;width:100%;height:330px;border:0;border-radius:15px;margin-top:12px" allowfullscreen></iframe>
-   <p class="note forecast-disclaimer" id="radarNote">Carte provisoire par Windy (service externe). Ce visuel n’utilise pas encore le radar Météo-France.</p>
-   <a href="https://www.windy.com/?radar,43.44,6.64,8" target="_blank" rel="noopener noreferrer" id="radarLink">Ouvrir le radar dans Windy</a>
-  </details>
- </section>
+
 </div>
 <div id="pushSettings" class="hidden">
 <div class="section-title">Alertes</div>
@@ -533,7 +535,7 @@ function setWeatherStation(station){
 // forecasts from Open-Meteo. Radar visualization remains clearly attributed.
 function loadLocalWeather(){
  const l=weatherLocation;
- earlyText('weatherHeadingTitle',earlyI18n('📡 Radar des précipitations','📡 Rain radar','📡 Regenradar'));
+ earlyText('weatherHeadingTitle',earlyI18n('Radar des précipitations','Rain radar','Regenradar'));
  earlyText('weatherHeadingLocation',l.name);
  const iframe=document.querySelector('#weatherPanel iframe');
  if(iframe)iframe.title=earlyI18n('Radar de pluie · région de l’Argens','Rain radar · Argens basin','Regenradar · Argens-Einzugsgebiet');
@@ -543,6 +545,7 @@ function loadLocalWeather(){
   'Temporary radar map by Windy (external provider), not the Météo-France radar API.',
   'Vorläufige Radarkarte von Windy (externer Anbieter), noch keine Darstellung der Météo-France-Radardaten.'));
  earlyText('radarLink',earlyI18n('Ouvrir le radar dans Windy','Open radar in Windy','Radar bei Windy öffnen'));
+ earlyText('officialRadarSource',earlyI18n('Source : Météo-France · Données Radar (API)','Source: Météo-France · Radar Data API','Quelle: Météo-France · Radar-Daten-API'));
  earlyText('radarDataNote',earlyI18n(
   'L’API radar Météo-France est connectée. Une carte issue de ces données nécessite un traitement géographique des fichiers bruts.',
   'The Météo-France radar API is connected. Displaying its own map requires processing georeferenced raw files.',
@@ -1575,7 +1578,7 @@ function renderEarlySignals(){
  }
  const radar=d.radar;
  earlyText('earlyRadarStatus',radar?.status==='catalogue_only'?
-  earlyI18n('✓ Données radar officielles reçues','✓ Official radar data catalogue available','✓ Amtlicher Radarkatalog erreichbar'):
+  earlyI18n('✓ Catalogue radar officiel accessible','✓ Official radar catalogue accessible','✓ Amtlicher Radarkatalog erreichbar'):
   radar?.status==='not_configured'?
    earlyI18n('API radar non configurée','Radar API not configured','Radar-API nicht eingerichtet'):
    earlyI18n('API radar temporairement indisponible','Radar API temporarily unavailable','Radar-API vorübergehend nicht verfügbar'));
