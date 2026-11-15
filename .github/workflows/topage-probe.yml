@@ -1,0 +1,39 @@
+name: Read-only French hydrological graph source probe
+on:
+  pull_request:
+    paths: ['.github/workflows/topage-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check official BD Topage WFS discovery and nearby river edges
+        run: |
+          python - <<'PY'
+          import json,urllib.request,urllib.parse,xml.etree.ElementTree as ET
+          base='https://services.sandre.eaufrance.fr/geo/topage2025'
+          args={'service':'WFS','request':'GetCapabilities','version':'2.0.0'}
+          url=base+'?'+urllib.parse.urlencode(args)
+          try:
+            with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'RiviereAlerteHydrology/1.0'}),timeout=30) as res:xml=res.read(6000000)
+            root=ET.fromstring(xml)
+            names=[node.text for node in root.findall('.//{*}FeatureType/{*}Name') if node.text]
+            print('WFS layers',len(names),names[:20])
+            name=next((x for x in names if 'TronconHydrographique_FXX' in x),None)
+            if not name:raise ValueError('No French mainstem layer')
+            params={'service':'WFS','version':'2.0.0','request':'GetFeature','typeNames':name,
+             'count':'3','srsName':'EPSG:4326','bbox':'6.1,43.3,6.75,43.68,EPSG:4326','outputFormat':'application/json'}
+            with urllib.request.urlopen(urllib.request.Request(base+'?'+urllib.parse.urlencode(params),headers={'User-Agent':'RiviereAlerteHydrology/1.0'}),timeout=35) as res:
+              b=res.read(600000)
+              print('HTTP features',res.status,'content-type',res.headers.get('Content-Type'))
+            data=json.loads(b)
+            print('features',len(data.get('features',[])),'numberMatched',data.get('numberMatched'))
+            for feat in data.get('features',[])[:3]:
+              p=feat.get('properties',{})
+              print('feature',feat.get('id'),'props',{k:str(v)[:90] for k,v in p.items() if any(x in k.lower() for x in ['noeud','cours','code','ecoulem','sensen','pk'])},'geometry',feat.get('geometry',{}).get('type'))
+          except Exception as error:
+            print('SOURCE UNAVAILABLE',type(error).__name__,str(error)[:300])
+          PY
