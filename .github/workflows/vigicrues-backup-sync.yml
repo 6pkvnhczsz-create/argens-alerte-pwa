@@ -1,6 +1,7 @@
 name: Vigicrues backup to Cloudflare
 
 # Cloudflare workers.dev requires a descriptive application User-Agent (error 1010).
+# Rerun signed transfer after adding staged OIDC and D1 error diagnostics.
 
 on:
   schedule:
