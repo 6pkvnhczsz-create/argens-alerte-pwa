@@ -260,6 +260,12 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #forecastPage .piaf-legend-image{display:block;width:auto;height:auto;max-height:150px;max-width:100%;object-fit:contain;margin:10px auto}
 #forecastPage .piaf-legend-image[hidden]{display:none!important}
 #forecastPage .piaf-legend-block .note{font-size:11px;margin:7px 0 0}
+#forecastPage .piaf-legend-fallback[hidden]{display:none!important}
+#forecastPage .piaf-color-key{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;margin:8px 0}
+#forecastPage .piaf-color-key>div{min-width:0;display:grid;gap:4px;text-align:center}
+#forecastPage .piaf-color-key i{display:block;height:13px;border:1px solid #d3e2e8;border-radius:4px}
+#forecastPage .piaf-color-key span{font-size:clamp(9px,2.3vw,11px);font-weight:700;white-space:nowrap}
+#forecastPage .piaf-legend-fallback small{display:block;font-size:10px;color:#68818e;line-height:1.45}
 @media(max-width:420px){#forecastPage .piaf-forecast-map{height:310px}#forecastPage .piaf-controller-row{gap:5px}}
 /* Optional genuine Météo-France 500-m radar overlay (no API key in browser). */
 #officialRadarMap{height:360px;width:100%;margin:12px auto;border-radius:15px;overflow:hidden;border:1px solid #cedee5;background:#e6edf0}
@@ -438,7 +444,18 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <div id="piafLegendBlock" class="piaf-legend-block">
      <strong id="piafLegendTitle">Intensité de pluie prévue · mm/h</strong>
      <img id="piafLegendImage" class="piaf-legend-image" alt="Légende officielle de l’intensité des précipitations Météo-France PIAF" loading="lazy" hidden>
-     <p id="piafLegendFallback" class="note">Légende officielle en cours de chargement.</p>
+     <div id="piafLegendFallback" class="piaf-legend-fallback" hidden>
+      <p id="piafLegendFallbackIntro" class="note">Repères indicatifs issus de l’échelle radar générale Météo-France (pas une calibration certifiée de PIAF) :</p>
+      <div class="piaf-color-key" aria-label="Échelle indicative des intensités de pluie">
+       <div><i style="background:#7f00ff"></i><span>&lt; 0,4</span></div>
+       <div><i style="background:#00cfe6"></i><span>0,4–2</span></div>
+       <div><i style="background:#36b954"></i><span>2–11</span></div>
+       <div><i style="background:#f5d32d"></i><span>11–20</span></div>
+       <div><i style="background:#f18c25"></i><span>20–65</span></div>
+       <div><i style="background:#d63b45"></i><span>65–115</span></div>
+      </div>
+      <small id="piafLegendFallbackNote">mm/h · couleurs et valeurs uniquement indicatives. La légende exacte du style PIAF n’est pas disponible.</small>
+     </div>
     </div>
     <p id="piafForecastDisclaimer" class="note forecast-disclaimer">Prévision du modèle Météo-France PIAF (pas de 5 minutes), et non pluie mesurée ni prévision de crue. Les alertes restent inchangées.</p>
    </article>
