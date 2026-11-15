@@ -44,6 +44,11 @@ for observation in series.get("ObssHydro", []):
         continue
     seen.add(milliseconds)
     readings.append([milliseconds, mm])
+# The official feed includes historical observations beyond the backup's
+# safety window. Discard them instead of rejecting an otherwise current series.
+min_ms = int((NOW.timestamp() - 4 * 24 * 3600) * 1000)
+max_ms = int((NOW.timestamp() + 15 * 60) * 1000)
+readings = [r for r in readings if min_ms <= r[0] <= max_ms]
 readings.sort(reverse=True)
 readings = readings[:700]
 if len(readings) < 2:
