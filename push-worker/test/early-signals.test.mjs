@@ -35,6 +35,36 @@ test('upstream rates use individual station trends, never compare different gaug
  assert.equal(r.trendCmH,35);
  assert.throws(()=>parseUpstreamPoints([{time:NOW-4*3600000,mm:900},{time:NOW-5*3600000,mm:800}],NOW),/Stale/);
 });
+
+test('upstream observations must be recent and have an actual measured trend',()=>{
+ const good=[{time:NOW-25*60000,mm:1250},{time:NOW-85*60000,mm:1180}];
+ assert.equal(parseUpstreamPoints(good,NOW).status,'current');
+ assert.throws(()=>parseUpstreamPoints([{time:NOW-91*60000,mm:1250},{time:NOW-151*60000,mm:1180}],NOW),/Stale/);
+ assert.throws(()=>parseUpstreamPoints([{time:NOW-5*60000,mm:1250},{time:NOW-15*60000,mm:1180}],NOW),/baseline/);
+});
+test('only working upstream gauges are returned, unavailable gauges remain candidates',async()=>{
+ const now=Date.now(),created=time=>new Date(time).toISOString();
+ const fetchImpl=async url=>{
+  if(String(url).includes('hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr')){
+   const station=new URL(url).searchParams.get('code_entite');
+   if(station==='Y511201001')return {ok:true,json:async()=>({data:[
+    {date_obs:created(now-10*60000),resultat_obs:1100},
+    {date_obs:created(now-70*60000),resultat_obs:1050}
+   ]})};
+   if(station==='Y530501501')return {ok:true,json:async()=>({data:[
+    {date_obs:created(now-91*60000),resultat_obs:1200},
+    {date_obs:created(now-151*60000),resultat_obs:1100}
+   ]})};
+  }
+  return {ok:false,status:503};
+ };
+ const out=await buildEarlySignals({}, {now,fetchImpl});
+ assert.equal(out.upstreamStationsChecked,5);
+ assert.deepEqual(out.upstream.map(x=>x.code),['Y511201001']);
+ assert.equal(out.upstream[0].trendCmH,5);
+ assert.equal(out.changesFloodThresholds,false);
+});
+
 test('model rain accumulates past hourly estimates, never claims radar measurement',()=>{
  const hours=Array.from({length:8},(_,i)=>Math.floor((NOW-(8-i)*3600000)/1000));
  const weather={hourly:{time:hours,precipitation:Array(8).fill(2)}};
@@ -213,7 +243,7 @@ test('API key failure does not claim any valid official warnings',async()=>{
 test('independent data errors never generate flood alerts or artificial official levels',async()=>{
  const fetchImpl=async()=>({ok:false,status:503});
  const data=await buildEarlySignals({}, {now:NOW,fetchImpl});
- assert.equal(data.upstream.length,5);assert.ok(data.upstream.every(x=>x.status==='unavailable'));
+ assert.equal(data.upstream.length,0);assert.equal(data.upstreamStationsChecked,5);
  assert.equal(data.rain.length,3);assert.ok(data.rain.every(x=>x.status==='unavailable'));
  assert.equal(data.official.status,'not_configured');
  assert.equal(data.radar.status,'not_configured');
@@ -245,6 +275,14 @@ test('worker surface is information only, does not rewrite warning functions',()
  assert.match(page,/id="earlyOfficialLink"/);
  assert.match(page,/id="earlyUpstreamRows"/);
  assert.match(page,/id="earlyRainDisclaimer"/);
+ assert.match(page,/<button data-tab="Prévisions">/);
+ assert.doesNotMatch(page,/<button data-tab="Groupes">/);
+ assert.match(page,/id="forecastPage" class="hidden"/);
+ assert.ok(page.indexOf('id="overview"')<page.indexOf('id="forecastPage"'));
+ assert.ok(page.indexOf('id="forecastPage"')<page.indexOf('id="earlySignalsPanel"'));
+ assert.ok(page.indexOf('id="forecastPage"')<page.indexOf('id="weatherPanel"'));
+ assert.ok(page.indexOf('id="forecastPage"')<page.indexOf('id="forecastPanel"'));
+ assert.doesNotMatch(page,/class="map-add-swarm"/);
  assert.match(page,/id="earlyForecastRows"/);
  assert.match(page,/id="earlyRadarStatus"/);
  assert.match(page,/keine gemessenen Radardaten/i);

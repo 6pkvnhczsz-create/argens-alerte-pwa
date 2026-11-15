@@ -22,15 +22,17 @@ const METEO_TOKEN='https://portail-api.meteofrance.fr/token';
 const METEO_VIGILANCE='https://public-api.meteofrance.fr/public/DPVigilance/v1/cartevigilance/encours';
 const OFFICIAL_LINK='https://vigilance.meteofrance.fr/fr/var';
 const MAX_RESULT_AGE=25*60*1000;
+const MAX_UPSTREAM_OBSERVATION_AGE=90*60*1000; // Allow hourly gauges, reject outdated readings.
 let cachedToken=null;
 
 export function parseUpstreamPoints(points,now=Date.now()){
  if(!Array.isArray(points)||points.length<2)throw Error('Insufficient upstream observations');
  const sorted=points.filter(p=>Number.isFinite(p?.time)&&Number.isFinite(p?.mm)).sort((a,b)=>b.time-a.time);
  const last=sorted[0];
- if(!last||last.time>now+15*60000||now-last.time>3*3600000||last.mm< -5000||last.mm>30000)throw Error('Stale upstream observations');
+ if(!last||last.time>now+15*60000||now-last.time>MAX_UPSTREAM_OBSERVATION_AGE||last.mm< -5000||last.mm>30000)throw Error('Stale upstream observations');
  const ref=sorted.find(p=>last.time-p.time>=30*60000&&last.time-p.time<=180*60000);
- const trend=ref?(last.mm-ref.mm)/10/((last.time-ref.time)/3600000):null;
+ if(!ref)throw Error('No recent upstream trend baseline');
+ const trend=(last.mm-ref.mm)/10/((last.time-ref.time)/3600000);
  return {
   status:'current',levelM:Math.round(last.mm/10)/100,
   trendCmH:Number.isFinite(trend)?Math.round(trend*10)/10:null,
@@ -250,8 +252,10 @@ export async function buildEarlySignals(env,{now=Date.now(),fetchImpl=fetch}={})
   fetchOfficialVigilance(env,{now,fetchImpl}),
   fetchRadarCatalogue(env,{now,fetchImpl})
  ]);
+ // Check all candidate stations, but only expose gauges with recent usable measurements.
+ const availableUpstream=upstream.filter(x=>x.status==='current'&&Number.isFinite(x.trendCmH)&&Number.isFinite(x.levelM));
  return {ok:true,station:EARLY_SIGNALS_STATION,checkedAt:new Date(now).toISOString(),
-  upstream,rain,forecast,official,radar,
+  upstream:availableUpstream,upstreamStationsChecked:UPSTREAM_STATIONS.length,rain,forecast,official,radar,
   interpretation:'information_only',changesFloodThresholds:false,
   rainSource:'Open-Meteo past-hour model estimates; not measured rain or calibrated radar',
   forecastSource:'Météo-France AROME/ARPEGE model forecast via Open-Meteo; not measured rain'};
