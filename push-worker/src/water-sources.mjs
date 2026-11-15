@@ -4,7 +4,7 @@
 // never become an official-looking water level or trigger a flood push.
 export const MAX_OBSERVATION_AGE_MS = 3 * 60 * 60 * 1000;
 const FUTURE_TOLERANCE_MS = 15 * 60 * 1000;
-export const validHydroStation = code => typeof code==='string' && /^[A-Z][0-9]{9,11}$/.test(code);
+export const validHydroStation = code => typeof code==='string' && /^[A-Z][0-9]{8,12}$/.test(code);
 
 function point(time, mm) {
  const t=typeof time==='number'?time:typeof time==='string'&&/^\d{13}$/.test(time)?Number(time):Date.parse(time);
