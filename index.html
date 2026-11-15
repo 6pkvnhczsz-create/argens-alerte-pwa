@@ -275,6 +275,35 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #forecastPage .upstream-station-pin{display:grid;place-items:center;width:30px;height:30px;box-sizing:border-box;
   border-radius:50%;transform:none;background:#096e8fdc;color:#fff;border:2px solid #fff;
   box-shadow:0 2px 7px #113b5266;font:800 13px system-ui,sans-serif;text-align:center}
+
+/* Compact gauge trends are part of the marker itself, not second Leaflet tooltips. */
+#forecastPage .upstream-gauge-marker-wrap,#forecastPage .upstream-home-pin-wrap{background:transparent;border:0;overflow:visible}
+#forecastPage .upstream-gauge-marker{position:relative;display:block;width:30px;height:30px}
+#forecastPage .upstream-gauge-trend{position:absolute;left:32px;top:3px;display:flex;align-items:center;
+ gap:3px;white-space:nowrap;border:1px solid #d4e3e9;border-radius:8px;padding:4px 6px;background:#ffffffef;
+ color:#315c6b;box-shadow:0 1px 6px #123d552b;font:800 10px/1.2 system-ui,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none}
+#forecastPage .upstream-gauge-trend.trend-up{color:#a55017}
+#forecastPage .upstream-gauge-trend.trend-down{color:#187268}
+#forecastPage .upstream-gauge-trend.trend-flat{color:#526b7a}
+#forecastPage .upstream-gauge-marker.rank-2 .upstream-gauge-trend,
+#forecastPage .upstream-gauge-marker.rank-4 .upstream-gauge-trend{left:auto;right:32px}
+#forecastPage .upstream-gauge-marker.rank-3 .upstream-gauge-trend{top:32px;left:-27px}
+#forecastPage .upstream-gauge-marker.rank-4 .upstream-gauge-trend{top:-22px}
+#forecastPage .upstream-home-pin-wrap{font-family:system-ui,sans-serif}
+#forecastPage .upstream-home-pin{position:absolute;left:0;top:0;display:grid;place-items:center;
+ width:31px;height:31px;box-sizing:border-box;border:2px solid #fff;border-radius:50% 50% 50% 0;
+ transform:rotate(-45deg);background:#173d68;color:#fff;box-shadow:0 2px 8px #102a4e70;font-size:19px;font-weight:800}
+#forecastPage .upstream-home-pin>span{transform:rotate(45deg)}
+#forecastPage .upstream-home-label{position:absolute;left:36px;top:3px;background:#173d68ee;color:#fff;
+ padding:5px 7px;border-radius:7px;font:750 10px/1.2 system-ui,sans-serif;white-space:nowrap;box-shadow:0 1px 5px #102a4e44}
+#forecastPage .upstream-map .leaflet-popup-content{margin:10px 12px}
+#forecastPage .upstream-popup-summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#forecastPage .upstream-popup-summary strong{font-size:15px;color:#133e51}
+#forecastPage .upstream-popup-summary .upstream-popup-level{font-size:14px;font-weight:800}
+#forecastPage .upstream-popup-extra{border-top:1px solid #e3edf1;margin-top:7px;padding-top:6px}
+#forecastPage .upstream-popup-extra summary{cursor:pointer;color:#146a84;font-size:11px;font-weight:700}
+#forecastPage .upstream-popup-extra small{display:block;margin-top:5px;line-height:1.4;font-weight:400}
+
 #forecastPage .upstream-ranked-list{display:grid;gap:6px;margin:12px auto 0;text-align:left}
 #forecastPage .upstream-ranked-list[hidden]{display:none!important}
 #forecastPage .upstream-distance-row{display:grid;grid-template-columns:30px minmax(0,1fr) 102px;
@@ -1649,16 +1678,40 @@ function renderUpstreamOrderedList(items,locale,fmt){
   panel.append(node);
  }
 }
+function upstreamTrend(g,fmt){
+ const rate=Number(g.trendCmH);
+ const direction=rate>0?'↑':rate<0?'↓':'→';
+ const value=(rate>0?'+':'')+fmt(rate);
+ return {direction,value,label:direction+' '+value+' cm/h',className:rate>0?'trend-up':rate<0?'trend-down':'trend-flat'};
+}
 function buildUpstreamPopup(g,fmt,locale){
  const bubble=document.createElement('div');bubble.className='upstream-popup';
  const name=document.createElement('strong');name.textContent=g.name;
- const reading=document.createElement('span');reading.textContent=fmt(g.levelM)+' m';
- const trend=document.createElement('span');trend.className=g.trendCmH>0?'trend-up':g.trendCmH<0?'trend-down':'trend-flat';
- trend.textContent=(g.trendCmH>0?'↗ +':g.trendCmH<0?'↘ ':'→ ')+fmt(g.trendCmH)+' cm/h';
+ const summary=document.createElement('div');summary.className='upstream-popup-summary';
+ const reading=document.createElement('span');reading.className='upstream-popup-level';
+ reading.textContent=fmt(g.levelM)+' m';
+ const trend=document.createElement('span');const value=upstreamTrend(g,fmt);
+ trend.className=value.className;trend.textContent=value.label;
+ summary.append(reading,trend);
+ const extra=document.createElement('details');extra.className='upstream-popup-extra';
+ const toggle=document.createElement('summary');toggle.textContent=earlyI18n('Plus de détails','More details','Weitere Infos');
  const timestamp=document.createElement('small');
  timestamp.textContent=earlyI18n('Mesure : ','Measured: ','Messung: ')+new Date(g.observedAt).toLocaleTimeString(locale,{timeZone:'Europe/Paris',hour:'2-digit',minute:'2-digit'});
- bubble.append(name,reading,trend,timestamp);
+ const location=document.createElement('small');location.textContent=upstreamConfluenceNote(g.code);
+ const stationCode=document.createElement('small');stationCode.textContent=earlyI18n('Code station : ','Station code: ','Stationscode: ')+g.code;
+ extra.append(toggle,timestamp,location,stationCode);
+ bubble.append(name,summary,extra);
  return bubble;
+}
+function buildRoquebrunePopup(){
+ const bubble=document.createElement('div');bubble.className='upstream-popup';
+ const name=document.createElement('strong');name.textContent='📍 Roquebrune-sur-Argens';
+ const info=document.createElement('small');
+ info.textContent=earlyI18n('Notre station de référence sur l’Argens','Our reference station on the Argens','Unsere Referenzstation am Argens');
+ const extra=document.createElement('details');extra.className='upstream-popup-extra';
+ const toggle=document.createElement('summary');toggle.textContent=earlyI18n('Plus de détails','More details','Weitere Infos');
+ const code=document.createElement('small');code.textContent=earlyI18n('Code station : ','Station code: ','Stationscode: ')+'Y531201001';
+ extra.append(toggle,code);bubble.append(name,info,extra);return bubble;
 }
 async function updateUpstreamMap(){
  const id=++upstreamMapUpdateId;
@@ -1715,21 +1768,32 @@ async function updateUpstreamMap(){
   upstreamMapMarkers.clearLayers();
   upstreamMarkerByCode.clear();
   for(const {g,point,rank} of mapped){
-   // Small semi-transparent numbered pin; no permanently overlapping labels.
+   const trend=upstreamTrend(g,fmt);
+   // The compact trend is permanently visible. A click opens exactly one popup.
+   // Never bind a Leaflet tooltip: mobile Safari may display it together with the popup.
    const pin=L.divIcon({
-    className:'upstream-station-pin-wrap',
-    html:'<span class="upstream-station-pin">'+String(rank)+'</span>',
-    iconSize:[32,36],iconAnchor:[16,31]
+    className:'upstream-gauge-marker-wrap',
+    html:'<span class="upstream-gauge-marker rank-'+String(rank)+'"><span class="upstream-station-pin">'+String(rank)+'</span><span class="upstream-gauge-trend '+trend.className+'">'+trend.label+'</span></span>',
+    iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-15]
    });
    const station=L.marker([point.lat,point.lon],{icon:pin,riseOnHover:true,keyboard:true,
-    title:String(rank)+'. '+String(g.name)});
-   const popup=buildUpstreamPopup(g,fmt,locale);
-   station.bindPopup(popup,{maxWidth:210});
-   // Short hover-only hint; full data appear when a pin or list entry is clicked.
-   station.bindTooltip(String(rank)+'. '+String(g.name),{permanent:false,direction:'top',opacity:.95});
+    title:String(rank)+'. '+String(g.name)+', '+fmt(g.levelM)+' m, '+trend.label});
+   station.bindPopup(buildUpstreamPopup(g,fmt,locale),{maxWidth:225,minWidth:165});
    upstreamMapMarkers.addLayer(station);
    upstreamMarkerByCode.set(g.code,station);
   }
+  // The downstream reference station is a different, location-shaped pin.
+  // Its position is taken from the official registry (fallback is a known station location).
+  const homeIcon=L.divIcon({
+   className:'upstream-home-pin-wrap',
+   html:'<span class="upstream-home-pin"><span>●</span></span><span class="upstream-home-label">Roquebrune</span>',
+   iconSize:[34,34],iconAnchor:[16,31],popupAnchor:[0,-28]
+  });
+  const home=L.marker([reference.lat,reference.lon],{
+   icon:homeIcon,riseOnHover:true,keyboard:true,zIndexOffset:1000,title:'Roquebrune-sur-Argens · Y531201001'
+  });
+  home.bindPopup(buildRoquebrunePopup(),{maxWidth:220});
+  upstreamMapMarkers.addLayer(home);
   const bounds=L.latLngBounds([[reference.lat,reference.lon],...mapped.map(x=>[x.point.lat,x.point.lon])]);
   upstreamMapInstance.fitBounds(bounds,{padding:[32,32],maxZoom:10,animate:false});
   requestAnimationFrame(()=>upstreamMapInstance?.invalidateSize());
