@@ -702,7 +702,17 @@ window.argensGermanDictionary={
   "Weather and rain": "Wetter und Regen",
   "Radar de pluie · région de l’Argens": "Regenradar · Region Argens",
   "Rain radar · Argens area": "Regenradar · Region Argens",
-  "Indisponible": "Nicht verfügbar"
+  "Indisponible": "Nicht verfügbar",
+  "Source : Vigicrues (secours)": "Quelle: Vigicrues (Backup)",
+  "Source: Vigicrues (backup)": "Quelle: Vigicrues (Backup)",
+  "Source : Hub’Eau": "Quelle: Hub’Eau",
+  "Source: Hub’Eau": "Quelle: Hub’Eau",
+  "Sources de mesure indisponibles.": "Messdatenquellen nicht erreichbar.",
+  "Water-level sources unavailable.": "Messdatenquellen nicht erreichbar.",
+  "Sources : Hub’Eau et Vigicrues indisponibles": "Quellen: Hub’Eau und Vigicrues nicht erreichbar",
+  "Sources: Hub’Eau and Vigicrues unavailable": "Quellen: Hub’Eau und Vigicrues nicht erreichbar",
+  "Dernière mesure connue : ": "Letzter bekannter Messwert: ",
+  "Last known reading: ": "Letzter bekannter Messwert: "
 };
 
 /* Resolve both the original French and existing English strings to German.
