@@ -37,3 +37,20 @@ No changes to primary Hub’Eau retrieval, flood alert thresholds, or existing n
 To verify the live pipeline, check the workflow's latest logs and read `/api/vigicrues-backup?station=Y531201001`. A functioning backup returns `ok:true`, `transport:"github-actions"`, a station code, a recent `observed_at` and observations in **millimetres**. Perform first deployment of the push Worker before relying on the new GitHub sync. The signed write is a different endpoint from the public read API.
 
 Regression tests: `node --test push-worker/test/vigicrues-snapshot.test.mjs push-worker/test/water-sources.test.mjs` and `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`. The PR test workflow also syntax-checks the Python sync script.
+
+
+## Frühindikatoren — Météo-France, Regen und Oberlieger
+
+Im öffentlichen Bereich von Rivière Alerte gibt es eine zusätzliche, FR/EN/DE-übersetzte Informationsanzeige für das Argens-Einzugsgebiet rund um Roquebrune. Der bestehende Push-Worker aktualisiert die Anzeige im geplanten 5-Minuten-Lauf und speichert sie kurzzeitig in D1 (max. 25 Minuten). Public Read-API: GET /api/early-signals.
+
+**Amtliche Météo-France-Warnungen für das Département Var (83):** Die Integration unterstützt die offizielle OAuth2-API Bulletin Vigilance (Endpunkt https://public-api.meteofrance.fr/public/DPVigilance/v1/cartevigilance/encours). Sie prüft die Zeitstempel und den Département-Code 83. Ohne gültiges Météo-France-Abonnement zeigt die App ausdrücklich „nicht verbunden“, niemals erfundene grüne Warnstufen. Der öffentliche Link zu https://vigilance.meteofrance.fr/fr/var bleibt unabhängig nutzbar.
+
+**Aktivierung der offiziellen Daten:** Auf https://portail-api.meteofrance.fr ein Konto erstellen und die kostenlose „API Bulletin Vigilance“ abonnieren. Im Portal aus dem OAuth2-Beispiel das persönliche Basic-Client-Credentials-Geheimnis (die Zeichenfolge hinter „Authorization: Basic“) entnehmen. Im Cloudflare-Push-Worker „argens-alerte-push“ unter Settings → Variables and Secrets ein verschlüsseltes Secret METEO_FRANCE_BASIC mit genau dieser Zeichenfolge ohne den Vorsatz „Basic “ hinzufügen und den Worker veröffentlichen. Niemals das Geheimnis in GitHub speichern. Der Worker erzeugt daraus selbst die zeitlich begrenzten Access-Tokens und fragt die offiziellen Daten ab.
+
+**Regen:** Open-Meteo-Rückblick mit 3-/6-Stunden-Summen für drei repräsentative Standorte an Argens/Nartuby. WICHTIG: Das sind Modellschätzungen, keine tatsächlichen Radarmessungen oder Messungen für das ganze Einzugsgebiet. Die bereits vorhandene Windy-Radarkarte bleibt bestehen. Für echte automatisierte Radarmessungen wird zusätzlich ein Météo-France-Abonnement „API Données Radar“ und eine validierte Rasterverarbeitung benötigt; diese ist noch nicht aktiviert.
+
+**Oberlieger-Pegel:** Hub’Eau-Messwerte von Le Muy/Argens (Y530501501), Les Arcs/Aille (Y520201001) und Trans-en-Provence/Nartuby (Y523501001). Angezeigt werden nur aktuelle Messwerte und lokale Steigungsraten; kein Vergleich absoluter Pegelhöhen zwischen verschiedenen Stationen und keine erfundene Ankunftszeit einer Welle.
+
+**Sicherheit:** Diese Funktionen sind reine Zusatzinformationen. Individuelle Warnschwellen, Haupt-Push-Warnungen und Pegelfarben bleiben unverändert. Neue automatische Push-Frühwarnungen erst nach historischer Kalibrierung und Tests.
+
+Tests: node --test push-worker/test/early-signals.test.mjs push-worker/test/water-sources.test.mjs
