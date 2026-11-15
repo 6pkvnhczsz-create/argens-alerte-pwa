@@ -92,3 +92,20 @@ test('40-km radius includes surrounding French stations without falsely marking 
  assert.ok(calls.filter(x=>x.includes('/geo/topage2025')).length>1,'Additional selected river corridors are probed');
  assert.ok(calls.some(x=>x.includes('bbox=')&&x.includes('en_service=true')));
 });
+
+test('40-km nearby gauges remain available if TOPAGE network is unreachable (never mislabeled upstream)',async()=>{
+ const home={code_station:'Y531201001',latitude_station:43.5,longitude_station:6.58,libelle_station:'Home'};
+ const nearby={code_station:'Y444444444',latitude_station:43.52,longitude_station:6.23,libelle_station:'Other river'};
+ const fetchImpl=async input=>{
+  const url=new URL(input);
+  if(url.pathname.includes('/geo/topage2025'))throw Error('WFS timeout');
+  return new Response(JSON.stringify({data:url.searchParams.has('code_station')?[home]:[home,nearby]}),{
+   headers:{'Content-Type':'application/json'}});
+ };
+ const result=await findLocalUpstream('Y531201001',{fetchImpl});
+ assert.equal(result.connectivityCoverage,'not-verified');
+ assert.deepEqual(result.candidates,[],'Unknown network must never create a verified upstream gauge');
+ assert.equal(result.nearby.length,1,'Nearby discovery still works');
+ assert.equal(result.nearby[0].code,'Y444444444');
+ assert.ok(result.nearby[0].distanceKm<=40);
+});
