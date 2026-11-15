@@ -107,7 +107,9 @@ test('tries canonical Vigicrues route before legacy index.php',async()=>{
  const data=await readVigicruesObservations(station,{fetchImpl});
  assert.equal(data.source,'vigicrues');
  assert.equal(data.points[0].mm,5400);
- assert.ok(called[0].includes('/services/observations.json?'));
+ assert.ok(called[0].includes('/services/observations.json?CdStationHydro='+station));
+ assert.ok(!called[0].includes('GrdSerie='),'The first request must use the minimal documented Vigicrues query');
+ assert.ok(!called[0].includes('FormatDate='),'The first request must omit optional date format parameters');
  assert.ok(called[1].includes('/services/observations.json/index.php?'));
 });
 
