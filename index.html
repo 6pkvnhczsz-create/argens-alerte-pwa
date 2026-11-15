@@ -233,6 +233,17 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #forecastPage #radarToggle{cursor:pointer;font-weight:700;color:#17677d;list-style-position:inside;text-align:center}
 #forecastPage #radarLink{display:inline-block;margin-top:8px;font-size:13px;font-weight:700;color:#087f91}
 @media(max-width:400px){#forecastPage .forecast-data-grid,#forecastPage .forecast-upstream-grid{grid-template-columns:1fr}#forecastPage .forecast-datum{min-height:95px}#forecastPage .datum-values{max-width:250px}}
+/* Independent PIAF forecast animation: never confused with measured radar. */
+#forecastPage .piaf-forecast-map{height:350px;width:100%;margin:12px auto 0;border:1px solid #d6e5ea;border-radius:14px;overflow:hidden;background:#e9f1f3;z-index:0;text-align:left}
+#forecastPage .piaf-forecast-map[hidden],#forecastPage .piaf-controls[hidden]{display:none!important}
+#forecastPage .piaf-controls{margin:10px auto 0;max-width:620px}
+#forecastPage .piaf-controller-row{display:flex;align-items:center;gap:8px}
+#forecastPage #piafPlay{flex:none;background:#0b7085;color:#fff;border:0;border-radius:10px;width:40px;height:38px;font-size:19px;cursor:pointer}
+#forecastPage #piafPlay:disabled{opacity:.5;cursor:not-allowed}
+#forecastPage #piafSlider{flex:1;min-width:40px;accent-color:#0b7085}
+#forecastPage #piafFrameTime{font-size:12px;font-weight:750;color:#154a62;min-width:48px;white-space:nowrap}
+#forecastPage #piafRunTime{margin:5px 0 0;font-size:11px;text-align:center}
+@media(max-width:420px){#forecastPage .piaf-forecast-map{height:310px}#forecastPage .piaf-controller-row{gap:5px}}
 /* Optional genuine Météo-France 500-m radar overlay (no API key in browser). */
 #officialRadarMap{height:360px;width:100%;margin:12px auto;border-radius:15px;overflow:hidden;border:1px solid #cedee5;background:#e6edf0}
 #officialRadarMap[hidden],#officialRadarLegend[hidden],#officialRadarTime[hidden],#windyRadarFrame[hidden],#radarNote[hidden],#radarLink[hidden]{display:none!important}
@@ -385,6 +396,17 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <div id="earlyRainRows" class="forecast-compact-list" aria-label="Précipitations estimées sur 3 et 6 heures"></div>
     <p id="earlyRainDisclaimer" class="note forecast-disclaimer">Estimations du modèle Open-Meteo, pas de données radar mesurées.</p>
    </article>
+   <article class="panel forecast-card" id="piafForecastPanel">
+    <span class="forecast-card-icon" aria-hidden="true">🎞️</span>
+    <strong id="piafForecastTitle">Animation de pluie prévue · prochaines 3 h</strong>
+    <p id="piafForecastStatus" class="note" role="status">Chargement de la prévision Météo-France PIAF…</p>
+    <div id="piafForecastMap" class="piaf-forecast-map" role="region" aria-label="Animation des pluies prévues" hidden></div>
+    <div id="piafForecastControls" class="piaf-controls" hidden>
+     <div class="piaf-controller-row"><button id="piafPlay" type="button" aria-label="Lire la prévision" disabled>▶</button><input id="piafSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Heure de prévision" disabled><span id="piafFrameTime" aria-live="off">—</span></div>
+     <p id="piafRunTime" class="note"></p>
+    </div>
+    <p id="piafForecastDisclaimer" class="note forecast-disclaimer">Prévision du modèle Météo-France PIAF (pas de 5 minutes), et non pluie mesurée ni prévision de crue. Les alertes restent inchangées.</p>
+   </article>
    <article class="panel forecast-card" id="upstreamForecastCard">
     <span class="forecast-card-icon" aria-hidden="true">🌊</span>
     <strong id="earlyUpstreamTitle">Stations en amont</strong>
@@ -452,7 +474,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 </div>
 
 <p class="note" style="margin:15px 5px">⚠️ Seuils indicatifs, non officiels. Consultez Vigicrues et suivez les consignes des autorités. Ne comptez pas uniquement sur cette application.</p>
-</div><div id="mapPage" class="hidden"><div class="section-title">Explorer les stations</div><div class="panel station-panel"><strong>📍 Trouver une station près de chez moi</strong><p class="note">Entrez une commune française ou autorisez votre position. Les stations sont classées par distance à vol d’oiseau.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="place" placeholder="Ville ou code postal" aria-label="Ville ou code postal" style="flex:1;min-width:160px;border:1px solid #cbdce4;border-radius:10px;padding:12px;font:inherit"><button id="findPlace" style="border:0;background:#087f91;color:white;border-radius:10px;padding:11px">Rechercher</button><button id="gps" style="border:1px solid #cbdce4;background:white;border-radius:10px;padding:11px">⌖ Ma position</button></div><p id="stationMessage" class="note" role="status"></p><div id="stationMap" role="region" aria-label="Carte des stations hydrométriques"></div><p class="note map-source">Fond de carte © OpenStreetMap · Stations : Hub’Eau</p><div id="stations"></div></div></div><div id="swarmPage" class="hidden"><div class="section-title" id="swarmPageTitle">Mes groupes</div><p id="swarmPageIntro" class="note">Suivez les niveaux de toutes les stations de vos groupes.</p><div id="swarmLive"></div><section class="panel" id="swarmPanel" style="margin-top:15px">
+</div><div id="mapPage" class="hidden"><div class="section-title">Explorer les stations</div><div class="panel station-panel"><strong id="stationSearchTitle">📍 Trouver une station près de chez moi</strong><p class="note" id="stationSearchIntro">Entrez une commune française ou autorisez votre position. Choisissez une station comme station personnelle, puis enregistrez vos seuils dans Réglages pour recevoir des alertes.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="place" placeholder="Ville ou code postal" aria-label="Ville ou code postal" style="flex:1;min-width:160px;border:1px solid #cbdce4;border-radius:10px;padding:12px;font:inherit"><button id="findPlace" style="border:0;background:#087f91;color:white;border-radius:10px;padding:11px">Rechercher</button><button id="gps" style="border:1px solid #cbdce4;background:white;border-radius:10px;padding:11px">⌖ Ma position</button></div><p id="stationMessage" class="note" role="status"></p><div id="stationMap" role="region" aria-label="Carte des stations hydrométriques"></div><p class="note map-source">Fond de carte © OpenStreetMap · Stations : Hub’Eau</p><div id="stations"></div><p id="stationHomeReminder" class="note" style="font-size:12px;margin-top:12px">Pour conserver cette station comme station personnelle, connectez-vous et enregistrez-la avec vos seuils dans Réglages.</p></div></div><div id="swarmPage" class="hidden"><div class="section-title" id="swarmPageTitle">Mes groupes</div><p id="swarmPageIntro" class="note">Suivez les niveaux de toutes les stations de vos groupes.</p><div id="swarmLive"></div><section class="panel" id="swarmPanel" style="margin-top:15px">
 <div class="swarm-head"><strong id="swarmTitle">🌊 Mes groupes de stations</strong><span class="swarm-premium">Premium · bientôt</span></div>
 <p id="swarmIntro" class="note">Regroupez plusieurs stations dans un même groupe. Les groupes sont enregistrés sur cet appareil ; les alertes personnalisées seront disponibles ultérieurement.</p>
 <div class="swarm-create"><input id="swarmName" maxlength="60" placeholder="Nom du groupe (ex. Mon Argens)" aria-label="Nom du groupe"><button id="swarmCreate" type="button">+ Créer</button></div>
@@ -853,7 +875,7 @@ document.addEventListener('touchend',async()=>{
 },{passive:true});
 document.addEventListener('touchcancel',()=>{pullStart=null;pullDistance=0;pullIndicator.style.transform='translate(-50%,-130%)'},{passive:true});
 
-document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{const tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector('#overview').classList.toggle('hidden',tab!=='overview');document.querySelector('#forecastPage').classList.toggle('hidden',tab!=='Prévisions');document.querySelector('#mapPage').classList.toggle('hidden',tab!=='Carte');document.querySelector('#pushSettings').classList.toggle('hidden',tab!=='Alertes');document.querySelector('#settingsPage').classList.toggle('hidden',tab!=='Réglages');document.querySelector('#swarmPage').classList.add('hidden');if(tab==='Prévisions')requestAnimationFrame(()=>{updateUpstreamMap();loadOfficialRadarMap()});if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;document.querySelector('#place').value='Roquebrune-sur-Argens';searchPlace()}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{const tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector('#overview').classList.toggle('hidden',tab!=='overview');document.querySelector('#forecastPage').classList.toggle('hidden',tab!=='Prévisions');document.querySelector('#mapPage').classList.toggle('hidden',tab!=='Carte');document.querySelector('#pushSettings').classList.toggle('hidden',tab!=='Alertes');document.querySelector('#settingsPage').classList.toggle('hidden',tab!=='Réglages');document.querySelector('#swarmPage').classList.add('hidden');if(tab==='Prévisions')requestAnimationFrame(()=>{updateUpstreamMap();loadOfficialRadarMap();if(typeof window.loadPiafForecastMap==='function')window.loadPiafForecastMap()});if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;document.querySelector('#place').value='Roquebrune-sur-Argens';searchPlace()}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
 
 // Web Push requires a deployed backend and a public VAPID key. Never request permission until configured.
 const PUSH_API_URL='https://argens-alerte-push.p-hammerschmidt.workers.dev';const PUSH_VAPID_PUBLIC_KEY='BNmAS3Gm-VN8T9-_TsA4viBni7q-TwNk0dMEcWR6QYdb0T-fHEQ0Nz8s2sIlCrIBPW_A9LdqI8paKvVqCStUOrA';
@@ -1030,6 +1052,7 @@ renderSwarms();
 
 let stationMap=null,stationMarkers=null,mapLoading=null,initialMapSearch=false;
 function mapText(fr,en){return document.documentElement.lang==='de'?(window.argensGermanText?window.argensGermanText(fr,en):fr):document.documentElement.lang==='en'?en:fr}
+function mapHomeAction(){return document.documentElement.lang==='de'?'Als meine Heimatstation auswählen':document.documentElement.lang==='en'?'Select as my home station':'Choisir comme station personnelle'}
 function loadMapLibrary(){
  if(window.L)return Promise.resolve(window.L);
  if(mapLoading)return mapLoading;
@@ -1122,6 +1145,7 @@ async function findStations(lat,lon){
    recentList.replaceChildren(...recent.map(x=>x.button));
    otherList.replaceChildren(...other.map(x=>x.button));
    for(const entry of stationEntries){
+    if(entry.selectButton)entry.selectButton.textContent=mapHomeAction();
     if(entry.marker&&stationMap){
      const active=entry.info.status==='recent';
      const color=active?'#15976c':'#9aa5af';
@@ -1143,15 +1167,15 @@ async function findStations(lat,lon){
    availability.style.cssText='font-size:12px;font-weight:700;margin-top:4px';
    availability.textContent=availabilityLabel({status:'checking'});
    btn.append(availability);
-   let marker=null;
+   let marker=null,selectButton=null;
    if(L&&stationMarkers){
     const coords=[Number(station.latitude_station),Number(station.longitude_station)];bounds.push(coords);
     marker=L.marker(coords).addTo(stationMarkers);
-    const popup=document.createElement('div');const heading=document.createElement('strong');heading.textContent=name;const code=document.createElement('div');code.textContent=station.code_station;const select=document.createElement('button');select.type='button';select.className='map-popup-select';select.textContent=mapText('Sélectionner cette station','Select this station');select.addEventListener('click',()=>selectMapStation(station,btn,marker));popup.append(heading,code,select);marker.bindPopup(popup);
+    const popup=document.createElement('div');const heading=document.createElement('strong');heading.textContent=name;const code=document.createElement('div');code.textContent=station.code_station;const select=document.createElement('button');select.type='button';select.className='map-popup-select';select.textContent=mapHomeAction();selectButton=select;select.addEventListener('click',()=>selectMapStation(station,btn,marker));popup.append(heading,code,select);marker.bindPopup(popup);
     marker.on('click',()=>{document.querySelectorAll('#stations button').forEach(b=>b.classList.toggle('selected',b===btn))});
    }
    btn.addEventListener('click',()=>selectMapStation(station,btn,marker));
-   stationEntries.push({station,button:btn,marker,availability,info:{status:'checking'}});
+   stationEntries.push({station,button:btn,marker,selectButton,availability,info:{status:'checking'}});
   
   }
   arrangeStations();
@@ -1957,4 +1981,4 @@ document.getElementById('earlySignalsRefresh')?.addEventListener('click',loadEar
 document.addEventListener('argens-language-changed',renderEarlySignals);
 loadEarlySignalsPanel();
 setInterval(()=>{if(!document.hidden)loadEarlySignalsPanel()},300000);
-</script></body></html>
+</script><script src="./piaf-player.js"></script></body></html>

@@ -8,6 +8,7 @@ import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, a
 import { translateFeedbackRecord } from './feedback-translation.mjs';
 import { refreshEarlySignals, loadEarlySignals } from './early-signals.mjs';
 import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
+import { fetchPiafMetadata, fetchPiafFrame } from './piaf-map.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
  async vigicruesHealthAdmin(){
@@ -528,6 +529,23 @@ Rivière Alerte · riviere-alerte.fr`;
  return json(request,{error:'Not found'},404);
 }
 
+// Cached public metadata does not contain any secret, but avoids repeated API queries.
+async function cachedPiafMetadata(env){
+ const cache=globalThis.caches?.default;
+ const key=new Request('https://riviere-alerte.fr/__piaf_cache/metadata_v1');
+ if(cache){
+  const hit=await cache.match(key);
+  if(hit){
+   const data=await hit.json().catch(()=>null);
+   if(data&&Date.now()-Date.parse(data.referenceTime)<75*60000&&
+      Array.isArray(data.frames)&&data.frames.some(t=>Date.parse(t)>Date.now()-180000))return data;
+  }
+ }
+ const data=await fetchPiafMetadata(env);
+ if(cache)await cache.put(key,new Response(JSON.stringify(data),{
+  headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=90'}}));
+ return data;
+}
 export default {
  async fetch(request,env,ctx){
   const url=new URL(request.url);
@@ -653,6 +671,41 @@ export default {
      reason==='Radar file exceeds safety limit'?'radar_too_large':'radar_fetch_error';
     console.warn('Radar raw download unavailable',code);
     return json(request,{error:'Radar product unavailable',stage:'download',code},502);
+   }
+  }
+  // PIAF 3-hour nowcast: public validated metadata and PNG forecast frames.
+  // API credentials never enter browser responses or cache keys.
+  if(url.pathname==='/api/piaf/metadata'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
+   try{return json(request,{ok:true,available:true,...await cachedPiafMetadata(env)})}
+   catch(error){
+    console.warn('PIAF metadata unavailable',String(error?.message||'upstream'));
+    return json(request,{ok:false,available:false,error:'PIAF forecast currently unavailable'},503);
+   }
+  }
+  if(url.pathname==='/api/piaf/frame'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
+   const time=url.searchParams.get('time');
+   if([...url.searchParams].length!==1||!time||time.length>32)return json(request,{error:'Invalid PIAF time'},400);
+   try{
+    const info=await cachedPiafMetadata(env);
+    if(!info.frames.includes(time))return json(request,{error:'PIAF frame not listed in current model'},404);
+    const cache=globalThis.caches?.default;
+    const key=new Request('https://riviere-alerte.fr/__piaf_cache/frame_v1?reference='+encodeURIComponent(info.referenceTime)+'&time='+encodeURIComponent(time));
+    let imageBytes;
+    if(cache){const hit=await cache.match(key);if(hit)imageBytes=await hit.arrayBuffer()}
+    if(!imageBytes){
+     imageBytes=await fetchPiafFrame(env,info,time);
+     if(cache)await cache.put(key,new Response(imageBytes,{headers:{
+      'Content-Type':'image/png','Cache-Control':'public, max-age=3600'}}));
+    }
+    return new Response(imageBytes,{status:200,headers:{...cors(request),'Content-Type':'image/png',
+     'Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'}});
+   }catch(error){
+    console.warn('PIAF map unavailable',String(error?.message||'upstream'));
+    return json(request,{error:'PIAF image currently unavailable'},503);
    }
   }
   // Read-only live PIAF subscription probe. Only the already trusted radar

@@ -4,8 +4,10 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM,VirtualConsole} from 'jsdom';
+const piafScript=readFileSync(new URL('../piaf-player.js',import.meta.url),'utf8');
 const page=readFileSync(new URL('../index.html',import.meta.url),'utf8')
- .replace(/<script src="\.\/i18n-de\.js"><\/script>/,'');
+ .replace(/<script src="\.\/i18n-de\.js"><\/script>/,'')
+ .replace('<script src="./piaf-player.js"></script>','<script>'+piafScript+'</script>');
 const codes=['Y511201001','Y530501501','Y520201001','Y523501002','Y521502002'];
 const names=['Carcès · Argens','Le Muy · Endre','Les Arcs · Argens','Trans-en-Provence · Nartuby','Vidauban · Aille'];
 const coords=[[43.4777864,6.1964135],[43.5033105,6.5896057],[43.4466067,6.471459],[43.5045146,6.4839904],[43.3971748,6.45585]];
@@ -18,19 +20,23 @@ const model={
  rain:areas.map((id,i)=>({id,name:id,status:'estimated',last3hMm:i+2,last6hMm:i+3})),
  upstream:codes.map((code,i)=>({code,name:names[i],status:'current',levelM:1.1+i*.1,trendCmH:i-2,observedAt:current}))
 };
-const errors=[],coordRequests=[],pins=[];
+const errors=[],coordRequests=[],pins=[],piafOverlays=[];
+const forecastBase=Math.ceil(Date.now()/300000)*300000;
+const forecastFrames=[0,1,2].map(i=>new Date(forecastBase+i*300000).toISOString().replace('.000Z','Z'));
+const piafMock={ok:true,available:true,source:'Météo-France PIAF',kind:'forecast_5min',bounds:[5.85,43.18,6.91,43.85],referenceTime:new Date(forecastBase-300000).toISOString().replace('.000Z','Z'),frames:forecastFrames};
 const vc=new VirtualConsole();
 vc.on('jsdomError',e=>errors.push(String(e?.message||e)));
 vc.on('error',e=>errors.push(String(e)));
 const map={
  fitBounds(){return this},invalidateSize(){return this},panTo(){return this},
- setView(){return this}
+ setView(){return this},removeLayer(){return this}
 };
 const leaflet={
  map(){return map},
  tileLayer(){return {addTo(){return this}}},
  layerGroup(){return {addTo(){return this},clearLayers(){pins.length=0},addLayer(pin){pins.push(pin);return this}}},
  divIcon(opts){return opts},
+ imageOverlay(url,bounds,opts){return {url,bounds,opts,handlers:{},once(name,fn){this.handlers[name]=fn;return this},addTo(){piafOverlays.push(this);queueMicrotask(()=>this.handlers.load?.());return this}}},
  marker(position,opts){return {position,opts,bindTooltip(node,config){this.tooltip=node;this.tooltipOptions=config;return this},bindPopup(node){this.popup=node;return this},openPopup(){this.opened=true;return this}}},
  latLngBounds(points){return points},
  circleMarker(){return {bindTooltip(){return {addTo(){}}}}}
@@ -55,6 +61,7 @@ const dom=new JSDOM(page,{url:'https://riviere-alerte.fr/',runScripts:'dangerous
     data={data:[{date_obs:current,resultat_obs:1340},{date_obs:new Date(Date.now()-65*60000).toISOString(),resultat_obs:1320},{date_obs:new Date(Date.now()-125*60000).toISOString(),resultat_obs:1300}]};
    }else if(str.includes('/api/early-signals'))data=model;
    else if(str.includes('/api/radar-map/info'))data={available:false};
+   else if(str.includes('/api/piaf/metadata'))data=piafMock;
    else if(str.includes('/health'))data={ok:true,pushConfigured:true};
    return {ok:true,status:200,json:async()=>data,text:async()=>JSON.stringify(data),headers:{get:()=>null}};
   };
@@ -72,6 +79,16 @@ assert.equal(d.querySelectorAll('#earlyRainRows .forecast-datum').length,0,'No m
 assert.match(blocks[0].textContent,/mm/);
 assert.deepEqual(new Set(coordRequests),new Set([...codes,'Y531201001']),'Distances must reference official downstream station');
 assert.equal(pins.length,6,'Five current gauges plus the Roquebrune reference pin');
+assert.equal(d.getElementById('piafForecastMap').hidden,false,'Official forecast map must become visible');
+assert.equal(d.getElementById('piafForecastControls').hidden,false,'Forecast time controls must appear');
+assert.equal(d.getElementById('piafSlider').max,'2');
+assert.equal(piafOverlays.length>=1,true,'A valid PIAF forecast image should be requested');
+assert.match(piafOverlays[0].url,/\/api\/piaf\/frame\?time=/);
+d.getElementById('piafSlider').value='1';
+d.getElementById('piafSlider').dispatchEvent(new w.Event('input',{bubbles:true}));
+await new Promise(resolve=>setTimeout(resolve,30));
+assert.match(d.getElementById('piafFrameTime').textContent,/\d\d[:.]\d\d/);
+assert.equal(piafOverlays.length>=2,true,'Moving the slider requests a different official forecast time');
 assert.equal(d.getElementById('upstreamMap').hidden,false,'Map must become visible');
 assert.equal(d.querySelectorAll('#upstreamMap .upstream-map-tooltip').length,0,'No permanent tooltip boxes');
 const flowIndex=[1,3,4,2,0]; // Endre, Nartuby, Aille, Argens Les Arcs, Argens Carcès
@@ -126,10 +143,15 @@ for(const lang of ['de','en','fr']){
  d.querySelector('[data-lang="'+lang+'"]').click();
  await new Promise(resolve=>setTimeout(resolve,80));
  assert.equal(d.documentElement.lang,lang);
+ if(lang==='de'){
+  assert.match(d.getElementById('piafForecastTitle').textContent,/Regenprognose/);
+  assert.match(d.getElementById('stationSearchTitle').textContent,/Station in meiner Nähe finden/);
+  assert.match(d.getElementById('stationSearchIntro').textContent,/Heimatstation auswählen/);
+ }
  assert.equal(d.querySelectorAll('#earlyForecastRows .rain-list-row').length,3);
 }
 d.querySelector('[data-tab="Alertes"]').click();
 assert.equal(d.querySelector('#pushSettings').classList.contains('hidden'),false,'Alerts still clickable');
 assert.deepEqual(errors,[],'No runtime errors after map/list or language changes');
-console.log('PASS: five gauge trends, one popup per pin, Roquebrune reference marker, old-gauge removal, radar-last layout, translations');
+console.log('PASS: PIAF 5-min forecast frames, scrubber, FR/EN/DE labels and home-station hints, upstream trends, radar');
 process.exit(0);

@@ -5,6 +5,7 @@ on:
       - 'index.html'
       - 'scripts/home-smoke.mjs'
       - 'scripts/forecast-map-smoke.mjs'
+      - 'piaf-player.js'
       - '.github/workflows/home-smoke.yml'
   workflow_dispatch:
 permissions:
