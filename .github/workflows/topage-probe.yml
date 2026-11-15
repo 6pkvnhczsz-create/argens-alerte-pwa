@@ -13,7 +13,7 @@ jobs:
       - name: Check official BD Topage WFS discovery and nearby river edges
         run: |
           python - <<'PY'
-          import json,urllib.request,urllib.parse,xml.etree.ElementTree as ET
+          import json,urllib.request,urllib.parse,urllib.error,xml.etree.ElementTree as ET
           base='https://services.sandre.eaufrance.fr/geo/topage2025'
           args={'service':'WFS','request':'GetCapabilities','version':'2.0.0'}
           url=base+'?'+urllib.parse.urlencode(args)
@@ -34,6 +34,8 @@ jobs:
             for feat in data.get('features',[])[:3]:
               p=feat.get('properties',{})
               print('feature',feat.get('id'),'props',{k:str(v)[:90] for k,v in p.items() if any(x in k.lower() for x in ['noeud','cours','code','ecoulem','sensen','pk'])},'geometry',feat.get('geometry',{}).get('type'))
+          except urllib.error.HTTPError as error:
+            print('SOURCE HTTP ERROR',error.code,error.read(3000).decode('utf-8','replace'))
           except Exception as error:
             print('SOURCE UNAVAILABLE',type(error).__name__,str(error)[:300])
           PY
