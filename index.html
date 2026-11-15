@@ -171,9 +171,33 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .lang-flag{display:inline-block;font-size:18px;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
 @media(max-width:400px){.top .brand{font-size:21px}.lang-switch{gap:2px;padding:3px}.lang-switch button{padding:6px 6px;gap:3px}}
 @media(max-width:350px){.top .brand{font-size:19px}.lang-switch button{padding:6px 5px;gap:2px}}
+
+/* First-visit app installation helper: avoids claiming that iOS can auto-install. */
+.install-banner{background:linear-gradient(135deg,#e8f8f5 0%,#fff 86%);border:1px solid #b5dcd8;border-radius:20px;padding:17px;margin:-8px 0 19px;box-shadow:0 8px 25px #123f5712}
+.install-banner-head{display:flex;align-items:flex-start;gap:11px}
+.install-banner-symbol{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#d5f0ee;font-size:24px;flex:none}
+.install-banner-heading{flex:1;min-width:0}.install-banner-heading strong{display:block;font-size:16px;line-height:1.35;color:#123e4a}.install-banner-heading p{margin:5px 0 0;color:#476674;font-size:12px;line-height:1.5}
+.install-banner-close{border:0;background:transparent;color:#597784;font-size:16px;padding:3px 6px;min-width:28px;cursor:pointer}
+.install-banner-actions{display:flex;align-items:stretch;gap:8px;margin-top:14px;flex-wrap:wrap}
+.install-banner-primary{background:#087f91;color:white;border:0;border-radius:11px;padding:12px 14px;font:inherit;font-weight:750;font-size:13px;flex:1;min-width:145px}
+.install-banner-secondary{background:#fff;color:#426374;border:1px solid #cddfe6;border-radius:11px;padding:12px 14px;font:inherit;font-weight:650;font-size:13px}
+.install-banner-steps{margin-top:13px;border-top:1px solid #cddfe1;padding-top:13px;font-size:13px;line-height:1.6}
+.install-banner-steps strong{font-size:13px}.install-banner-steps ol{margin:9px 0;padding-left:22px}.install-banner-steps li{padding:3px 0}.install-banner-steps .note{margin:8px 0 0}
+.install-settings-button{display:block;margin-top:12px;width:100%;padding:11px 12px;border:1px solid #b6d5dc;border-radius:10px;background:#edf7f8;color:#0b6572;font:inherit;font-weight:700;font-size:13px;text-align:center}
+@media(max-width:370px){.install-banner{padding:14px}.install-banner-actions{flex-direction:column}.install-banner-primary{min-width:0;flex:initial}}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button></div></div>
+
+<section id="installBanner" class="install-banner hidden" aria-labelledby="installBannerTitle">
+  <div class="install-banner-head"><div class="install-banner-symbol" aria-hidden="true">📲</div><div class="install-banner-heading"><strong id="installBannerTitle">Installer Rivière Alerte</strong><p id="installBannerDescription">Accédez à l'application depuis votre écran d'accueil.</p></div><button id="installBannerClose" type="button" aria-label="Fermer" class="install-banner-close">✕</button></div>
+  <div class="install-banner-actions"><button type="button" id="installBannerStart" class="install-banner-primary">Installer l'application</button><button type="button" id="installBannerLater" class="install-banner-secondary">Plus tard</button></div>
+  <div id="installBannerSteps" class="install-banner-steps hidden" aria-live="polite">
+    <strong id="installBannerStepsTitle">Comment installer l'application</strong>
+    <ol><li id="installBannerStep1"></li><li id="installBannerStep2"></li><li id="installBannerStep3"></li></ol>
+    <p id="installBannerHint" class="note"></p>
+  </div>
+</section>
 <div id="overview"><div class="hero"><div class="hero-orb" aria-hidden="true"></div><small>NIVEAU D’EAU ACTUEL</small><div class="station-heading"><span id="stationTitle">Roquebrune-sur-Argens</span><span id="stationUpdated" class="station-updated" aria-label="Date et heure de la dernière mesure"></span></div><div class="level"><span class="level-glass"><span id="level">—</span><span style="font-size:25px;letter-spacing:0"> m</span></span></div><div class="level-connector" aria-hidden="true"><svg viewBox="0 0 300 44" preserveAspectRatio="none" focusable="false"><path d="M150 0 V23 H50 V44" /></svg></div><div class="threshold-row" aria-label="Seuils indicatifs"><span class="threshold threshold-green" data-threshold="green">0–3 m</span><span class="threshold threshold-orange" data-threshold="orange">3–4,5 m</span><span class="threshold threshold-red" data-threshold="red">≥ 4,5 m</span></div><div id="status" class="threshold-message" role="status">Données en attente</div><div id="thresholdNotice" class="threshold-notice" hidden><div id="thresholdNoticeText">Aucun seuil d’alerte n’est défini pour cette station. Définissez vos seuils personnels dans les réglages.</div><button id="thresholdSettingsLink" type="button" style="margin-top:14px;padding:12px 18px;border:1px solid #ffffff99;border-radius:11px;background:#ffffffed;color:#195469;font:inherit;font-weight:700;cursor:pointer">⚙ Définir mes seuils</button></div><div class="sub" id="trend">Chargement des mesures</div><div class="hero-chart-head"><div class="hero-chart-label">ÉVOLUTION DU NIVEAU</div><div class="range-switch" role="group" aria-label="Période du graphique"><button type="button" data-hours="1" aria-pressed="true">1 h</button><button type="button" data-hours="6">6 h</button><button type="button" data-hours="12">12 h</button><button type="button" data-hours="24">24 h</button><button type="button" data-hours="48">48 h</button></div></div><div class="range-info" id="rangeInfo"></div><div class="chart-with-scale"><div class="height-scale height-scale-left" id="heightScaleLeft" aria-label="Hauteurs en mètres"></div><svg class="chart" id="chart" viewBox="0 0 340 110" preserveAspectRatio="none" aria-label="Évolution des dernières mesures"><path d="M0 106 H340" stroke="#456476" stroke-dasharray="5 5"/></svg><div class="height-scale height-scale-right" id="heightScaleRight" aria-hidden="true"></div></div><div class="chart-times" id="chartTimes" aria-label="Heures des mesures"></div><div class="hidden"><span id="readingTime"></span></div><div class="hero-source-footer">Source: HUB’EAU</div></div>
 <div id="forecastPanel" class="panel" style="margin-top:15px;text-align:center" aria-live="polite">
 <strong id="forecastHeading">🔎 Projection des seuils</strong>
@@ -283,6 +307,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 </div></div>
 <div id="accountSignedIn" class="hidden"><p id="accountIdentity"></p><button id="accountLogout" type="button">Déconnexion</button><button id="accountDelete" type="button" style="display:block;margin-top:12px;background:#fff2f2;color:#9e2531;border:1px solid #d6a3aa;border-radius:10px;padding:10px 14px;font:inherit;font-size:13px;font-weight:700">Supprimer mon compte</button><div id="accountDeleteConfirm" class="hidden" role="group" aria-labelledby="accountDeleteTitle" style="margin-top:12px;padding:15px;border:2px solid #bc3946;border-radius:12px;background:#fff7f7;color:#54242b"><strong id="accountDeleteTitle"></strong><p id="accountDeleteDescription" style="margin:8px 0 14px;line-height:1.5"></p><div style="display:flex;flex-wrap:wrap;gap:10px"><button id="accountDeleteCancel" type="button" style="background:#e8f0f4;color:#173447;border:1px solid #b9d0da;border-radius:9px;padding:10px 13px;font:inherit"></button><button id="accountDeleteFinal" type="button" style="background:#b42332;color:white;border:0;border-radius:9px;padding:10px 13px;font:inherit;font-weight:700"></button></div></div></div>
 <p id="accountMessage" class="note" role="status"></p>
+<button id="installFromSettings" class="install-settings-button hidden" type="button">📲 Installer l'application sur cet appareil</button>
 </section>
 
 </div>
@@ -1187,5 +1212,81 @@ setLanguage(lang);
     observer.observe(glass,{childList:true,characterData:true,subtree:true});
   }
   schedule();
+})();
+</script>
+<script>
+/* Install help: native prompt on compatible Chromium browsers, honest steps on iOS. */
+(()=>{
+ const banner=document.getElementById('installBanner');
+ const steps=document.getElementById('installBannerSteps');
+ const start=document.getElementById('installBannerStart');
+ const later=document.getElementById('installBannerLater');
+ const close=document.getElementById('installBannerClose');
+ const settings=document.getElementById('installFromSettings');
+ const key='argens-install-guide-dismissed-v1';
+ const ua=navigator.userAgent||'';
+ const ios=/iPad|iPhone|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ const android=/Android/i.test(ua);
+ const mobile=ios||android||Boolean(navigator.userAgentData&&navigator.userAgentData.mobile);
+ const standalone=()=>window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+ let installEvent=null;
+ const en=()=>document.documentElement.lang==='en';
+ const txt=(fr,english)=>en()?english:fr;
+ const put=(id,fr,english)=>{document.getElementById(id).textContent=txt(fr,english)};
+ function render(){
+  if(standalone()){banner.classList.add('hidden');settings.classList.add('hidden');return}
+  settings.classList.toggle('hidden',!mobile);
+  put('installBannerTitle','Installez Rivière Alerte','Install Rivière Alerte');
+  put('installBannerDescription',ios?
+   'Pour recevoir des notifications push sur iPhone, ajoutez l’application à l’écran d’accueil.':
+   'Ouvrez Rivière Alerte directement depuis votre écran d’accueil.',
+   ios?'To receive push alerts on iPhone, add the app to your Home Screen.':
+   'Open Rivière Alerte directly from your Home Screen.');
+  put('installBannerStart',ios?'Voir les étapes':installEvent?'Installer l’application':'Comment installer',
+    ios?'Show installation steps':installEvent?'Install app':'How to install');
+  put('installBannerLater','Plus tard','Later');
+  put('installBannerStepsTitle','Installation sur votre téléphone','Install on your phone');
+  put('installBannerStep1',ios?'Dans Safari, touchez Partager (éventuellement via le menu de la page « … »).':
+    'Ouvrez le menu du navigateur (⋮).',
+    ios?'In Safari, tap Share (possibly under the page menu “…”).':'Open the browser menu (⋮).');
+  put('installBannerStep2',ios?'Choisissez « Sur l’écran d’accueil ».':'Choisissez « Installer l’application » ou « Ajouter à l’écran d’accueil ».',
+    ios?'Choose “Add to Home Screen”.':'Choose “Install app” or “Add to Home screen”.');
+  put('installBannerStep3',ios?'Activez « Ouvrir comme app web » si proposé, puis touchez « Ajouter ».':'Confirmez l’installation.',
+    ios?'Turn on “Open as Web App” if offered, then tap “Add”.':'Confirm the installation.');
+  put('installBannerHint',ios?
+    'Si l’option manque, faites défiler le menu Partager et utilisez « Modifier les actions ». Ouvrez ensuite l’icône créée sur votre écran d’accueil.':
+    'Si aucun bouton d’installation n’est proposé, utilisez l’option du menu du navigateur.',
+    ios?'If you cannot find it, scroll down in the Share menu and choose “Edit Actions”. Then open the new icon from your Home Screen.':
+    'If no installation button is available, use the option in your browser menu.');
+  settings.textContent=txt('📲 Installer l’application sur cet appareil','📲 Install the app on this device');
+  close.setAttribute('aria-label',txt('Fermer','Close'));
+ }
+ function hide(){banner.classList.add('hidden');steps.classList.add('hidden');try{localStorage.setItem(key,'1')}catch(e){}}
+ function openHelp(){if(!mobile||standalone())return;render();banner.classList.remove('hidden');steps.classList.remove('hidden');banner.scrollIntoView({block:'start',behavior:'smooth'})}
+ close.addEventListener('click',hide);
+ later.addEventListener('click',hide);
+ settings.addEventListener('click',openHelp);
+ start.addEventListener('click',async()=>{
+  if(installEvent){
+   const prompt=installEvent;installEvent=null;
+   try{
+    await prompt.prompt();
+    const choice=await prompt.userChoice;
+    if(choice&&choice.outcome==='accepted')hide();
+    else{steps.classList.remove('hidden');render()}
+   }catch(e){steps.classList.remove('hidden');render()}
+  }else{steps.classList.toggle('hidden');render()}
+ });
+ window.addEventListener('beforeinstallprompt',event=>{
+  event.preventDefault();installEvent=event;render();
+ });
+ window.addEventListener('appinstalled',hide);
+ document.addEventListener('argens-language-changed',render);
+ render();
+ if(mobile&&!standalone()){
+  let dismissed=false;
+  try{dismissed=localStorage.getItem(key)==='1'}catch(e){}
+  if(!dismissed)banner.classList.remove('hidden');
+ }
 })();
 </script></body></html>
