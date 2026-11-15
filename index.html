@@ -1463,7 +1463,8 @@ function renderEarlySignals(){
   earlyText('earlyOfficialStatus',earlyI18n('Bulletin officiel Météo-France','Official Météo-France bulletin','Amtlicher Météo-France-Bericht'));
   const names={green:earlyI18n('Vert','Green','Grün'),yellow:earlyI18n('Jaune','Yellow','Gelb'),orange:'Orange',red:earlyI18n('Rouge','Red','Rot')};
   for(const period of o.periods||[]){
-   const bits=(period.phenomena||[]).filter(x=>x.color!=='green').map(x=>(document.documentElement.lang==='fr'?x.fr:document.documentElement.lang==='de'?x.fr:x.en)+': '+(names[x.color]||'—'));
+   const namesDE={'1':'Wind','2':'Starkregen/Überschwemmung','3':'Gewitter','4':'Flusshochwasser','5':'Schnee/Glatteis','6':'Hitze','7':'Kälte','8':'Lawinen','9':'Küstenüberschwemmung'};
+   const bits=(period.phenomena||[]).filter(x=>x.color!=='green').map(x=>(document.documentElement.lang==='de'?(namesDE[x.id]||x.fr):document.documentElement.lang==='en'?x.en:x.fr)+': '+(names[x.color]||'—'));
    const detail=bits.length?bits.join(' · '):earlyI18n('Aucun phénomène particulier signalé','No elevated phenomena listed','Keine erhöhten Einzelphänomene aufgeführt');
    officialNode.append(earlyLine((period.period==='J1'?earlyI18n('Demain','Tomorrow','Morgen'):earlyI18n("Aujourd’hui",'Today','Heute'))+' · '+(names[period.color]||'—')+' · '+detail));
   }
