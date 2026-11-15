@@ -98,7 +98,7 @@
   putLabel(list,lang('Chargement des stations…','Loading nearby gauges…','Lade weitere Pegel…'),'');
   try{
    const res=await fetch(ROOT+'/api/upstream/stations?station='+encodeURIComponent(current)+'&nearby=1',
-    {cache:'no-store',signal:AbortSignal.timeout(30000)});
+    {cache:'no-store',signal:AbortSignal.timeout(45000)});
    if(!res.ok)throw Error('Nearby stations unavailable');
    const data=await res.json();
    if(request!==nearbyRequest||current!==code||!nearPanel.open)return;
@@ -106,7 +106,7 @@
       data.hydrologicalConnectivity!=='directed_verified_local_only')throw Error('Invalid nearby data');
    const upstreamCodes=new Set((data.stations||[]).map(x=>x.code));
    nearbyItems=data.nearby.filter(x=>x.classification==='nearby_not_verified'&&
-    !upstreamCodes.has(x.code)).slice(0,12);
+    !upstreamCodes.has(x.code)).slice(0,8);
    nearbyCode=current;nearbyAt=Date.now();drawNearby(nearbyItems);
   }catch(err){
    if(request!==nearbyRequest||current!==code||!nearPanel.open)return;
