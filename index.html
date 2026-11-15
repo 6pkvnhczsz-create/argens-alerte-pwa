@@ -376,6 +376,11 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
  #forecastPage .upstream-distance-info strong{font-size:11px}
  #forecastPage .upstream-distance-values strong{font-size:13px}
 }
+/* Optional surrounding gauges stay out of the primary flood-warning overview. */
+#forecastPage #nearbyGaugesBlock{margin-top:16px;padding:12px;border:1px solid #d9e7ec;border-radius:12px;background:#f4f9fb;text-align:left}
+#forecastPage #nearbyGaugesBlock summary{cursor:pointer;color:#17637b;font-size:13px;font-weight:750;line-height:1.4}
+#forecastPage #nearbyGaugesBlock[open] summary{margin-bottom:8px}
+#forecastPage #nearbyGaugesRows .upstream-distance-row{grid-template-columns:minmax(0,1fr) minmax(0,.9fr)}
 /* Forecast readability: natural line breaks, clear hierarchy, small-screen rows. */
 #forecastPage>.section-title{margin:17px 0 16px;line-height:1.35;text-wrap:balance;overflow-wrap:break-word}
 #forecastPage .forecast-stack{min-width:0}
@@ -504,6 +509,11 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <div id="upstreamMap" class="upstream-map" role="region" aria-label="Stations de mesure de l’Argens sur la carte" hidden></div>
     <p id="upstreamMapMessage" class="note upstream-map-message" role="status"></p>
     <div id="earlyUpstreamRows" class="upstream-ranked-list" hidden></div>
+    <details id="nearbyGaugesBlock" class="nearby-gauges-block">
+     <summary id="nearbyGaugesToggle">Autres stations à proximité (40 km)</summary>
+     <p id="nearbyGaugesSubtitle" class="note">Stations voisines, sans liaison en amont confirmée ; distances à vol d’oiseau.</p>
+     <div id="nearbyGaugesRows" class="upstream-ranked-list" aria-live="polite"></div>
+    </details>
     <p id="earlyUpstreamDisclaimer" class="note forecast-disclaimer">Tendances mesurées localement ; les hauteurs des stations ne sont pas comparables entre elles.</p>
    </article>
 
