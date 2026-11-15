@@ -16,6 +16,7 @@
    const node=el(key);if(node)node.hidden=!argens;
   }
   const national=el('nationalUpstreamContainer');national.hidden=argens;
+  el('nearbyGaugesBlock').hidden=!(loaded?.ok&&Array.isArray(loaded.nearby)&&loaded.nearby.length);
   el('homeNationalOfficialNote').hidden=argens;
   const updated=el('earlySignalsChecked')?.closest('.forecast-updated');
   if(updated)updated.hidden=!argens;
@@ -43,7 +44,7 @@
    link.target='_blank';link.rel='noopener noreferrer';link.textContent='Météo-France';
    notice.append(link);
   }
-  if(!argens&&loaded)draw(loaded);
+  if(loaded)draw(loaded);
  }
  function putLabel(node,label,value){
   const line=document.createElement('div');line.className='upstream-distance-row';
@@ -72,10 +73,28 @@
     'Upstream river connectivity currently cannot be verified.',
     'Flussaufwärts-Verbindungen derzeit nicht verlässlich prüfbar.'));
   }
+  const nearbyBlock=el('nearbyGaugesBlock'),nearbyList=el('nearbyGaugesRows');
+  nearbyList.replaceChildren();
+  const near=Array.isArray(data?.nearby)?data.nearby:[];
+  nearbyBlock.hidden=!data?.ok||!near.length;
+  text('nearbyGaugesTitle',lang('Stations voisines dans un rayon de 40 km',
+   'Nearby gauges within 40 km','Weitere Pegel im Umkreis von 40 km'));
+  text('nearbyGaugesSubtitle',lang(
+   'Stations géographiquement proches, sans connexion en amont vérifiée. Les distances sont à vol d’oiseau.',
+   'Geographically nearby gauges, not verified upstream. Distances are straight-line.',
+   'Geografisch nahe Pegel, keine bestätigten Oberlieger. Entfernungen sind Luftlinie.'));
+  for(const station of near){
+   const dist=Number(station.distanceKm),suffix=Number.isFinite(dist)?' · '+format(dist)+' km':'';
+   const recorded=Number.isFinite(station.levelM)&&Number.isFinite(station.trendCmH);
+   const change=station.trendCmH>0?'↑ +':station.trendCmH<0?'↓ ':'→ ';
+   putLabel(nearbyList,station.name+suffix,recorded?
+    format(station.levelM)+' m · '+change+format(station.trendCmH)+' cm/h':
+    lang('Mesure récente indisponible','No recent reading','Kein aktueller Messwert'));
+  }
   note.textContent=lang(
-   'Analyse locale indicative (~5 km) d’après BD TOPAGE 2025 / Hub’Eau. Absence de station ≠ absence de risque. Aucun délai de crue calculé. Sans effet sur les alertes.',
-   'Local indicative analysis (~5 km), BD TOPAGE 2025 / Hub’Eau. No gauge does not mean no risk. No flood travel time calculated. Alerts unaffected.',
-   'Lokale Orientierung (ca. 5 km) aus BD TOPAGE 2025 / Hub’Eau. Keine angezeigte Station bedeutet nicht, dass keine Gefahr besteht. Keine Fließzeiten berechnet. Warnungen unverändert.');
+   'Recherche des stations jusqu’à 40 km (distance à vol d’oiseau). L’analyse amont vérifie seulement certains corridors du réseau BD TOPAGE 2025 ; elle ne couvre pas tout le bassin. Aucun temps de crue calculé. Alertes inchangées.',
+   'Station search within 40 km (straight-line). Upstream verification checks only selected BD TOPAGE 2025 river corridors, not the entire catchment. No flood travel times. Alerts unchanged.',
+   'Stationssuche bis 40 km Luftlinie. Nur ausgewählte Flusskorridore werden hydrologisch über BD TOPAGE 2025 geprüft, nicht das gesamte Einzugsgebiet. Keine Fließzeiten berechnet. Warnungen unverändert.');
  }
  async function drawMap(data,request){
   if(!isVisible()||code===DEFAULT)return;
@@ -113,6 +132,20 @@
     layer.addLayer(L.marker([st.lat,st.lon],{icon,title:st.name}).bindPopup(popup));
     all.push([st.lat,st.lon]);
    }
+   for(const st of data.nearby||[]){
+    if(!Number.isFinite(st.lat)||!Number.isFinite(st.lon))continue;
+    const nearbyIcon=L.divIcon({className:'upstream-nearby-marker',
+     html:'<span class="upstream-nearby-pin" aria-hidden="true"></span>',
+     iconSize:[20,20],iconAnchor:[10,10]});
+    const popup=document.createElement('div'),heading=document.createElement('strong'),info=document.createElement('p');
+    heading.textContent=st.name||st.code;
+    info.textContent=lang('Station voisine · connexion fluviale non vérifiée',
+     'Nearby gauge · upstream connection not verified',
+     'Pegel im Umkreis · Flussverbindung nicht geprüft');
+    popup.append(heading,info);
+    layer.addLayer(L.marker([st.lat,st.lon],{icon:nearbyIcon,title:st.name||st.code}).bindPopup(popup));
+    all.push([st.lat,st.lon]);
+   }
    map.fitBounds(all,{padding:[32,32],maxZoom:10,animate:false});
    requestAnimationFrame(()=>map?.invalidateSize());
   }catch(error){
@@ -120,7 +153,7 @@
   }
  }
  async function load(){
-  if(code===DEFAULT||!isVisible())return;
+  if(!isVisible())return;
   if(loaded&&lastCode===code&&Date.now()-lastRun<3*60000){
    scope();drawMap(loaded,seq);return;
   }
@@ -135,7 +168,8 @@
    const data=await response.json();
    if(request!==seq||requested!==code||!data.ok||data.home?.code!==code||
       data.hydrologicalConnectivity!=='directed_verified_local_only'||!Array.isArray(data.stations))throw Error('Invalid upstream dataset');
-   loaded=data;lastCode=code;lastRun=Date.now();draw(data);await drawMap(data,request);
+   loaded=data;lastCode=code;lastRun=Date.now();draw(data);
+   if(code!==DEFAULT)await drawMap(data,request);
   }catch(error){
    if(request!==seq)return;
    loaded=null;draw(null);
@@ -153,7 +187,7 @@
   if(typeof next!=='string'||!/^[A-Z][A-Z0-9]{7,13}$/.test(next))return;
   if(next!==code){seq++;lastRun=0;loaded=null;code=next}
   name=event.detail?.name||next;scope();
-  if(code!==DEFAULT&&isVisible())load();
+  if(isVisible())load();
   if(code===DEFAULT&&isVisible()&&typeof window.renderEarlySignals==='function')window.renderEarlySignals();
  }
  document.addEventListener('argens-station-selected',selected);
