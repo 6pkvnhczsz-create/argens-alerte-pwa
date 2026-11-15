@@ -266,10 +266,10 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #forecastPage .piaf-color-key i{display:block;height:13px;border:1px solid #d3e2e8;border-radius:4px}
 #forecastPage .piaf-color-key span{font-size:clamp(9px,2.3vw,11px);font-weight:700;white-space:nowrap}
 #forecastPage .piaf-legend-block #piafLegendNote{display:block;font-size:10px;color:#617d89;line-height:1.45}
-#forecastPage .piaf-custom-color-key{grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:10px 0 7px}
-#forecastPage .piaf-custom-color-key i{height:17px;border-radius:5px}
-#forecastPage .piaf-custom-color-key span{font-size:clamp(9px,2.15vw,11px);white-space:normal;overflow-wrap:anywhere;line-height:1.2}
-@media(max-width:375px){#forecastPage .piaf-custom-color-key{gap:4px}#forecastPage .piaf-custom-color-key span{font-size:9px}}
+#forecastPage .piaf-custom-color-key{grid-template-columns:repeat(6,minmax(0,1fr));gap:3px;margin:8px 0 5px}
+#forecastPage .piaf-custom-color-key i{height:11px;border-radius:3px}
+#forecastPage .piaf-custom-color-key span{font-size:clamp(7px,1.75vw,9px);white-space:normal;overflow-wrap:normal;hyphens:auto;line-height:1.2}
+@media(max-width:375px){#forecastPage .piaf-custom-color-key{gap:2px}#forecastPage .piaf-custom-color-key span{font-size:7px}}
 
 @media(max-width:420px){#forecastPage .piaf-forecast-map{height:310px}#forecastPage .piaf-controller-row{gap:5px}}
 /* Optional genuine Météo-France 500-m radar overlay (no API key in browser). */
@@ -411,9 +411,6 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 }
 @media(max-width:410px){
  #forecastPage .forecast-card{padding:17px 13px}
- #forecastPage .piaf-custom-color-key{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 8px}
- #forecastPage .piaf-custom-color-key span{font-size:11px;line-height:1.3}
- #forecastPage .piaf-custom-color-key i{height:16px}
  #forecastPage #nationalUpstreamRows .upstream-distance-row,
  #forecastPage #nearbyGaugesRows .upstream-distance-row{grid-template-columns:minmax(0,1fr);gap:4px}
  #forecastPage #nationalUpstreamRows .upstream-distance-row>span,
@@ -506,11 +503,6 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     </div>
     <div id="upstreamMap" class="upstream-map" role="region" aria-label="Stations de mesure de l’Argens sur la carte" hidden></div>
     <p id="upstreamMapMessage" class="note upstream-map-message" role="status"></p>
-    <div id="nearbyGaugesBlock" class="nearby-gauges-block" hidden>
-     <strong id="nearbyGaugesTitle">Stations voisines dans un rayon de 40 km</strong>
-     <p id="nearbyGaugesSubtitle" class="note">La connexion en amont n'est pas confirmée.</p>
-     <div id="nearbyGaugesRows" class="upstream-ranked-list"></div>
-    </div>
     <div id="earlyUpstreamRows" class="upstream-ranked-list" hidden></div>
     <p id="earlyUpstreamDisclaimer" class="note forecast-disclaimer">Tendances mesurées localement ; les hauteurs des stations ne sont pas comparables entre elles.</p>
    </article>
