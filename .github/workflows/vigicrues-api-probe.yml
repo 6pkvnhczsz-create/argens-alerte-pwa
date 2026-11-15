@@ -1,0 +1,66 @@
+name: Vigicrues API connectivity test
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/vigicrues-api-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare-egress:
+    name: Test Vigicrues from GitHub-hosted Linux runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe station Y531201001 (read-only)
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import datetime as dt
+          import json
+          import urllib.error
+          import urllib.request
+
+          url = "https://www.vigicrues.gouv.fr/services/observations.json?CdStationHydro=Y531201001"
+          tests = [
+              ("Standard-HTTP-Client", {"Accept": "application/json"}),
+              ("Browser-User-Agent", {"Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; RiviereAlerte/1.0)"}),
+          ]
+          for label, headers in tests:
+              print(f"\n--- {label} ---", flush=True)
+              try:
+                  request = urllib.request.Request(url, headers=headers)
+                  with urllib.request.urlopen(request, timeout=18) as response:
+                      status = response.status
+                      raw = response.read(10_000_000)
+                      print(f"HTTP status: {status}; Content-Type: {response.headers.get('Content-Type', '-')}; bytes: {len(raw)}")
+                  if status != 200:
+                      continue
+                  try:
+                      payload = json.loads(raw)
+                      series = payload.get("Serie") or {}
+                      if isinstance(series, list):
+                          series = next((s for s in series if s.get("CdStationHydro") == "Y531201001"), {})
+                      rows = series.get("ObssHydro") or []
+                      valid = [r for r in rows if isinstance(r.get("DtObsHydro"), (int, float)) and isinstance(r.get("ResObsHydro"), (int, float))]
+                      if series.get("CdStationHydro") != "Y531201001" or not valid:
+                          print("JSON received but no valid readings for station Y531201001")
+                          continue
+                      last = max(valid, key=lambda r: r["DtObsHydro"])
+                      observed = dt.datetime.fromtimestamp(last["DtObsHydro"] / 1000, tz=dt.timezone.utc)
+                      age = (dt.datetime.now(dt.timezone.utc) - observed).total_seconds() / 60
+                      print(f"Station: {series['CdStationHydro']}; readings: {len(valid)}")
+                      print(f"Latest value: {last['ResObsHydro']} m; measured UTC: {observed.isoformat()}; age: {age:.1f} min")
+                      print("RESULT: API REACHABLE" + (" (fresh <= 3h)" if -15 <= age <= 180 else " (but observations stale/future)"))
+                  except (ValueError, TypeError, KeyError) as error:
+                      print(f"JSON parse/format error: {type(error).__name__}: {error}")
+              except urllib.error.HTTPError as error:
+                  print(f"HTTP status: {error.code}; Content-Type: {error.headers.get('Content-Type', '-')}")
+                  print("RESULT: ACCESS DENIED" if error.code == 403 else f"RESULT: HTTP {error.code}")
+              except Exception as error:
+                  print(f"RESULT: {type(error).__name__}: {str(error)[:250]}")
+          print("\nComparison: Cloudflare Worker returned HTTP 403 previously. Check whether either GitHub test returned HTTP 200.")
+          PY
