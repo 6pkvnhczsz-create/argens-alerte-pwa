@@ -359,7 +359,7 @@ const trend=document.querySelector('#trend'),readingTime=document.querySelector(
 const CUSTOM_DEFAULTS={orange:3,red:4.5};let personalThresholds=null;
 function activeThresholds(code){return personalThresholds&&personalThresholds.code===code?personalThresholds:CUSTOM_DEFAULTS}
 function renderThresholdLabels(code){const t=activeThresholds(code),fr=document.documentElement.lang!=='en',fmt=n=>n.toLocaleString(fr?'fr-FR':'en-GB',{maximumFractionDigits:2,minimumFractionDigits:2});const chips=document.querySelectorAll('[data-threshold]');if(chips.length===3){chips[0].textContent='< '+fmt(t.orange)+' m';chips[1].textContent=fmt(t.orange)+'–'+fmt(t.red)+' m';chips[2].textContent='≥ '+fmt(t.red)+' m'}const labels=document.querySelectorAll('#forecastResults .card small');if(labels.length===2){labels[0].textContent=(fr?'🟠 Seuil ':'🟠 Threshold ')+fmt(t.orange)+' m';labels[1].textContent=(fr?'🔴 Seuil ':'🔴 Threshold ')+fmt(t.red)+' m'}}
-function renderAlertRules(code){const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code),en=document.documentElement.lang==='en',fmt=n=>n.toLocaleString(en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});document.querySelector('#alertWaterHeading').textContent=en?'Water level':'Niveau d’eau';document.querySelector('#alertStationName').textContent=(en?'Flood thresholds · ':'Seuils de crue · ')+(stationTitle.textContent.trim()||code);document.querySelector('#alertGreenRule').textContent='< '+fmt(t.orange)+' m'+(en?' and rise < 30 cm/h':' et hausse < 30 cm/h');document.querySelector('#alertOrangeRule').textContent=fmt(t.orange)+(en?' to below ':' à moins de ')+fmt(t.red)+' m';document.querySelector('#alertRedRule').textContent='≥ '+fmt(t.red)+' m';document.querySelectorAll('[data-rapid-rule]').forEach(el=>el.hidden=false)}
+function renderAlertRules(code){const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code),en=document.documentElement.lang==='en',fmt=n=>n.toLocaleString(document.documentElement.lang==='de'?'de-DE':en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});document.querySelector('#alertWaterHeading').textContent=en?'Water level':'Niveau d’eau';document.querySelector('#alertStationName').textContent=(en?'Flood thresholds · ':'Seuils de crue · ')+(stationTitle.textContent.trim()||code);document.querySelector('#alertGreenRule').textContent='< '+fmt(t.orange)+' m'+(en?' and rise < 30 cm/h':' et hausse < 30 cm/h');document.querySelector('#alertOrangeRule').textContent=fmt(t.orange)+(en?' to below ':' à moins de ')+fmt(t.red)+' m';document.querySelector('#alertRedRule').textContent='≥ '+fmt(t.red)+' m';document.querySelectorAll('[data-rapid-rule]').forEach(el=>el.hidden=false)}
 // Connect the current water-level tile to the actually active threshold tile.
 function updateLevelConnector(){
  const connector=document.querySelector('.level-connector');
@@ -541,7 +541,7 @@ function noReading(text){document.querySelectorAll('#forecastResults .card').for
 function drawChart(items){
  const svg=document.querySelector('#chart'),axis=document.querySelector('#chartTimes'),info=document.querySelector('#rangeInfo');
  svg.replaceChildren();axis.replaceChildren();document.querySelector('#heightScaleLeft').replaceChildren();document.querySelector('#heightScaleRight').replaceChildren();
- const locale=document.documentElement.lang==='en'?'en-GB':'fr-FR',fmt=new Intl.DateTimeFormat(locale,{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'});
+ const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',fmt=new Intl.DateTimeFormat(locale,{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'});
  if(!items.length){info.textContent='';trend.textContent='Aucune mesure disponible';return}
  const newest=items[0].date.getTime(),start=newest-chartHours*3600000,points=items.filter(x=>x.date.getTime()>=start&&x.date.getTime()<=newest).slice().reverse();
  const labelDate=d=>fmt.format(new Date(d));info.textContent=labelDate(start)+' – '+labelDate(newest)+(chartHours>=24?' · '+new Intl.DateTimeFormat(locale,{day:'2-digit',month:'2-digit',timeZone:'Europe/Paris'}).format(new Date(newest)):'');
@@ -656,7 +656,7 @@ async function enablePushFlow(){
   if(permission!=='granted')throw Error(mapText('Autorisation non accordée','Permission not granted'));
   const reg=await navigator.serviceWorker.ready;
   const subscription=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decodeVapid(PUSH_VAPID_PUBLIC_KEY)});
-  const response=await fetch(PUSH_API_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({subscription,station:'Y531201001',language:localStorage.getItem('argens-language')==='en'?'en':'fr'})});
+  const response=await fetch(PUSH_API_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({subscription,station:'Y531201001',language:['fr','en','de'].includes(localStorage.getItem('argens-language'))?localStorage.getItem('argens-language'):'fr'})});
   if(response.status===401||response.status===403){localStorage.removeItem('argens-account-token-v1');accountView(null);openPushRegistration();return}
   if(!response.ok){const detail=await response.json().catch(()=>({}));throw Error((detail.error?detail.error+' · ':'')+'HTTP '+response.status)}
   showPushActive(mapText('Notifications activées pour cette station','Notifications enabled for this station'));
@@ -1115,7 +1115,7 @@ async function accountRestore(){
 }
 accountRequest.addEventListener('click',async()=>{
  accountRequest.disabled=true;accountMessage.textContent='…';
- try{if(!document.querySelector('#accountFirstName').value.trim()||!document.querySelector('#accountLastName').value.trim())throw Error(mapText('Veuillez saisir votre prénom et votre nom.','Please enter your first and last name.'));await accountCall('request',{email:accountEmail.value.trim()});document.querySelector('#accountVerifyArea').classList.remove('hidden');accountMessage.textContent=mapText('Code envoyé. Vérifiez votre boîte mail et les courriers indésirables.','Code sent. Check your inbox and spam folder.')}
+ try{if(!document.querySelector('#accountFirstName').value.trim()||!document.querySelector('#accountLastName').value.trim())throw Error(mapText('Veuillez saisir votre prénom et votre nom.','Please enter your first and last name.'));await accountCall('request',{email:accountEmail.value.trim(),language:document.documentElement.lang});document.querySelector('#accountVerifyArea').classList.remove('hidden');accountMessage.textContent=mapText('Code envoyé. Vérifiez votre boîte mail et les courriers indésirables.','Code sent. Check your inbox and spam folder.')}
  catch(e){accountMessage.textContent=e.message==='Email sign-in is not configured yet'?mapText('Inscription bientôt disponible.','Registration coming soon.'):e.message}
  finally{accountRequest.disabled=false}
 });
