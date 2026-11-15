@@ -6,6 +6,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 import { getHydroObservations, readVigicruesObservations, validHydroStation } from './water-sources.mjs';
 import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, activeBackupStationCodes, markVigicruesUnavailable, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
 import { translateFeedbackRecord } from './feedback-translation.mjs';
+import { refreshEarlySignals, loadEarlySignals } from './early-signals.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
  async vigicruesHealthAdmin(){
@@ -627,6 +628,14 @@ export default {
     return json(request,{error:'Invalid unavailability report'},422);
    }
   }
+  // Read-only information about officially issued weather warnings, model
+  // precipitation and upstream measurements. This never changes alert logic.
+  if(url.pathname==='/api/early-signals'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
+   try{return json(request,await loadEarlySignals(env.DB))}
+   catch(error){return json(request,{ok:false,error:'Early indicators are not current'},503)}
+  }
   // Only the exact repository main-branch GitHub Actions workflow may write
   // verified measurements. An untrusted HTTP client cannot forge flood readings.
   if(url.pathname==='/api/vigicrues-ingest'&&request.method==='POST'){
@@ -727,5 +736,5 @@ export default {
   }
   return json(request,{error:'Not found'},404);
  },
- async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));ctx.waitUntil(checkPersonalStations(env).catch(e=>console.error('Personal stations check failed',String(e))))}
+ async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));ctx.waitUntil(checkPersonalStations(env).catch(e=>console.error('Personal stations check failed',String(e))));ctx.waitUntil(refreshEarlySignals(env).catch(e=>console.error('Early signals refresh failed',String(e))))}
 };
