@@ -199,7 +199,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 
 <div class="alert-cards-grid">
 <div class="panel alert-info-card">
-<div class="alert-section-heading"><span class="alert-heading-icon">🌊</span><div><strong>Niveau de l’Argens</strong><div class="note" id="alertStationName">Seuils de crue · Roquebrune-sur-Argens</div></div></div>
+<div class="alert-section-heading"><span class="alert-heading-icon">🌊</span><div><strong id="alertWaterHeading">Niveau d’eau</strong><div class="note" id="alertStationName">Seuils de crue · Roquebrune-sur-Argens</div></div></div>
 <div class="alert-tier"><span class="alert-tier-icon">🟢</span><div><strong>Vert</strong><div class="alert-rule" id="alertGreenRule">&lt; 3,00 m et hausse &lt; 30 cm/h</div></div></div>
 <div class="alert-tier"><span class="alert-tier-icon">🟠</span><div><strong>Orange</strong><div class="alert-rule"><span class="alert-rule-line" id="alertOrangeRule">3,00 à 4,50 m</span><span class="alert-rule-line" data-rapid-rule><span class="alert-or">OU</span> hausse ≥ 30 cm/h</span></div></div></div>
 <div class="alert-tier"><span class="alert-tier-icon">🔴</span><div><strong>Rouge</strong><div class="alert-rule"><span class="alert-rule-line" id="alertRedRule">≥ 4,50 m</span><span class="alert-rule-line" data-rapid-rule><span class="alert-or">OU</span> hausse ≥ 50 cm/h</span></div></div></div>
@@ -257,7 +257,7 @@ const trend=document.querySelector('#trend'),readingTime=document.querySelector(
 const CUSTOM_DEFAULTS={orange:3,red:4.5};let personalThresholds=null;
 function activeThresholds(code){return personalThresholds&&personalThresholds.code===code?personalThresholds:CUSTOM_DEFAULTS}
 function renderThresholdLabels(code){const t=activeThresholds(code),fr=document.documentElement.lang!=='en',fmt=n=>n.toLocaleString(fr?'fr-FR':'en-GB',{maximumFractionDigits:2,minimumFractionDigits:2});const chips=document.querySelectorAll('[data-threshold]');if(chips.length===3){chips[0].textContent='< '+fmt(t.orange)+' m';chips[1].textContent=fmt(t.orange)+'–'+fmt(t.red)+' m';chips[2].textContent='≥ '+fmt(t.red)+' m'}const labels=document.querySelectorAll('#forecastResults .card small');if(labels.length===2){labels[0].textContent=(fr?'🟠 Seuil ':'🟠 Threshold ')+fmt(t.orange)+' m';labels[1].textContent=(fr?'🔴 Seuil ':'🔴 Threshold ')+fmt(t.red)+' m'}}
-function renderAlertRules(code){const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code),en=document.documentElement.lang==='en',fmt=n=>n.toLocaleString(en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});document.querySelector('#alertStationName').textContent=(en?'Flood thresholds · ':'Seuils de crue · ')+(custom?stationTitle.textContent:'Roquebrune-sur-Argens');document.querySelector('#alertGreenRule').textContent='< '+fmt(t.orange)+' m'+(en?' and rise < 30 cm/h':' et hausse < 30 cm/h');document.querySelector('#alertOrangeRule').textContent=fmt(t.orange)+(en?' to below ':' à moins de ')+fmt(t.red)+' m';document.querySelector('#alertRedRule').textContent='≥ '+fmt(t.red)+' m';document.querySelectorAll('[data-rapid-rule]').forEach(el=>el.hidden=false)}
+function renderAlertRules(code){const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code),en=document.documentElement.lang==='en',fmt=n=>n.toLocaleString(en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});document.querySelector('#alertWaterHeading').textContent=en?'Water level':'Niveau d’eau';document.querySelector('#alertStationName').textContent=(en?'Flood thresholds · ':'Seuils de crue · ')+(stationTitle.textContent.trim()||code);document.querySelector('#alertGreenRule').textContent='< '+fmt(t.orange)+' m'+(en?' and rise < 30 cm/h':' et hausse < 30 cm/h');document.querySelector('#alertOrangeRule').textContent=fmt(t.orange)+(en?' to below ':' à moins de ')+fmt(t.red)+' m';document.querySelector('#alertRedRule').textContent='≥ '+fmt(t.red)+' m';document.querySelectorAll('[data-rapid-rule]').forEach(el=>el.hidden=false)}
 function refreshThresholdAppearance(code){
  const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code),local=code==='Y531201001'||custom;
  const latest=chartReadings[0],reference=latest&&chartReadings.find(x=>{const minutes=(latest.date-x.date)/60000;return minutes>=30&&minutes<=180});
@@ -652,6 +652,7 @@ async function ensureStationMap(lat,lon){
 function selectMapStation(station,button,marker){
  const code=station.code_station;
  stationTitle.textContent=station.libelle_station||station.libelle_site||code;
+ renderAlertRules(code);
  message.textContent=mapText('Station sélectionnée : ','Selected station: ')+code+'. '+mapText('Chargement des mesures officielles…','Loading official readings…');
  loadMeasurements(code);
  document.dispatchEvent(new CustomEvent('argens-station-selected',{detail:{code,name:station.libelle_station||station.libelle_site||code}}));
@@ -754,6 +755,7 @@ function applyNode(node){if(node.nodeType!==3)return;const current=node.nodeValu
 function walk(root){if(root.nodeType===3){applyNode(root);return}if(root.nodeType!==1&&root.nodeType!==9)return;const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);while(walker.nextNode())applyNode(walker.currentNode);if(root.nodeType===1){for(const el of [root,...root.querySelectorAll('[placeholder],[aria-label]')])for(const attr of ['placeholder','aria-label']){if(!el.hasAttribute(attr))continue;const key='i18n'+attr;const fr=el.dataset[key]||el.getAttribute(attr);el.dataset[key]=fr;el.setAttribute(attr,lang==='en'?translate(fr):fr)}}}
 function setLanguage(next){lang=next;localStorage.setItem('argens-language',lang);syncPushLanguage(lang);document.documentElement.lang=lang;document.dispatchEvent(new Event('argens-language-changed'));document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===lang)));walk(document);document.querySelector('#accountFirstName').placeholder=lang==='en'?'First name':'Prénom';document.querySelector('#accountLastName').placeholder=lang==='en'?'Last name':'Nom'}
 document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>setLanguage(b.dataset.lang)));
+document.addEventListener('argens-language-changed',()=>renderAlertRules(activeStation));
 let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;walk(document)})});observer.observe(document.body,{subtree:true,childList:true,characterData:true});
 
 /* Optional email-code sign-in. Never claim sync until server-side group storage exists. */
