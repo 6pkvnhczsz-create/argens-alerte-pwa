@@ -243,7 +243,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <input id="accountCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="margin:8px 0;padding:12px;border:1px solid #c7dbe3;border-radius:10px">
 <button id="accountVerify" type="button" style="padding:10px;border-radius:9px">Valider</button>
 </div></div>
-<div id="accountSignedIn" class="hidden"><p id="accountIdentity"></p><button id="accountLogout" type="button">Déconnexion</button></div>
+<div id="accountSignedIn" class="hidden"><p id="accountIdentity"></p><button id="accountLogout" type="button">Déconnexion</button><button id="accountDelete" type="button" style="display:block;margin-top:12px;background:#fff2f2;color:#9e2531;border:1px solid #d6a3aa;border-radius:10px;padding:10px 14px;font:inherit;font-size:13px;font-weight:700">Supprimer mon compte</button></div>
 <p id="accountMessage" class="note" role="status"></p>
 </section><section class="panel" id="personalStationPanel" style="margin-top:15px"><strong id="personalStationTitle">🌊 Ma station et mes seuils</strong><p class="note" id="personalStationIntro"><a href="#mapPage" id="personalStationMapLink" style="color:#087f91;font-weight:700;text-decoration:underline">Choisissez votre station</a>, puis définissez vos seuils personnels. Connexion requise.</p><p id="personalStationName" class="note"></p><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0"><label><span id="personalOrangeLabel">🟠 Orange dès (m)</span><input id="personalOrange" type="number" min="0" max="100" step="0.01" value="3" style="width:100%;padding:12px;border:1px solid #cbdce4;border-radius:10px;font:inherit"></label><label><span id="personalRedLabel">🔴 Rouge dès (m)</span><input id="personalRed" type="number" min="0" max="100" step="0.01" value="4.5" style="width:100%;padding:12px;border:1px solid #cbdce4;border-radius:10px;font:inherit"></label></div><button id="savePersonalStation" type="button" style="padding:12px 18px;background:#087f91;color:white;border:0;border-radius:11px;font:inherit;font-weight:700">Enregistrer les seuils</button><p id="personalStationMessage" class="note" role="status"></p><p id="personalStationDisclaimer" class="note">Seuils personnels non officiels. Les alertes sont envoyées lors d’un changement de niveau, après enregistrement.</p></section><section class="panel" id="systemHealthPanel" style="margin-top:15px" aria-label="État des services">
 <strong id="systemHealthTitle">🛡 État des services</strong>
@@ -754,6 +754,8 @@ async function syncPushLanguage(language){
 /* English translation layer for the public PWA, including live updates. French remains the source language. */
 (()=>{
 const translations={
+"Supprimer mon compte":"Delete my account",
+
 "Consultez notre politique de confidentialité":"Read our privacy information"," avant de créer un compte.":" before creating an account.",
 
 "🌊 Argens Alerte":"🌊 Argens Alerte",
@@ -869,6 +871,29 @@ accountVerify.addEventListener('click',async()=>{
 document.querySelector('#accountLogout').addEventListener('click',async()=>{
  const token=localStorage.getItem(accountTokenKey);localStorage.removeItem(accountTokenKey);accountView(null);enablePush.disabled=false;document.querySelector('#testPush').classList.add('hidden');enablePush.classList.remove('hidden');pushMessage.textContent=mapText('Connectez-vous pour activer les notifications.','Sign in to enable notifications.');accountMessage.textContent=mapText('Déconnecté','Signed out');
  if(token)try{await accountCall('logout',{},token)}catch(e){}
+});
+document.querySelector('#accountDelete').addEventListener('click',async()=>{
+ const en=document.documentElement.lang==='en';
+ const prompt=en?'Permanently delete your account, saved thresholds and linked push subscriptions? This cannot be undone.':'Supprimer définitivement votre compte, vos seuils enregistrés et les abonnements push associés ? Cette action est irréversible.';
+ if(!confirm(prompt))return;
+ const token=localStorage.getItem(accountTokenKey);
+ if(!token)return;
+ const btn=document.querySelector('#accountDelete');
+ btn.disabled=true;
+ try{
+  await accountCall('delete',{},token);
+  localStorage.removeItem(accountTokenKey);
+  accountView(null);
+  enablePush.disabled=false;
+  document.querySelector('#testPush').classList.add('hidden');
+  enablePush.classList.remove('hidden');
+  accountMessage.textContent=en?'Account and linked data deleted.':'Compte et données associées supprimés.';
+  pushMessage.textContent=en?'Sign in to enable notifications.':'Connectez-vous pour activer les notifications.';
+  // Also unsubscribe the current browser if possible; server-side subscriptions
+  // have already been removed, so no further push can be delivered.
+  if('serviceWorker' in navigator){try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe()}catch(e){console.warn('Local push unsubscribe failed',e)}}
+ }catch(e){accountMessage.textContent=(en?'Unable to delete account: ':'Suppression du compte impossible : ')+e.message}
+ finally{btn.disabled=false}
 });
 accountRestore();
 
