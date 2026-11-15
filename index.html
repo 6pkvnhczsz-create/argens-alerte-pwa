@@ -199,6 +199,40 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #weatherNumbers .card small{font-size:clamp(10px,2.65vw,12px);font-weight:650;line-height:1.35;min-height:3.1em;display:flex;align-items:center;justify-content:center;max-width:100%;overflow-wrap:anywhere;hyphens:auto;white-space:pre-line}
 #weatherNumbers .card strong{font-size:clamp(15px,4.25vw,21px)!important;letter-spacing:-.045em;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:0;max-width:100%}
 @media(max-width:370px){#weatherNumbers{gap:5px!important}#weatherNumbers .card{padding:10px 4px!important;gap:6px}#weatherNumbers .card strong{font-size:15px!important}}
+
+/* Forecast information hierarchy: primary water level and official vigilance stay on Home. */
+#homeOfficialPanel{margin-top:15px;text-align:center;padding:20px 17px;border:1px solid #dbe8ee}
+.home-official .forecast-card-icon{margin:0 auto 10px}
+.home-official>strong{display:block;color:#153d52;font-size:18px;line-height:1.35}
+.home-official>a{display:inline-block;margin-top:12px;color:#087f91;font-size:13px;font-weight:700}
+.official-period-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;margin-top:12px;text-align:center}
+.official-period{border:1px solid #e1ebef;border-radius:13px;background:#f7fafc;padding:12px 9px;font-size:13px;line-height:1.4}
+.official-period strong{display:block;font-size:15px;margin:5px 0 3px}
+.official-period .risk-green{color:#23784f}.official-period .risk-yellow{color:#a77a00}.official-period .risk-orange{color:#b96805}.official-period .risk-red{color:#b52940}
+#forecastPage .forecast-section-heading{display:block;text-align:center;font-size:17px;color:#153d52;margin:10px 0 5px}
+#forecastPage .forecast-section-intro{text-align:center;margin:0 4px 14px;line-height:1.5}
+#forecastPage .forecast-stack{display:grid;gap:13px}
+#forecastPage .forecast-card{padding:20px 15px;text-align:center;border:1px solid #dfebf0;border-radius:19px;box-shadow:0 4px 14px #16465a0c;margin-top:0}
+#forecastPage .forecast-card>strong{display:block;font-size:18px;letter-spacing:-.02em;color:#164155;line-height:1.35}
+.forecast-card-icon{display:flex;align-items:center;justify-content:center;width:49px;height:49px;border-radius:15px;margin:0 auto 11px;background:#eaf5f8;font-size:25px}
+#forecastPage .forecast-card>.note{max-width:600px;margin:8px auto;font-size:12px;line-height:1.45}
+#forecastPage .forecast-card .forecast-disclaimer{margin:14px auto 0;color:#617b89;font-size:11px}
+#forecastPage .forecast-data-grid,#forecastPage .forecast-upstream-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px;margin:15px 0 5px}
+#forecastPage .forecast-datum,#forecastPage .upstream-datum{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;padding:13px 8px;border:1px solid #dfebef;border-radius:14px;background:#f7fafb;min-height:110px}
+#forecastPage .forecast-datum .datum-icon,#forecastPage .upstream-datum .datum-icon{font-size:23px;line-height:1}
+#forecastPage .forecast-datum>strong,#forecastPage .upstream-datum>strong{font-size:14px;line-height:1.3;color:#1a485e}
+#forecastPage .forecast-datum .datum-values{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:start;width:100%}
+#forecastPage .datum-values span{font-size:11px;color:#617584}
+#forecastPage .datum-values b{display:block;font-size:18px;letter-spacing:-.03em;color:#0c6576}
+#forecastPage .upstream-datum small{font-size:10px;color:#647d8c}
+#forecastPage .upstream-datum .trend-up{color:#b35615}
+#forecastPage .upstream-datum .trend-down{color:#237d70}
+#forecastPage .forecast-updated{text-align:center;margin:15px auto 6px}
+#forecastPage #earlySignalsRefresh{border:1px solid #a5ced8;background:#edf8fa;border-radius:11px;padding:10px 16px;color:#126479;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+#forecastPage #radarDetails{max-width:720px;margin:12px auto 0}
+#forecastPage #radarToggle{cursor:pointer;font-weight:700;color:#17677d;list-style-position:inside;text-align:center}
+#forecastPage #radarLink{display:inline-block;margin-top:8px;font-size:13px;font-weight:700;color:#087f91}
+@media(max-width:400px){#forecastPage .forecast-data-grid,#forecastPage .forecast-upstream-grid{grid-template-columns:1fr}#forecastPage .forecast-datum{min-height:95px}#forecastPage .datum-values{max-width:250px}}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -214,58 +248,6 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 </section>
 <div id="overview"><div class="hero"><div class="hero-orb" aria-hidden="true"></div><small>NIVEAU D’EAU ACTUEL</small><div class="station-heading"><span id="stationTitle">Roquebrune-sur-Argens</span><span id="stationUpdated" class="station-updated" aria-label="Date et heure de la dernière mesure"></span></div><div class="level"><span class="level-glass"><span id="level">—</span><span style="font-size:25px;letter-spacing:0"> m</span></span></div><div class="level-connector" aria-hidden="true"><svg viewBox="0 0 300 44" preserveAspectRatio="none" focusable="false"><path d="M150 0 V23 H50 V44" /></svg></div><div class="threshold-row" aria-label="Seuils indicatifs"><span class="threshold threshold-green" data-threshold="green">0–3 m</span><span class="threshold threshold-orange" data-threshold="orange">3–4,5 m</span><span class="threshold threshold-red" data-threshold="red">≥ 4,5 m</span></div><div id="status" class="threshold-message" role="status">Données en attente</div><div id="thresholdNotice" class="threshold-notice" hidden><div id="thresholdNoticeText">Aucun seuil d’alerte n’est défini pour cette station. Définissez vos seuils personnels dans les réglages.</div><button id="thresholdSettingsLink" type="button" style="margin-top:14px;padding:12px 18px;border:1px solid #ffffff99;border-radius:11px;background:#ffffffed;color:#195469;font:inherit;font-weight:700;cursor:pointer">⚙ Définir mes seuils</button></div><div class="sub" id="trend">Chargement des mesures</div><div class="hero-chart-head"><div class="hero-chart-label">ÉVOLUTION DU NIVEAU</div><div class="range-switch" role="group" aria-label="Période du graphique"><button type="button" data-hours="1" aria-pressed="true">1 h</button><button type="button" data-hours="6">6 h</button><button type="button" data-hours="12">12 h</button><button type="button" data-hours="24">24 h</button><button type="button" data-hours="48">48 h</button></div></div><div class="range-info" id="rangeInfo"></div><div class="chart-with-scale"><div class="height-scale height-scale-left" id="heightScaleLeft" aria-label="Hauteurs en mètres"></div><svg class="chart" id="chart" viewBox="0 0 340 110" preserveAspectRatio="none" aria-label="Évolution des dernières mesures"><path d="M0 106 H340" stroke="#456476" stroke-dasharray="5 5"/></svg><div class="height-scale height-scale-right" id="heightScaleRight" aria-hidden="true"></div></div><div class="chart-times" id="chartTimes" aria-label="Heures des mesures"></div><div class="hidden"><span id="readingTime"></span></div><div class="hero-source-footer" id="waterDataSource" aria-live="polite">Source: HUB’EAU</div></div>
 <div class="hidden" aria-hidden="true"><span id="delta"></span><span id="deltaPeriod"></span></div><div class="panel simulation-panel hidden"><strong>Tester les couleurs d’alerte (simulation uniquement)</strong><p class="note">Déplacez le curseur pour prévisualiser les couleurs. Les données réelles restent distinctes. Aperçu uniquement : les seuils réels sont configurés séparément.</p><div id="simulation" class="status green">Aperçu : vert</div><input type="range" min="1" max="4" step=".05" value="1.56" id="slider"><div class="muted" style="display:flex;justify-content:space-between"><span>1,00 m</span><span>4,00 m</span></div></div>
-<p class="note safety-note">Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez <a href="https://www.vigicrues.gouv.fr/" target="_blank" rel="noopener noreferrer">Vigicrues</a> et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.</p></div>
-<div id="forecastPage" class="hidden">
- <div class="section-title" id="forecastPageTitle">Prévisions · bassin de l’Argens</div>
- <p id="forecastPageIntro" class="note" style="margin:0 3px 15px">Vigilance officielle, prévisions de pluie et niveaux observés en amont. Informations complémentaires aux alertes.</p>
- <section id="earlySignalsPanel" class="panel" aria-label="Indicateurs de précocité Argens" style="margin-top:15px">
-  <strong id="earlySignalsHeading" style="display:block;margin-bottom:7px">🌧️ Signaux précoces · bassin de l’Argens</strong>
-  <p id="earlySignalsIntro" class="note">Informations complémentaires : vigilance officielle, estimations de pluie et stations en amont. Aucun changement de vos seuils ou alertes personnels.</p>
-  <div class="cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
-    <div class="card" style="padding:13px">
-      <strong id="earlyOfficialTitle">⚠️ Vigilance officielle · Var (83)</strong>
-      <p id="earlyOfficialStatus" class="note" role="status">Chargement…</p>
-      <div id="earlyOfficialPeriods" class="note"></div>
-      <a id="earlyOfficialLink" href="https://vigilance.meteofrance.fr/fr/var" target="_blank" rel="noopener noreferrer">Voir la vigilance sur Météo-France</a>
-    </div>
-    <div class="card" style="padding:13px">
-      <strong id="earlyRainTitle">🌧️ Pluie récente dans le bassin</strong>
-      <p id="earlyRainStatus" class="note" role="status">Chargement…</p>
-      <div id="earlyRainRows" class="note"></div>
-      <p id="earlyRainDisclaimer" class="note" style="font-size:12px">Estimation du modèle Open-Meteo, pas des mesures radar. Aucun temps de crue prévu.</p>
-    </div>
-    <div class="card" style="padding:13px">
-      <strong id="earlyForecastTitle">🌦️ Pluie prévue · Météo-France</strong>
-      <p id="earlyForecastStatus" class="note" role="status">Chargement…</p>
-      <div id="earlyForecastRows" class="note"></div>
-      <p id="earlyForecastDisclaimer" class="note" style="font-size:12px">Prévisions des modèles AROME/ARPEGE via Open-Meteo, pas des mesures radar.</p>
-      <p id="earlyRadarStatus" class="note" style="font-size:12px" role="status"></p>
-    </div>
-    <div class="card" style="padding:13px">
-      <strong id="earlyUpstreamTitle">🌊 Stations en amont</strong>
-      <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
-      <div id="earlyUpstreamRows" class="note"></div>
-      <p id="earlyUpstreamDisclaimer" class="note" style="font-size:12px">Tendance locale mesurée à chaque station. Les hauteurs des stations ne sont pas directement comparables; aucun délai d’arrivée n’est calculé.</p>
-    </div>
-  </div>
-  <p id="earlySignalsChecked" class="note" style="font-size:12px" role="status"></p>
-  <button id="earlySignalsRefresh" type="button" style="margin-top:6px">↻ Actualiser les signaux précoces</button>
-</section>
-<section id="weatherPanel" class="panel" style="margin-top:15px;text-align:center" aria-label="Météo et pluie">
-<strong id="weatherHeading" style="display:block;line-height:1.35"><span id="weatherHeadingTitle">🌦️ Pluie et météo ☀️</span><span id="weatherHeadingLocation" style="display:block;margin-top:4px">Roquebrune-sur-Argens</span></strong>
-<p id="weatherSummary" class="note" role="status" style="margin:12px 0">Chargement des données météo…</p>
-<div id="weatherNumbers" class="cards hidden" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
-<div class="card" style="padding:10px 6px"><small id="weatherPastLabel">Pluie estimée · 24 h passées</small><strong id="weatherPast" style="font-size:21px">—</strong></div>
-<div class="card" style="padding:10px 6px"><small id="weatherSixLabel">Pluie prévue · 6 h</small><strong id="weatherSix" style="font-size:21px">—</strong></div>
-<div class="card" style="padding:13px"><small id="weatherDayLabel">Pluie prévue · 24 h</small><strong id="weatherDay" style="font-size:21px">—</strong></div>
-</div>
-<p id="weatherNote" class="note" style="margin:10px 0">Prévisions locales indicatives (Open-Meteo), pas une mesure des précipitations sur tout le bassin versant. Aucune prévision de crue n’en découle.</p>
-<details style="margin-top:13px;text-align:left"><summary id="radarToggle" style="cursor:pointer;font-weight:700;text-align:center">🗺 Afficher le radar de pluie</summary>
-<iframe title="Radar de pluie · région de l’Argens" loading="lazy" referrerpolicy="no-referrer" src="https://embed.windy.com/embed2.html?lat=43.44&amp;lon=6.64&amp;detailLat=43.44&amp;detailLon=6.64&amp;width=650&amp;height=360&amp;zoom=8&amp;level=surface&amp;overlay=radar&amp;product=radar&amp;menu=&amp;message=&amp;marker=&amp;calendar=&amp;pressure=&amp;type=map&amp;location=coordinates&amp;detail=&amp;metricWind=km%2Fh&amp;metricTemp=%C2%B0C" style="display:block;width:100%;height:310px;border:0;border-radius:13px;margin-top:12px" allowfullscreen></iframe>
-<p class="note" id="radarNote" style="margin-top:8px">Radar fourni par Windy (service externe). La carte peut nécessiter une connexion Internet.</p>
-<a href="https://www.windy.com/?radar,43.44,6.64,8" target="_blank" rel="noopener noreferrer" id="radarLink">Ouvrir le radar dans Windy</a>
-</details>
-</section>
 <div id="forecastPanel" class="panel" style="margin-top:15px;text-align:center" aria-live="polite">
 <strong id="forecastHeading">🔎 Projection des seuils</strong>
 <p id="forecastStatus" class="note" style="margin:10px 0">Calcul en attente de mesures récentes…</p><div id="forecastProjected" class="hidden" style="font-size:17px;font-weight:700;line-height:1.45;margin:12px 0;padding:13px 10px;background:#f3f8fa;border:1px solid #e2edf1;border-radius:15px;color:#123f57;text-align:center"></div>
@@ -275,6 +257,63 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 </div>
 <p id="forecastDisclaimer" class="note" style="margin:12px 0 0">Estimation basée sur les dernières variations du niveau d’eau. Ce n’est ni une prévision officielle ni une alerte. Le niveau peut changer rapidement.</p>
 </div>
+<section id="homeOfficialPanel" class="panel home-official" aria-labelledby="earlyOfficialTitle">
+ <div class="forecast-card-icon" aria-hidden="true">⚠️</div>
+ <strong id="earlyOfficialTitle">Vigilance officielle · Var (83)</strong>
+ <p id="earlyOfficialStatus" class="note" role="status">Chargement…</p>
+ <div id="earlyOfficialPeriods" class="official-period-grid"></div>
+ <a id="earlyOfficialLink" href="https://vigilance.meteofrance.fr/fr/var" target="_blank" rel="noopener noreferrer">Voir la vigilance sur Météo-France</a>
+</section>
+<p class="note safety-note">Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez <a href="https://www.vigicrues.gouv.fr/" target="_blank" rel="noopener noreferrer">Vigicrues</a> et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.</p></div>
+<div id="forecastPage" class="hidden">
+ <div class="section-title" id="forecastPageTitle">Prévisions · bassin de l’Argens</div>
+ <p id="forecastPageIntro" class="note" style="margin:0 3px 15px">Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.</p>
+ <section id="earlySignalsPanel" aria-label="Indicateurs de précocité Argens">
+  <strong id="earlySignalsHeading" class="forecast-section-heading">🌧️ Pluie et amont de l’Argens</strong>
+  <p id="earlySignalsIntro" class="note forecast-section-intro">Prévisions de pluie, estimations récentes et niveaux en amont. Informations complémentaires aux alertes.</p>
+  <div class="forecast-stack">
+   <article class="panel forecast-card" id="rainForecastCard">
+    <span class="forecast-card-icon" aria-hidden="true">🌦️</span>
+    <strong id="earlyForecastTitle">Pluie prévue · Météo-France</strong>
+    <p id="earlyForecastStatus" class="note" role="status">Chargement…</p>
+    <div id="earlyForecastRows" class="forecast-data-grid"></div>
+    <p id="earlyForecastDisclaimer" class="note forecast-disclaimer">Prévision des modèles AROME/ARPEGE via Open-Meteo, pas une mesure radar ni une prévision de crue.</p>
+   </article>
+ <section id="weatherPanel" class="panel forecast-card radar-panel" aria-label="Radar des précipitations">
+  <span class="forecast-card-icon" aria-hidden="true">📡</span>
+  <strong id="weatherHeadingTitle">Radar des précipitations</strong>
+  <div id="weatherHeadingLocation" class="note">Roquebrune-sur-Argens</div>
+  <p id="earlyRadarStatus" class="note" role="status">Vérification de la source officielle…</p>
+  <p id="radarDataNote" class="note forecast-disclaimer">Les données radar Météo-France sont accessibles par API, mais doivent encore être converties en carte.</p>
+  <details id="radarDetails" open>
+   <summary id="radarToggle">🗺️ Afficher la carte radar</summary>
+   <iframe title="Radar de pluie · région de l’Argens" loading="lazy" referrerpolicy="no-referrer" src="https://embed.windy.com/embed2.html?lat=43.44&amp;lon=6.64&amp;detailLat=43.44&amp;detailLon=6.64&amp;width=650&amp;height=360&amp;zoom=8&amp;level=surface&amp;overlay=radar&amp;product=radar&amp;menu=&amp;message=&amp;marker=&amp;calendar=&amp;pressure=&amp;type=map&amp;location=coordinates&amp;detail=&amp;metricWind=km%2Fh&amp;metricTemp=%C2%B0C" style="display:block;width:100%;height:330px;border:0;border-radius:15px;margin-top:12px" allowfullscreen></iframe>
+   <p class="note forecast-disclaimer" id="radarNote">Carte provisoire par Windy (service externe). Ce visuel n’utilise pas encore le radar Météo-France.</p>
+   <a href="https://www.windy.com/?radar,43.44,6.64,8" target="_blank" rel="noopener noreferrer" id="radarLink">Ouvrir le radar dans Windy</a>
+   <p class="forecast-disclaimer" style="margin-top:10px"><a id="officialRadarSource" href="https://www.data.gouv.fr/dataservices/api-donnees-radar" target="_blank" rel="noopener noreferrer">Source : Météo-France · Données Radar (API)</a></p>
+  </details>
+ </section>
+   <article class="panel forecast-card" id="recentRainCard">
+    <span class="forecast-card-icon" aria-hidden="true">🌧️</span>
+    <strong id="earlyRainTitle">Pluie récente estimée</strong>
+    <p id="earlyRainStatus" class="note" role="status">Chargement…</p>
+    <div id="earlyRainRows" class="forecast-data-grid"></div>
+    <p id="earlyRainDisclaimer" class="note forecast-disclaimer">Estimations du modèle Open-Meteo, pas de données radar mesurées.</p>
+   </article>
+   <article class="panel forecast-card" id="upstreamForecastCard">
+    <span class="forecast-card-icon" aria-hidden="true">🌊</span>
+    <strong id="earlyUpstreamTitle">Stations en amont</strong>
+    <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
+    <div id="earlyUpstreamRows" class="forecast-upstream-grid"></div>
+    <p id="earlyUpstreamDisclaimer" class="note forecast-disclaimer">Tendances mesurées localement ; les hauteurs des stations ne sont pas comparables entre elles.</p>
+   </article>
+  </div>
+  <div class="forecast-updated">
+   <p id="earlySignalsChecked" class="note" role="status"></p>
+   <button id="earlySignalsRefresh" type="button">↻ Actualiser les données</button>
+  </div>
+ </section>
+
 </div>
 <div id="pushSettings" class="hidden">
 <div class="section-title">Alertes</div>
@@ -481,7 +520,7 @@ document.addEventListener('argens-language-changed',()=>{renderSwarms();const in
 checkPushHealth();
 setInterval(()=>{if(!document.hidden){checkPushHealth();renderSystemHealth()}},5*60*1000);
 // Weather follows the station selected on the map; this does not change server-side alerts.
-let weatherLocation={lat:43.44,lon:6.64,name:'Roquebrune-sur-Argens'},weatherRequestId=0;
+let weatherLocation={lat:43.44,lon:6.64,name:'Roquebrune-sur-Argens'};
 function setWeatherStation(station){
  const lat=Number(station.latitude_station),lon=Number(station.longitude_station);
  if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
@@ -491,51 +530,29 @@ function setWeatherStation(station){
  loadLocalWeather();
 }
 // Informational weather widget; intentionally independent of flood alerts and push subscriptions.
-async function loadLocalWeather(){
- const requestId=++weatherRequestId,location={...weatherLocation};
- const en=document.documentElement.lang==='en',de=document.documentElement.lang==='de';
- const tr=(fr,english)=>mapText(fr,english);
- const summary=document.querySelector('#weatherSummary'),numbers=document.querySelector('#weatherNumbers');
- const heading=document.querySelector('#weatherHeading'),note=document.querySelector('#weatherNote');
- document.querySelector('#weatherHeadingTitle').textContent=tr('🌦️ Pluie et météo ☀️','🌦️ Rain and weather ☀️');document.querySelector('#weatherHeadingLocation').textContent=location.name;
- document.querySelector('#weatherPanel').setAttribute('aria-label',tr('Météo et pluie','Weather and rain'));
- document.querySelector('#weatherPanel iframe').setAttribute('title',tr('Radar de pluie · région de l’Argens','Rain radar · Argens area'));
- summary.textContent=tr('Chargement des données météo…','Loading weather data…');
- document.querySelector('#weatherPastLabel').textContent=tr('Pluie estimée · 24 h passées','Estimated rain · past 24 h');
- document.querySelector('#weatherSixLabel').textContent=tr('Pluie prévue · 6 h','Forecast rain · 6 h');
- document.querySelector('#weatherDayLabel').textContent=tr('Pluie prévue · 24 h','Forecast rain · 24 h');
- document.querySelector('#radarToggle').textContent=tr('🗺 Afficher le radar de pluie','🗺 Show rain radar');
- document.querySelector('#radarNote').textContent=tr('Radar fourni par Windy (service externe). La carte peut nécessiter une connexion Internet.','Radar by Windy (external service). Internet connection required.');
- document.querySelector('#radarLink').textContent=tr('Ouvrir le radar dans Windy','Open radar in Windy');
- note.textContent=tr('Estimations locales du modèle Open-Meteo : la pluie passée ne provient pas d’un pluviomètre et la pluie future est une prévision. Ces valeurs ne représentent pas tout le bassin versant et ne constituent pas une prévision de crue.','Local Open-Meteo model estimates: past rainfall is not a rain-gauge measurement, and future rainfall is a forecast. Neither represents the whole river catchment or constitutes a flood forecast.');
- try{
-  const url='https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(location.lat)+'&longitude='+encodeURIComponent(location.lon)+'&current=temperature_2m&hourly=precipitation&past_days=2&forecast_days=3&timezone=auto';
-  const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(12000)});
-  if(!response.ok)throw Error('weather unavailable');
-  const data=await response.json();if(requestId!==weatherRequestId)return;
-  const times=data.hourly?.time||[],rain=data.hourly?.precipitation||[];
-  const now=Date.now(),start=Math.floor(now/3600000)*3600000;
-  // Open-Meteo local timestamps use the forecast timezone, which can switch between CET and CEST.
-  // Use utc_offset_seconds to convert local wall-clock times to absolute instants.
-  const offset=Number(data.utc_offset_seconds||0)*1000;
-  const points=times.map((t,i)=>({t:Date.parse(t+'Z')-offset,v:Number(rain[i])}));
-  const future=points.filter(p=>p.t>=start&&Number.isFinite(p.v));
-  if(!future.length)throw Error('no forecast');
-  const sum=hours=>future.filter(p=>p.t<start+hours*3600000).reduce((a,p)=>a+p.v,0);
-  const locale=de?'de-DE':en?'en-GB':'fr-FR';
- const fmt=n=>n.toLocaleString(locale,{minimumFractionDigits:1,maximumFractionDigits:1})+' mm';
-  const past=points.filter(p=>p.t>=start-24*3600000&&p.t<start&&Number.isFinite(p.v));
-  document.querySelector('#weatherPast').textContent=past.length>=20?fmt(past.reduce((a,p)=>a+p.v,0)):tr('Indisponible','Unavailable');
-  document.querySelector('#weatherSix').textContent=fmt(sum(6));
-  document.querySelector('#weatherDay').textContent=fmt(sum(24));
-  const temp=data.current?.temperature_2m;
-  summary.textContent=tr('Température actuelle : ','Current temperature: ')+(Number.isFinite(temp)?temp.toLocaleString(locale,{maximumFractionDigits:1})+' °C':tr('indisponible','not available'));
-  numbers.classList.remove('hidden');healthState.weather='good';renderSystemHealth();
- }catch(err){if(requestId!==weatherRequestId)return;healthState.weather='bad';renderSystemHealth();numbers.classList.add('hidden');summary.textContent=tr('Données météo temporairement indisponibles. Le radar reste éventuellement accessible.','Weather data temporarily unavailable. Radar may still be accessible.');console.warn('Weather panel',err)}
+// The displayed rain forecasts now come solely from the Météo-France models
+// in the Early Signals snapshot. This presenter does not fetch duplicate rain
+// forecasts from Open-Meteo. Radar visualization remains clearly attributed.
+function loadLocalWeather(){
+ const l=weatherLocation;
+ earlyText('weatherHeadingTitle',earlyI18n('Radar des précipitations','Rain radar','Regenradar'));
+ earlyText('weatherHeadingLocation',l.name);
+ const iframe=document.querySelector('#weatherPanel iframe');
+ if(iframe)iframe.title=earlyI18n('Radar de pluie · région de l’Argens','Rain radar · Argens basin','Regenradar · Argens-Einzugsgebiet');
+ earlyText('radarToggle',earlyI18n('🗺️ Afficher la carte radar','🗺️ Show radar map','🗺️ Radarkarte anzeigen'));
+ earlyText('radarNote',earlyI18n(
+  'Carte provisoire fournie par Windy (service externe), pas par l’API radar Météo-France.',
+  'Temporary radar map by Windy (external provider), not the Météo-France radar API.',
+  'Vorläufige Radarkarte von Windy (externer Anbieter), noch keine Darstellung der Météo-France-Radardaten.'));
+ earlyText('radarLink',earlyI18n('Ouvrir le radar dans Windy','Open radar in Windy','Radar bei Windy öffnen'));
+ earlyText('officialRadarSource',earlyI18n('Source : Météo-France · Données Radar (API)','Source: Météo-France · Radar Data API','Quelle: Météo-France · Radar-Daten-API'));
+ earlyText('radarDataNote',earlyI18n(
+  'L’API radar Météo-France est connectée. Une carte issue de ces données nécessite un traitement géographique des fichiers bruts.',
+  'The Météo-France radar API is connected. Displaying its own map requires processing georeferenced raw files.',
+  'Die Météo-France-Radar-API ist verbunden. Für eine eigene Radarkarte müssen die Rohdaten erst geografisch aufbereitet werden.'));
 }
 loadLocalWeather();
-setInterval(()=>{if(!document.hidden)loadLocalWeather()},30*60*1000);
-document.addEventListener('argens-language-changed',()=>loadLocalWeather());
+document.addEventListener('argens-language-changed',loadLocalWeather);
 function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
  const en=document.documentElement.lang==='en',de=document.documentElement.lang==='de';
@@ -1441,97 +1458,134 @@ function earlyLine(text){
  const div=document.createElement('div');div.textContent=text;div.style.cssText='margin:7px 0;line-height:1.4';return div;
 }
 function renderEarlySignals(){
- const d=earlySignalsSnapshot;
- earlyText('earlySignalsHeading',earlyI18n('🌧️ Signaux précoces · bassin de l’Argens','🌧️ Early indicators · Argens basin','🌧️ Frühindikatoren · Argens-Einzugsgebiet'));
+ const d=earlySignalsSnapshot,locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
+ const fmt=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
+ const titles={
+  central:earlyI18n('Argens central','Central Argens','Mittlerer Argens'),
+  nartuby:'Nartuby',
+  lower:'Roquebrune'
+ };
+ const icons={central:'🏞️',nartuby:'⛰️',lower:'🌊'};
+ earlyText('forecastPageTitle',earlyI18n('Prévisions · bassin de l’Argens','Forecasts · Argens basin','Vorhersagen · Argens-Einzugsgebiet'));
+ earlyText('forecastPageIntro',earlyI18n(
+  'Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.',
+  'Forecasts, recent rainfall estimates and upstream gauges. Informational only: your alerts remain unchanged.',
+  'Regenvorhersagen, bisherige Regenmengen und Oberlieger-Pegel. Zusätzliche Informationen ohne Änderung deiner Warnungen.'));
+ earlyText('earlySignalsHeading',earlyI18n('🌧️ Pluie et amont de l’Argens','🌧️ Rainfall and upstream gauges','🌧️ Regen und Oberlieger-Pegel'));
  earlyText('earlySignalsIntro',earlyI18n(
-  'Compléments d’information : vigilance officielle, pluie estimée et stations en amont. Vos seuils et notifications restent inchangés.',
-  'Additional information: official vigilance, estimated rainfall and upstream gauges. Your thresholds and alerts remain unchanged.',
-  'Zusatzinformationen: amtliche Warnlage, geschätzter Regen und Oberlieger-Pegel. Deine Schwellen und Warnungen bleiben unverändert.'));
- earlyText('earlyOfficialTitle',earlyI18n('⚠️ Vigilance officielle · Var (83)','⚠️ Official vigilance · Var (83)','⚠️ Amtliche Wetterwarnlage · Var (83)'));
- earlyText('earlyRainTitle',earlyI18n('🌧️ Pluie récente estimée','🌧️ Estimated recent rainfall','🌧️ Geschätzter Regen der letzten Stunden'));
- earlyText('earlyForecastTitle',earlyI18n('🌦️ Pluie prévue · Météo-France','🌦️ Forecast rainfall · Météo-France','🌦️ Regenprognose · Météo-France'));
- earlyText('earlyForecastDisclaimer',earlyI18n('Prévisions des modèles AROME/ARPEGE via Open-Meteo, pas de mesures radar ni de prévision de crue.','AROME/ARPEGE model forecasts via Open-Meteo, not measured radar rainfall or a flood forecast.','Modellprognosen AROME/ARPEGE über Open-Meteo, keine Radarmessung oder Hochwasserprognose.'));
-
- earlyText('earlyUpstreamTitle',earlyI18n('🌊 Stations en amont','🌊 Upstream gauges','🌊 Flussaufwärts gelegene Pegel'));
- earlyText('earlyOfficialLink',earlyI18n('Voir la vigilance sur Météo-France','Check Météo-France official vigilance','Amtliche Warnungen bei Météo-France ansehen'));
+  'Les valeurs du modèle ne sont pas des mesures radar ni une prévision de crue.',
+  'Model values are neither measured radar rainfall nor flood forecasts.',
+  'Modellwerte sind keine gemessenen Radardaten und keine Hochwasserprognose.'));
+ earlyText('earlyOfficialTitle',earlyI18n('Vigilance officielle · Var (83)','Official weather warnings · Var (83)','Amtliche Wetterwarnungen · Var (83)'));
+ earlyText('earlyOfficialLink',earlyI18n('Consulter Météo-France','View official Météo-France warnings','Amtliche Warnungen bei Météo-France'));
+ earlyText('earlyForecastTitle',earlyI18n('Pluie prévue · Météo-France','Forecast rain · Météo-France','Regenprognose · Météo-France'));
+ earlyText('earlyRainTitle',earlyI18n('Pluie récente estimée','Estimated recent rainfall','Regen der letzten Stunden (geschätzt)'));
+ earlyText('earlyUpstreamTitle',earlyI18n('Stations en amont','Upstream gauges','Flussaufwärts gelegene Pegel'));
+ earlyText('earlyForecastDisclaimer',earlyI18n(
+  'Modèles AROME/ARPEGE de Météo-France via Open-Meteo. Prévisions, pas de mesures radar ni de prévisions de crue.',
+  'Météo-France AROME/ARPEGE model forecasts via Open-Meteo. Not radar measurements or flood predictions.',
+  'Météo-France-Modelle AROME/ARPEGE über Open-Meteo. Prognosen, keine Radarmessung oder Hochwasservorhersage.'));
  earlyText('earlyRainDisclaimer',earlyI18n(
-  'Données Open-Meteo issues d’un modèle, non de mesures radar. Il ne s’agit pas d’une prévision de crue.',
-  'Open-Meteo model estimates, not measured radar rainfall. This is not a flood forecast.',
-  'Open-Meteo-Modellschätzung, keine gemessenen Radardaten. Keine Hochwasserprognose.'));
+  'Estimations passées d’Open-Meteo, pas de mesures radar. La pluie peut varier entre les points.',
+  'Past-hour Open-Meteo estimates, not radar measurements. Rainfall varies across the basin.',
+  'Vergangene Regenmengen aus Open-Meteo-Modellschätzungen, keine Radarmessungen. Örtlich sind Abweichungen möglich.'));
  earlyText('earlyUpstreamDisclaimer',earlyI18n(
-  'Tendances par station uniquement. Les hauteurs ne sont pas comparables, ni converties en délai de propagation.',
-  'Station-specific trends only. Gauge heights are not comparable, and no travel time is estimated.',
-  'Nur Trends je Station. Pegelhöhen sind nicht direkt vergleichbar; es wird keine Ankunftszeit berechnet.'));
- earlyText('earlySignalsRefresh',earlyI18n('↻ Actualiser les indicateurs','↻ Refresh indicators','↻ Indikatoren aktualisieren'));
- const upstreamNode=document.getElementById('earlyUpstreamRows'),rainNode=document.getElementById('earlyRainRows'),officialNode=document.getElementById('earlyOfficialPeriods'),forecastNode=document.getElementById('earlyForecastRows');
- upstreamNode.replaceChildren();rainNode.replaceChildren();officialNode.replaceChildren();forecastNode.replaceChildren();
- if(!d||!d.ok){
-  const none=earlyI18n('Données temporairement indisponibles','Data temporarily unavailable','Daten derzeit nicht verfügbar');
-  ['earlyOfficialStatus','earlyRainStatus','earlyForecastStatus','earlyUpstreamStatus','earlyRadarStatus'].forEach(id=>earlyText(id,none));
+  'Seules les stations avec mesures récentes sont affichées. Les hauteurs de stations différentes ne sont pas comparables.',
+  'Only gauges with recent measurements are shown. Water levels from different gauges cannot be compared directly.',
+  'Nur Pegel mit aktuellen Messwerten werden angezeigt. Die Pegelhöhen verschiedener Stationen sind nicht direkt vergleichbar.'));
+ earlyText('earlySignalsRefresh',earlyI18n('↻ Actualiser les données','↻ Refresh data','↻ Daten aktualisieren'));
+ const forecastNode=document.getElementById('earlyForecastRows');
+ const rainNode=document.getElementById('earlyRainRows');
+ const upstreamNode=document.getElementById('earlyUpstreamRows');
+ const officialNode=document.getElementById('earlyOfficialPeriods');
+ for(const node of [forecastNode,rainNode,upstreamNode,officialNode])node.replaceChildren();
+
+ function addDatum(parent,title,icon,values){
+  const tile=document.createElement('div');
+  tile.className='forecast-datum';
+  const symbol=document.createElement('span');symbol.className='datum-icon';symbol.textContent=icon;symbol.setAttribute('aria-hidden','true');
+  const label=document.createElement('strong');label.textContent=title;
+  const slots=document.createElement('div');slots.className='datum-values';
+  for(const [period,value] of values){
+   const item=document.createElement('span');
+   const amount=document.createElement('b');amount.textContent=value;
+   const duration=document.createElement('span');duration.textContent=period;
+   item.append(amount,duration);slots.append(item);
+  }
+  tile.append(symbol,label,slots);parent.append(tile);
+ }
+ if(!d||d.ok!==true){
+  const unavailable=earlyI18n('Données temporairement indisponibles','Data temporarily unavailable','Daten vorübergehend nicht verfügbar');
+  for(const id of ['earlyOfficialStatus','earlyForecastStatus','earlyRainStatus','earlyUpstreamStatus','earlyRadarStatus'])earlyText(id,unavailable);
   earlyText('earlySignalsChecked','');
+  healthState.weather='bad';renderSystemHealth();
   return;
  }
- const o=d.official;
- if(o?.status==='official'){
-  earlyText('earlyOfficialStatus',earlyI18n('Bulletin officiel Météo-France','Official Météo-France bulletin','Amtlicher Météo-France-Bericht'));
-  const names={green:earlyI18n('Vert','Green','Grün'),yellow:earlyI18n('Jaune','Yellow','Gelb'),orange:'Orange',red:earlyI18n('Rouge','Red','Rot')};
-  for(const period of o.periods||[]){
-   const namesDE={'1':'Wind','2':'Starkregen/Überschwemmung','3':'Gewitter','4':'Flusshochwasser','5':'Schnee/Glatteis','6':'Hitze','7':'Kälte','8':'Lawinen','9':'Küstenüberschwemmung'};
-   const bits=(period.phenomena||[]).filter(x=>x.color!=='green').map(x=>(document.documentElement.lang==='de'?(namesDE[x.id]||x.fr):document.documentElement.lang==='en'?x.en:x.fr)+': '+(names[x.color]||'—'));
-   const detail=bits.length?bits.join(' · '):earlyI18n('Aucun phénomène particulier signalé','No elevated phenomena listed','Keine erhöhten Einzelphänomene aufgeführt');
-   officialNode.append(earlyLine((period.period==='J1'?earlyI18n('Demain','Tomorrow','Morgen'):earlyI18n("Aujourd’hui",'Today','Heute'))+' · '+(names[period.color]||'—')+' · '+detail));
+ const official=d.official;
+ if(official?.status==='official'){
+  earlyText('earlyOfficialStatus',earlyI18n('Bulletin officiel de Météo-France','Official Météo-France bulletin','Amtlicher Bericht von Météo-France'));
+  const colors={green:earlyI18n('Vert','Green','Grün'),yellow:earlyI18n('Jaune','Yellow','Gelb'),orange:'Orange',red:earlyI18n('Rouge','Red','Rot')};
+  const symbols={green:'🟢',yellow:'🟡',orange:'🟠',red:'🔴'};
+  const deNames={'1':'Wind','2':'Starkregen/Überschwemmung','3':'Gewitter','4':'Flusshochwasser','5':'Schnee/Glatteis','6':'Hitze','7':'Kälte','8':'Lawinen','9':'Küstenüberschwemmung'};
+  for(const p of official.periods||[]){
+   const tile=document.createElement('div');tile.className='official-period';
+   const label=document.createElement('span');label.textContent=p.period==='J1'?earlyI18n('Demain','Tomorrow','Morgen'):earlyI18n('Aujourd’hui','Today','Heute');
+   const severity=document.createElement('strong');severity.className='risk-'+(colors[p.color]?p.color:'green');
+   severity.textContent=(symbols[p.color]||'⚠️')+' '+(colors[p.color]||'—');
+   const notable=(p.phenomena||[]).filter(x=>x.color!=='green').map(x=>
+    (document.documentElement.lang==='de'?(deNames[x.id]||x.fr):document.documentElement.lang==='en'?x.en:x.fr)+': '+(colors[x.color]||'—'));
+   const note=document.createElement('div');note.textContent=notable.length?notable.join(' · '):earlyI18n('Aucun phénomène élevé indiqué','No elevated phenomena listed','Keine erhöhte Gefahrenstufe angegeben');
+   tile.append(label,severity,note);officialNode.append(tile);
   }
  }else{
-  earlyText('earlyOfficialStatus',o?.status==='not_configured'
-   ?earlyI18n('Connexion à l’API officielle non activée. Consulter la source ci-dessous.','Official API access not yet activated. Use the official link below.','Amtliche API noch nicht freigeschaltet. Bitte den offiziellen Link verwenden.')
-   :earlyI18n('Bulletin officiel temporairement indisponible','Official bulletin temporarily unavailable','Amtlicher Bericht derzeit nicht verfügbar'));
+  earlyText('earlyOfficialStatus',official?.status==='not_configured'?
+   earlyI18n('API non configurée','Official API not configured','Amtliche API nicht eingerichtet'):
+   earlyI18n('Bulletin temporairement indisponible','Official bulletin temporarily unavailable','Amtlicher Bericht vorübergehend nicht verfügbar'));
  }
- const rain=(d.rain||[]),available=rain.filter(x=>x.status==='estimated');
- earlyText('earlyRainStatus',available.length?earlyI18n('Dernières estimations du modèle, 3 h et 6 h','Recent model estimates, 3 h and 6 h','Letzte Modellschätzungen, 3 und 6 Stunden'):
-  earlyI18n('Estimation indisponible','Estimate unavailable','Schätzung nicht verfügbar'));
- const areaLabels={central:earlyI18n('Argens central','Central Argens','Mittlerer Argens'),nartuby:'Nartuby',lower:'Roquebrune'};
- for(const r of rain){
-  const fmt=n=>Number(n).toLocaleString(document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',{maximumFractionDigits:1});
-  const label=areaLabels[r.id]||r.name;
-  rainNode.append(earlyLine(label+' · '+(r.status==='estimated'?(fmt(r.last3hMm)+' mm / 3 h · '+fmt(r.last6hMm)+' mm / 6 h'):
-   earlyI18n('non disponible','unavailable','nicht verfügbar'))));
- }
- const forecast=(d.forecast||[]),validForecast=forecast.filter(x=>x.status==='forecast');
- earlyText('earlyForecastStatus',validForecast.length?
-  earlyI18n('Prévision du modèle · prochaines 6 h et 24 h','Model forecast · next 6 h and 24 h','Modellprognose · nächste 6 und 24 Stunden'):
-  earlyI18n('Prévisions indisponibles','Forecast unavailable','Prognose nicht verfügbar'));
- const localNumber=n=>Number(n).toLocaleString(document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',{maximumFractionDigits:1});
- for(const f of forecast){
-  const area=areaLabels[f.id]||f.name;
-  forecastNode.append(earlyLine(area+' · '+(f.status==='forecast'?
-   localNumber(f.next6hMm)+' mm / 6 h · '+localNumber(f.next24hMm)+' mm / 24 h':
-   earlyI18n('non disponible','unavailable','nicht verfügbar'))));
+ const forecasts=(d.forecast||[]).filter(x=>x.status==='forecast'&&Number.isFinite(x.next6hMm)&&Number.isFinite(x.next24hMm));
+ earlyText('earlyForecastStatus',forecasts.length?
+  earlyI18n('Cumuls prévus pour les 6 et 24 prochaines heures','Predicted totals for the next 6 and 24 hours','Vorhergesagter Regen für die nächsten 6 und 24 Stunden'):
+  earlyI18n('Prévisions indisponibles','Forecasts unavailable','Prognosen derzeit nicht verfügbar'));
+ for(const f of forecasts)addDatum(forecastNode,titles[f.id]||f.name,icons[f.id]||'🌦️',
+  [['6 h',fmt(f.next6hMm)+' mm'],['24 h',fmt(f.next24hMm)+' mm']]);
+ const rain=(d.rain||[]).filter(x=>x.status==='estimated'&&Number.isFinite(x.last3hMm)&&Number.isFinite(x.last6hMm));
+ earlyText('earlyRainStatus',rain.length?
+  earlyI18n('Estimations des dernières 3 et 6 heures','Estimated totals from the last 3 and 6 hours','Geschätzter Regen der letzten 3 und 6 Stunden'):
+  earlyI18n('Estimations indisponibles','Rainfall estimates unavailable','Regenabschätzungen derzeit nicht verfügbar'));
+ for(const x of rain)addDatum(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
+  [['3 h',fmt(x.last3hMm)+' mm'],['6 h',fmt(x.last6hMm)+' mm']]);
+ const gauges=(d.upstream||[]).filter(x=>{
+  const timestamp=Date.parse(x.observedAt);
+  return x.status==='current'&&Number.isFinite(x.levelM)&&Number.isFinite(x.trendCmH)
+   &&Number.isFinite(timestamp)&&Date.now()-timestamp<=90*60000&&timestamp-Date.now()<=15*60000;
+ });
+ earlyText('earlyUpstreamStatus',gauges.length?
+  earlyI18n('Stations avec mesures actuelles : ','Gauges with current readings: ','Pegel mit aktuellen Messwerten: ')+gauges.length:
+  earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Oberlieger-Messwerte verfügbar'));
+ for(const g of gauges){
+  const card=document.createElement('div');card.className='upstream-datum';
+  const arrow=document.createElement('span');arrow.className='datum-icon';arrow.textContent=g.trendCmH>0?'↗':g.trendCmH<0?'↘':'→';
+  arrow.classList.add(g.trendCmH>0?'trend-up':'trend-down');
+  const name=document.createElement('strong');name.textContent=g.name;
+  const reading=document.createElement('div');reading.textContent=fmt(g.levelM)+' m';
+  reading.style.fontWeight='750';reading.style.fontSize='18px';reading.style.color='#164d62';
+  const change=document.createElement('div');
+  change.textContent=(g.trendCmH>0?'+':'')+fmt(g.trendCmH)+' cm/h';
+  change.className=g.trendCmH>0?'trend-up':'trend-down';
+  const measured=document.createElement('small');
+  measured.textContent=earlyI18n('Mesure : ','Measured: ','Messung: ')+new Date(g.observedAt).toLocaleTimeString(locale,{timeZone:'Europe/Paris',hour:'2-digit',minute:'2-digit'});
+  card.append(arrow,name,reading,change,measured);upstreamNode.append(card);
  }
  const radar=d.radar;
  earlyText('earlyRadarStatus',radar?.status==='catalogue_only'?
-  earlyI18n('Radar officiel : flux accessible, mais cumuls non encore calculés.','Official radar: catalogue accessible, but rainfall amounts not yet processed.','Amtliches Radar: Daten verfügbar, Regenmengen noch nicht berechnet.'):
+  earlyI18n('✓ Catalogue radar officiel accessible','✓ Official radar catalogue accessible','✓ Amtlicher Radarkatalog erreichbar'):
   radar?.status==='not_configured'?
-   earlyI18n('Radar officiel : accès non configuré.','Official radar: access not configured.','Amtliches Radar: Zugang nicht eingerichtet.'):
-   earlyI18n('Radar officiel : vérification temporairement indisponible.','Official radar: verification temporarily unavailable.','Amtliches Radar: Prüfung vorübergehend nicht verfügbar.'));
- // Show only stations with recent readings and a valid observed trend.
- // A missing station is rechecked by the Worker and reappears automatically when available.
- const upstream=(d.upstream||[]),active=upstream.filter(u=>{
-  const t=Date.parse(u.observedAt);
-  return u.status==='current'&&Number.isFinite(u.levelM)&&Number.isFinite(u.trendCmH)
-   &&Number.isFinite(t)&&Date.now()-t<=90*60000&&t-Date.now()<=15*60000;
- });
- earlyText('earlyUpstreamStatus',active.length?
-  earlyI18n('Stations avec mesures récentes : ','Stations with current readings: ','Stationen mit aktuellen Messwerten: ')+active.length:
-  earlyI18n('Aucune mesure récente disponible','No recent observations available','Keine aktuellen Messungen'));
- for(const u of active){
-  const delta=(u.trendCmH>=0?'+':'')+u.trendCmH.toLocaleString(document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',{maximumFractionDigits:1})+' cm/h';
-  const level=localNumber(u.levelM)+' m';
-  const measured=new Date(u.observedAt).toLocaleTimeString(document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',{timeZone:'Europe/Paris',hour:'2-digit',minute:'2-digit'});
-  upstreamNode.append(earlyLine(u.name+' · '+level+' · '+delta+' · '+measured));
- }
+   earlyI18n('API radar non configurée','Radar API not configured','Radar-API nicht eingerichtet'):
+   earlyI18n('API radar temporairement indisponible','Radar API temporarily unavailable','Radar-API vorübergehend nicht verfügbar'));
  const age=new Date(d.checkedAt);
  earlyText('earlySignalsChecked',Number.isFinite(age.getTime())?
-  earlyI18n('Dernière mise à jour : ','Last updated: ','Letzte Aktualisierung: ')+age.toLocaleString(document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR'):'');
+  earlyI18n('Mise à jour : ','Updated: ','Aktualisiert: ')+age.toLocaleString(locale):'');
+ healthState.weather=forecasts.length?'good':'bad';renderSystemHealth();
 }
 async function loadEarlySignalsPanel(){
  const btn=document.getElementById('earlySignalsRefresh');if(!btn)return;
