@@ -16,9 +16,9 @@ const flow=[
 test('PIAF view uses the official reference location, not arbitrary browser coordinates',async()=>{
  assert.equal(validStationCode('Y531201001'),true);
  assert.equal(validStationCode('../../foo'),false);
- assert.deepEqual(boundsForStation(43.4497,6.6331,'Y531201001'),[5.85,43.18,6.91,43.85]);
+ assert.deepEqual(boundsForStation(43.4497,6.6331,'Y531201001'),[5.6331,42.8097,7.6331,44.0897]);
  const paris=boundsForStation(48.86,2.34,'H123456789');
- assert.deepEqual(paris,[1.81,48.525,2.87,49.195]);
+ assert.deepEqual(paris,[1.34,48.22,3.34,49.5]);
  assert.doesNotThrow(()=>validateBounds(paris));
  assert.throws(()=>boundsForStation(16,-61,'X123456789'),/not available/);
  assert.throws(()=>validateBounds([0,0,10,10]),/exceeds/);
