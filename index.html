@@ -604,7 +604,13 @@ async function enablePushFlow(){
 enablePush.addEventListener('click',enablePushFlow);
 async function disablePushFlow(){
  const toggle=document.querySelector('#pushPreferencesToggle');toggle.disabled=true;
- try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub){const success=await sub.unsubscribe();if(!success)throw Error('Unsubscribe failed');}
+ try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub){
+ const token=localStorage.getItem('argens-account-token-v1');
+ if(!token)throw Error(mapText('Connexion requise.','Sign-in required.'));
+ const response=await fetch(PUSH_API_URL+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({endpoint:sub.endpoint})});
+ if(!response.ok)throw Error(mapText('Impossible d’enregistrer la désactivation.','Could not save the disabled setting.'));
+ const success=await sub.unsubscribe();if(!success)console.warn('Browser unsubscribe unsuccessful; server subscription already removed');
+}
  renderPushControls(false);pushMessage.textContent=mapText('Notifications désactivées sur cet appareil.','Notifications disabled on this device.');enablePush.classList.remove('hidden');document.querySelector('#testPush').classList.add('hidden');
  }catch(e){await preparePush();document.querySelector('#pushPreferencesStatus').textContent=mapText('Désactivation impossible : ','Unable to disable: ')+e.message;}
  finally{toggle.disabled=false;}
