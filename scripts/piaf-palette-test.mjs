@@ -19,6 +19,8 @@ test('the provider colour sequence is remapped to six ordered user colours',()=>
  assert.deepEqual([...palette.colors],['#bae9ff','#50b8f0','#1555a5','#f5d547','#f28b2f','#d92f45']);
  for(const [r,g,b,expected] of samples)assert.equal(palette.sourceBand(r,g,b),expected);
  assert.equal(palette.colors.some(c=>c==='#00ff00'||c==='#7f00ff'),false);
+ assert.equal(palette.sourceBand(255,0,255),5,'Extreme magenta must be red, never light blue');
+ assert.equal(palette.sourceBand(99,0,110),0,'Low dark violet remains very light blue');
 });
 test('RGBA conversion preserves transparency and unknown neutral colours',()=>{
  const pixels=new Uint8ClampedArray([99,0,110,255,0,0,254,170,0,177,254,255,0,240,20,255,255,255,0,255,255,20,0,255,99,0,110,0,255,255,255,255]);
