@@ -74,7 +74,7 @@ test('configured Météo-France obtains short lived OAuth2 token and validates o
 test('independent data errors never generate flood alerts or artificial official levels',async()=>{
  const fetchImpl=async()=>({ok:false,status:503});
  const data=await buildEarlySignals({}, {now:NOW,fetchImpl});
- assert.equal(data.upstream.length,3);assert.ok(data.upstream.every(x=>x.status==='unavailable'));
+ assert.equal(data.upstream.length,5);assert.ok(data.upstream.every(x=>x.status==='unavailable'));
  assert.equal(data.rain.length,3);assert.ok(data.rain.every(x=>x.status==='unavailable'));
  assert.equal(data.official.status,'not_configured');
  assert.equal(data.radar.status,'not_connected');
