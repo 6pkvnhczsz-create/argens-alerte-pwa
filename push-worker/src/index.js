@@ -500,8 +500,9 @@ export default {
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS feedback_rate_limit (user_id TEXT PRIMARY KEY,last_sent INTEGER NOT NULL)').run();
     const now=Date.now();
     const last=await env.DB.prepare('SELECT last_sent FROM feedback_rate_limit WHERE user_id=?').bind(user.id).first();
-    if(last&&now-Number(last.last_sent)<60000)return json(request,{error:'Please wait a minute before sending another message'},429);
-    await env.DB.prepare('INSERT INTO app_feedback(user_id,kind,message) VALUES(?,?,?)').bind(user.id,data.kind,data.message.trim()).run();
+    if(last&&now-Number(last.last_sent)<60000)return json(request,{error:'Please wait a minute before sending another message',code:'feedback_cooldown'},429);
+    const inserted=await env.DB.prepare("INSERT INTO app_feedback(user_id,kind,message) SELECT ?,?,? WHERE (SELECT COUNT(*) FROM app_feedback WHERE user_id=? AND created_at >= datetime('now','-24 hours')) < 5").bind(user.id,data.kind,data.message.trim(),user.id).run();
+    if(!inserted.meta?.changes)return json(request,{error:'Maximum five feedback messages within 24 hours',code:'feedback_daily_limit'},429);
     await env.DB.prepare('INSERT INTO feedback_rate_limit(user_id,last_sent) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET last_sent=excluded.last_sent').bind(user.id,now).run();
     return json(request,{ok:true});
    }catch(e){console.error('Feedback submission error',String(e));return json(request,{error:'Unable to save feedback'},503)}

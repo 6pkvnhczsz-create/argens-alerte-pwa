@@ -1019,7 +1019,11 @@ document.querySelector('#feedbackForm').addEventListener('submit',async event=>{
  try{
   const response=await fetch(PUSH_API_URL+'/feedback',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({kind:document.querySelector('#feedbackKind').value,message})});
   const result=await response.json().catch(()=>({}));
-  if(!response.ok)throw Error(result.error||'HTTP '+response.status);
+  if(!response.ok){
+   if(result.code==='feedback_daily_limit')throw Error(feedbackLanguage()?'You can send up to 5 messages within 24 hours. Please try again later.':'Vous pouvez envoyer 5 messages maximum sur 24 heures. Réessayez plus tard.');
+   if(result.code==='feedback_cooldown')throw Error(feedbackLanguage()?'Please wait at least one minute between messages.':'Veuillez attendre au moins une minute entre deux messages.');
+   throw Error(result.error||'HTTP '+response.status);
+  }
   document.querySelector('#feedbackText').value='';
   status.textContent=feedbackLanguage()?'Thank you! Your message has been sent.':'Merci ! Votre message a été envoyé.';
  }catch(e){status.textContent=(feedbackLanguage()?'Could not send message: ':'Envoi impossible : ')+e.message}
