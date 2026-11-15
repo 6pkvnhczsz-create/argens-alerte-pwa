@@ -23,13 +23,6 @@
   text('forecastPageTitle',argens?
    lang('Prévisions · bassin de l’Argens','Forecasts · Argens catchment','Vorhersagen · Argens-Einzugsgebiet'):
    lang('Prévisions · ','Forecasts · ','Vorhersagen · ')+(name||code));
-  text('forecastPageIntro',argens?
-   lang('Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.',
-   'Forecasts, recent observations and upstream stations. Informational only, alerts unchanged.',
-   'Regenprognosen, aktuelle Messungen und Oberlieger. Warnungen bleiben unverändert.'):
-   lang('Animation de pluie pour la station choisie. En amont, seules les connexions hydrologiques officiellement vérifiées sont affichées.',
-   'Rain animation for the selected gauge. Only officially verified upstream river connections are shown.',
-   'Regenanimation für die gewählte Heimatstation. Als Oberlieger erscheinen nur amtlich bestätigte Flussverbindungen.'));
   text('earlyUpstreamTitle',argens?
    lang('Stations en amont','Upstream gauges','Oberlieger-Pegel'):
    lang('Stations en amont · réseau vérifié','Upstream gauges · verified river network','Oberlieger · geprüftes Flussnetz'));

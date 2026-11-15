@@ -180,6 +180,17 @@ const html=d.documentElement.outerHTML;
 assert.ok(html.indexOf('id="rainForecastCard"')<html.indexOf('id="recentRainCard"'));
 assert.ok(html.indexOf('id="recentRainCard"')<html.indexOf('id="upstreamForecastCard"'));
 assert.equal(html.includes('id="weatherPanel"'),false,'No redundant measured radar image on Forecast page');
+assert.equal(d.getElementById('forecastPageIntro'),null,'The duplicate introductory forecast paragraph is completely removed');
+assert.doesNotMatch(d.getElementById('forecastPage').textContent,
+ /Regenprognosen, aktuelle Messungen und Oberlieger|Prévisions, observations récentes et stations en amont/,
+ 'No stale introductory copy in the visible Forecast page');
+const css=d.querySelector('style').textContent;
+assert.match(css,/#forecastPage \.forecast-card \.forecast-disclaimer,[\s\S]*?text-align:left/,
+ 'Long descriptions should be left-aligned instead of centered');
+assert.match(css,/#forecastPage #nearbyGaugesRows \.upstream-distance-row>[\s\S]*?@media\(max-width:410px\)/,
+ 'National station lists should support narrow phone breakpoints');
+assert.match(css, /\.piaf-custom-color-key\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/,
+ 'The six legend labels should form readable three-column rows on small screens');
 // Simulate an old station; it must disappear from the map even if still cached.
 model.upstream[0].observedAt=new Date(Date.now()-120*60000).toISOString();
 w.renderEarlySignals();
@@ -190,6 +201,7 @@ for(const lang of ['de','en','fr']){
  d.querySelector('[data-lang="'+lang+'"]').click();
  await new Promise(resolve=>setTimeout(resolve,80));
  assert.equal(d.documentElement.lang,lang);
+ assert.equal(d.getElementById('forecastPageIntro'),null,'No intro paragraph after language change');
  if(lang==='de'){
   assert.match(d.getElementById('piafForecastTitle').textContent,/Regenprognose bis \d\d:\d\d/);
   assert.match(d.getElementById('stationSearchTitle').textContent,/Station in meiner Nähe finden/);
