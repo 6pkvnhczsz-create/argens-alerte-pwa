@@ -1488,16 +1488,40 @@ async function accountCall(path,body,token){
 const personalStation={...(storedHomeStation||HOME_DEFAULT)};
 function personalStationText(fr,en){return document.documentElement.lang==='de'?(window.argensGermanText?window.argensGermanText(fr,en):fr):document.documentElement.lang==='en'?en:fr}
 function renderPersonalStation(){document.querySelector('#personalStationName').textContent=personalStation.name+' · '+personalStation.code;document.querySelector('#personalStationTitle').textContent=personalStationText('🌊 Ma station et mes seuils','🌊 My station and thresholds');document.querySelector('#personalStationIntro').innerHTML='<a href="#mapPage" id="personalStationMapLink" style="color:#087f91;font-weight:700;text-decoration:underline">'+personalStationText('Choisissez votre station','Choose your station')+'</a>'+personalStationText(', puis définissez vos seuils personnels. Connexion requise.',', then set your personal thresholds. Sign-in required.');document.querySelector('#personalOrangeLabel').lastElementChild.textContent=personalStationText('Orange dès (m)','Orange from (m)');document.querySelector('#personalRedLabel').lastElementChild.textContent=personalStationText('Rouge dès (m)','Red from (m)');document.querySelector('#savePersonalStation').textContent=personalStationText('Enregistrer les seuils','Save thresholds');document.querySelector('#personalStationDisclaimer').textContent=personalStationText('Seuils personnels non officiels. Les notifications sont envoyées sur les appareils inscrits lorsque vos seuils sont atteints ou que le niveau d’alerte change.','Unofficial personal thresholds. Notifications are sent to subscribed devices when your thresholds are reached or the alert level changes.')}
-async function restorePersonalStation(){const token=localStorage.getItem(accountTokenKey);if(!token)return;try{const r=await fetch(PUSH_API_URL+'/user/station',{headers:{Authorization:'Bearer '+token}});if(!r.ok)return;const d=await r.json();if(d.settings){personalStation.code=d.settings.station_code;personalStation.name=d.settings.station_name;document.querySelector('#personalOrange').value=d.settings.orange_m;document.querySelector('#personalRed').value=d.settings.red_m;personalThresholds={code:d.settings.station_code,orange:Number(d.settings.orange_m),red:Number(d.settings.red_m)};
-window.argensHomeStationCode=d.settings.station_code;renderPersonalStation();
-document.dispatchEvent(new CustomEvent('argens-home-station-restored',{detail:{code:d.settings.station_code,name:d.settings.station_name}}));if(activeStation!==d.settings.station_code){stationTitle.textContent=d.settings.station_name;loadMeasurements(d.settings.station_code).catch(console.warn)}else applyPersonalThresholds()}}catch(e){console.warn('Station settings unavailable',e)}}
+async function restorePersonalStation(){
+ const token=localStorage.getItem(accountTokenKey);if(!token)return;
+ try{
+  const r=await fetch(PUSH_API_URL+'/user/station',{headers:{Authorization:'Bearer '+token}});
+  if(!r.ok)return;
+  const d=await r.json(),settings=d.settings;
+  if(!settings||typeof settings.station_code!=='string'||!/^[A-Z][A-Z0-9]{7,13}$/.test(settings.station_code))return;
+  // Alert thresholds belong to the server-saved gauge; an unsaved local
+  // viewing choice must neither overwrite them nor be reset on sign-in.
+  personalThresholds={code:settings.station_code,orange:Number(settings.orange_m),red:Number(settings.red_m)};
+  if(storedHomeStation&&storedHomeStation.code!==settings.station_code){
+   renderPersonalStation();renderThresholdLabels(activeStation);renderAlertRules(activeStation);
+   return;
+  }
+  personalStation.code=settings.station_code;
+  personalStation.name=settings.station_name||settings.station_code;
+  rememberHomeStation(personalStation.code,personalStation.name);
+  document.querySelector('#personalOrange').value=settings.orange_m;
+  document.querySelector('#personalRed').value=settings.red_m;
+  window.argensHomeStationCode=personalStation.code;renderPersonalStation();
+  document.dispatchEvent(new CustomEvent('argens-home-station-restored',{detail:{code:personalStation.code,name:personalStation.name}}));
+  stationTitle.textContent=personalStation.name;
+  if(activeStation!==personalStation.code)loadMeasurements(personalStation.code).catch(console.warn);
+  else{renderThresholdLabels(activeStation);renderAlertRules(activeStation)}
+ }catch(e){console.warn('Station settings unavailable',e)}
+}
 document.querySelector('#savePersonalStation').addEventListener('click',async()=>{const el=document.querySelector('#personalStationMessage'),btn=document.querySelector('#savePersonalStation'),token=localStorage.getItem(accountTokenKey);if(!token){el.textContent=personalStationText('Veuillez vous connecter.','Please sign in.');return}const orange=Number(document.querySelector('#personalOrange').value),red=Number(document.querySelector('#personalRed').value);if(!Number.isFinite(orange)||!Number.isFinite(red)||orange<0||red>100||orange>=red){el.textContent=personalStationText('Les seuils doivent être valides et Orange inférieur à Rouge.','Enter valid thresholds with Orange below Red.');return}btn.disabled=true;try{const r=await fetch(PUSH_API_URL+'/user/station',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({station_code:personalStation.code,station_name:personalStation.name,orange_m:orange,red_m:red})});const d=await r.json();if(!r.ok)throw Error(d.error||'HTTP '+r.status);personalThresholds={code:personalStation.code,orange,red};window.argensHomeStationCode=personalStation.code;
+rememberHomeStation(personalStation.code,personalStation.name);
 document.dispatchEvent(new CustomEvent('argens-home-station-restored',{detail:{code:personalStation.code,name:personalStation.name}}));
-stationTitle.textContent=d.settings.station_name;if(activeStation!==personalStation.code){loadMeasurements(personalStation.code).catch(console.warn)}else applyPersonalThresholds();el.textContent=personalStationText('Préférences enregistrées. Les alertes personnelles suivent désormais ces seuils.','Preferences saved. Personal alerts now follow these thresholds.');const homeTab=document.querySelector('[data-tab="overview"]');if(homeTab)homeTab.click()}catch(e){el.textContent=e.message}finally{btn.disabled=false}});
+stationTitle.textContent=d.settings.station_name;if(activeStation!==personalStation.code){loadMeasurements(personalStation.code).catch(console.warn)}else{renderThresholdLabels(activeStation);renderAlertRules(activeStation)}el.textContent=personalStationText('Préférences enregistrées. Les alertes personnelles suivent désormais ces seuils.','Preferences saved. Personal alerts now follow these thresholds.');const homeTab=document.querySelector('[data-tab="overview"]');if(homeTab)homeTab.click()}catch(e){el.textContent=e.message}finally{btn.disabled=false}});
 renderPersonalStation();
 document.querySelector('#personalStationIntro').addEventListener('click',event=>{if(!event.target.closest('#personalStationMapLink'))return;event.preventDefault();const mapTab=document.querySelector('[data-tab="Carte"]');if(mapTab)mapTab.click()});
-document.addEventListener('argens-station-selected',event=>{personalStation.code=event.detail.code;personalStation.name=event.detail.name;renderPersonalStation();document.querySelector('#personalStationMessage').textContent=personalStationText('Station sélectionnée. Enregistrez vos seuils pour la conserver.','Station selected. Save your thresholds to keep it.')});
-document.addEventListener('argens-language-changed',()=>{renderPersonalStation();const msg=document.querySelector('#personalStationMessage');if(msg.textContent.includes('Station sélectionnée.')||msg.textContent.includes('Station selected.'))msg.textContent=personalStationText('Station sélectionnée. Enregistrez vos seuils pour la conserver.','Station selected. Save your thresholds to keep it.')});
+document.addEventListener('argens-station-selected',event=>{personalStation.code=event.detail.code;personalStation.name=event.detail.name;renderPersonalStation();document.querySelector('#personalStationMessage').textContent=personalStationText('Station enregistrée sur cet appareil. Enregistrez vos seuils pour activer les alertes associées.','Station saved on this device. Save thresholds to link it to personal alerts.')});
+document.addEventListener('argens-language-changed',()=>{renderPersonalStation();const msg=document.querySelector('#personalStationMessage');if(msg.textContent.includes('Station enregistrée')||msg.textContent.includes('Station saved'))msg.textContent=personalStationText('Station enregistrée sur cet appareil. Enregistrez vos seuils pour activer les alertes associées.','Station saved on this device. Save thresholds to link it to personal alerts.')});
 async function accountRestore(){
  const token=localStorage.getItem(accountTokenKey);if(!token)return;
  try{const data=await accountCall('me',null,token);accountView(data.user);restorePersonalStation().catch(console.warn);preparePush().catch(console.warn)}catch(e){if(e.message==='Unauthorized'){localStorage.removeItem(accountTokenKey);accountView(null)}}
