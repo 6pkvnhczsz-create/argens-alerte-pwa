@@ -79,8 +79,8 @@ export async function activeBackupStationCodes(db,{now=Date.now()}={}){
   .bind(HOME_STATION,now-INACTIVE_RETAIN_MS).run();
  await db.prepare("DELETE FROM vigicrues_backup_failures WHERE checked_ms < ? AND station_code NOT IN (SELECT p.station_code FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE u.status='active')")
   .bind(now-INACTIVE_RETAIN_MS).run();
- const recent=(await db.prepare('SELECT station_code FROM vigicrues_backup_failures WHERE checked_ms > ?')
-  .bind(now-NOT_AVAILABLE_RECHECK_MS).all()).results||[];
+ const recent=(await db.prepare("SELECT station_code FROM vigicrues_backup_failures WHERE (reason='stale' AND checked_ms > ?) OR (reason!='stale' AND checked_ms > ?)")
+  .bind(now-30*60*1000,now-NOT_AVAILABLE_RECHECK_MS).all()).results||[];
  const deferred=new Set(recent.map(r=>r.station_code));
  return {stations:codes.filter(code=>!deferred.has(code)),deferred:codes.filter(code=>deferred.has(code)),activeCount:codes.length};
 }
@@ -90,7 +90,7 @@ export async function markVigicruesUnavailable(db,station,reason,{now=Date.now()
  await ensureTables(db);
  await db.prepare('INSERT INTO vigicrues_backup_failures (station_code,checked_ms,reason) VALUES (?,?,?) ON CONFLICT(station_code) DO UPDATE SET checked_ms=excluded.checked_ms,reason=excluded.reason')
   .bind(station,now,reason).run();
- return {ok:true,station,deferredForMinutes:Math.floor(NOT_AVAILABLE_RECHECK_MS/60000)};
+ return {ok:true,station,deferredForMinutes:reason==='stale'?30:Math.floor(NOT_AVAILABLE_RECHECK_MS/60000)};
 }
 export function parseSnapshotPayload(payload,now=Date.now()){
  const station=payload?.station;
