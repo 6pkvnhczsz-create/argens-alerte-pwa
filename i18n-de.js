@@ -328,6 +328,7 @@ window.argensGermanDictionary={
   "Carte": "Karte",
   "Map": "Karte",
   "Alertes": "Warnungen",
+  "Messages d’alerte": "Warnmeldungen",
   "Alerts": "Warnungen",
   "Réglages": "Einstellungen",
   "Settings": "Einstellungen",
