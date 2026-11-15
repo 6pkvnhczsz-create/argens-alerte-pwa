@@ -33,8 +33,9 @@ export function parseVigicruesObservations(payload, code) {
  if(!Array.isArray(rows))throw Error('Vigicrues measurements missing');
  // Convert metres to millimetres, the format consumed by the existing app.
  return normalize(rows.map(row=>{
-  const height=typeof row?.ResObsHydro==='string'?row.ResObsHydro.replace(',','.'):row?.ResObsHydro;
-  return point(row?.DtObsHydro,Number(height)*1000);
+  if(row?.ResObsHydro===null||row?.ResObsHydro===undefined||row?.ResObsHydro==='')return null;
+  const height=typeof row.ResObsHydro==='string'?row.ResObsHydro.replace(',','.'):row.ResObsHydro;
+  return point(row.DtObsHydro,Number(height)*1000);
  }));
 }
 export function assertFresh(points, now=Date.now()) {
