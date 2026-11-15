@@ -199,6 +199,40 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #weatherNumbers .card small{font-size:clamp(10px,2.65vw,12px);font-weight:650;line-height:1.35;min-height:3.1em;display:flex;align-items:center;justify-content:center;max-width:100%;overflow-wrap:anywhere;hyphens:auto;white-space:pre-line}
 #weatherNumbers .card strong{font-size:clamp(15px,4.25vw,21px)!important;letter-spacing:-.045em;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:0;max-width:100%}
 @media(max-width:370px){#weatherNumbers{gap:5px!important}#weatherNumbers .card{padding:10px 4px!important;gap:6px}#weatherNumbers .card strong{font-size:15px!important}}
+
+/* Forecast information hierarchy: primary water level and official vigilance stay on Home. */
+#homeOfficialPanel{margin-top:15px;text-align:center;padding:20px 17px;border:1px solid #dbe8ee}
+.home-official .forecast-card-icon{margin:0 auto 10px}
+.home-official>strong{display:block;color:#153d52;font-size:18px;line-height:1.35}
+.home-official>a{display:inline-block;margin-top:12px;color:#087f91;font-size:13px;font-weight:700}
+.official-period-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;margin-top:12px;text-align:center}
+.official-period{border:1px solid #e1ebef;border-radius:13px;background:#f7fafc;padding:12px 9px;font-size:13px;line-height:1.4}
+.official-period strong{display:block;font-size:15px;margin:5px 0 3px}
+.official-period .risk-green{color:#23784f}.official-period .risk-yellow{color:#a77a00}.official-period .risk-orange{color:#b96805}.official-period .risk-red{color:#b52940}
+#forecastPage .forecast-section-heading{display:block;text-align:center;font-size:17px;color:#153d52;margin:10px 0 5px}
+#forecastPage .forecast-section-intro{text-align:center;margin:0 4px 14px;line-height:1.5}
+#forecastPage .forecast-stack{display:grid;gap:13px}
+#forecastPage .forecast-card{padding:20px 15px;text-align:center;border:1px solid #dfebf0;border-radius:19px;box-shadow:0 4px 14px #16465a0c;margin-top:0}
+#forecastPage .forecast-card>strong{display:block;font-size:18px;letter-spacing:-.02em;color:#164155;line-height:1.35}
+.forecast-card-icon{display:flex;align-items:center;justify-content:center;width:49px;height:49px;border-radius:15px;margin:0 auto 11px;background:#eaf5f8;font-size:25px}
+#forecastPage .forecast-card>.note{max-width:600px;margin:8px auto;font-size:12px;line-height:1.45}
+#forecastPage .forecast-card .forecast-disclaimer{margin:14px auto 0;color:#617b89;font-size:11px}
+#forecastPage .forecast-data-grid,#forecastPage .forecast-upstream-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px;margin:15px 0 5px}
+#forecastPage .forecast-datum,#forecastPage .upstream-datum{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;padding:13px 8px;border:1px solid #dfebef;border-radius:14px;background:#f7fafb;min-height:110px}
+#forecastPage .forecast-datum .datum-icon,#forecastPage .upstream-datum .datum-icon{font-size:23px;line-height:1}
+#forecastPage .forecast-datum>strong,#forecastPage .upstream-datum>strong{font-size:14px;line-height:1.3;color:#1a485e}
+#forecastPage .forecast-datum .datum-values{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:start;width:100%}
+#forecastPage .datum-values span{font-size:11px;color:#617584}
+#forecastPage .datum-values b{display:block;font-size:18px;letter-spacing:-.03em;color:#0c6576}
+#forecastPage .upstream-datum small{font-size:10px;color:#647d8c}
+#forecastPage .upstream-datum .trend-up{color:#b35615}
+#forecastPage .upstream-datum .trend-down{color:#237d70}
+#forecastPage .forecast-updated{text-align:center;margin:15px auto 6px}
+#forecastPage #earlySignalsRefresh{border:1px solid #a5ced8;background:#edf8fa;border-radius:11px;padding:10px 16px;color:#126479;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+#forecastPage #radarDetails{max-width:720px;margin:12px auto 0}
+#forecastPage #radarToggle{cursor:pointer;font-weight:700;color:#17677d;list-style-position:inside;text-align:center}
+#forecastPage #radarLink{display:inline-block;margin-top:8px;font-size:13px;font-weight:700;color:#087f91}
+@media(max-width:400px){#forecastPage .forecast-data-grid,#forecastPage .forecast-upstream-grid{grid-template-columns:1fr}#forecastPage .forecast-datum{min-height:95px}#forecastPage .datum-values{max-width:250px}}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -214,58 +248,6 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 </section>
 <div id="overview"><div class="hero"><div class="hero-orb" aria-hidden="true"></div><small>NIVEAU D’EAU ACTUEL</small><div class="station-heading"><span id="stationTitle">Roquebrune-sur-Argens</span><span id="stationUpdated" class="station-updated" aria-label="Date et heure de la dernière mesure"></span></div><div class="level"><span class="level-glass"><span id="level">—</span><span style="font-size:25px;letter-spacing:0"> m</span></span></div><div class="level-connector" aria-hidden="true"><svg viewBox="0 0 300 44" preserveAspectRatio="none" focusable="false"><path d="M150 0 V23 H50 V44" /></svg></div><div class="threshold-row" aria-label="Seuils indicatifs"><span class="threshold threshold-green" data-threshold="green">0–3 m</span><span class="threshold threshold-orange" data-threshold="orange">3–4,5 m</span><span class="threshold threshold-red" data-threshold="red">≥ 4,5 m</span></div><div id="status" class="threshold-message" role="status">Données en attente</div><div id="thresholdNotice" class="threshold-notice" hidden><div id="thresholdNoticeText">Aucun seuil d’alerte n’est défini pour cette station. Définissez vos seuils personnels dans les réglages.</div><button id="thresholdSettingsLink" type="button" style="margin-top:14px;padding:12px 18px;border:1px solid #ffffff99;border-radius:11px;background:#ffffffed;color:#195469;font:inherit;font-weight:700;cursor:pointer">⚙ Définir mes seuils</button></div><div class="sub" id="trend">Chargement des mesures</div><div class="hero-chart-head"><div class="hero-chart-label">ÉVOLUTION DU NIVEAU</div><div class="range-switch" role="group" aria-label="Période du graphique"><button type="button" data-hours="1" aria-pressed="true">1 h</button><button type="button" data-hours="6">6 h</button><button type="button" data-hours="12">12 h</button><button type="button" data-hours="24">24 h</button><button type="button" data-hours="48">48 h</button></div></div><div class="range-info" id="rangeInfo"></div><div class="chart-with-scale"><div class="height-scale height-scale-left" id="heightScaleLeft" aria-label="Hauteurs en mètres"></div><svg class="chart" id="chart" viewBox="0 0 340 110" preserveAspectRatio="none" aria-label="Évolution des dernières mesures"><path d="M0 106 H340" stroke="#456476" stroke-dasharray="5 5"/></svg><div class="height-scale height-scale-right" id="heightScaleRight" aria-hidden="true"></div></div><div class="chart-times" id="chartTimes" aria-label="Heures des mesures"></div><div class="hidden"><span id="readingTime"></span></div><div class="hero-source-footer" id="waterDataSource" aria-live="polite">Source: HUB’EAU</div></div>
 <div class="hidden" aria-hidden="true"><span id="delta"></span><span id="deltaPeriod"></span></div><div class="panel simulation-panel hidden"><strong>Tester les couleurs d’alerte (simulation uniquement)</strong><p class="note">Déplacez le curseur pour prévisualiser les couleurs. Les données réelles restent distinctes. Aperçu uniquement : les seuils réels sont configurés séparément.</p><div id="simulation" class="status green">Aperçu : vert</div><input type="range" min="1" max="4" step=".05" value="1.56" id="slider"><div class="muted" style="display:flex;justify-content:space-between"><span>1,00 m</span><span>4,00 m</span></div></div>
-<p class="note safety-note">Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez <a href="https://www.vigicrues.gouv.fr/" target="_blank" rel="noopener noreferrer">Vigicrues</a> et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.</p></div>
-<div id="forecastPage" class="hidden">
- <div class="section-title" id="forecastPageTitle">Prévisions · bassin de l’Argens</div>
- <p id="forecastPageIntro" class="note" style="margin:0 3px 15px">Vigilance officielle, prévisions de pluie et niveaux observés en amont. Informations complémentaires aux alertes.</p>
- <section id="earlySignalsPanel" class="panel" aria-label="Indicateurs de précocité Argens" style="margin-top:15px">
-  <strong id="earlySignalsHeading" style="display:block;margin-bottom:7px">🌧️ Signaux précoces · bassin de l’Argens</strong>
-  <p id="earlySignalsIntro" class="note">Informations complémentaires : vigilance officielle, estimations de pluie et stations en amont. Aucun changement de vos seuils ou alertes personnels.</p>
-  <div class="cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
-    <div class="card" style="padding:13px">
-      <strong id="earlyOfficialTitle">⚠️ Vigilance officielle · Var (83)</strong>
-      <p id="earlyOfficialStatus" class="note" role="status">Chargement…</p>
-      <div id="earlyOfficialPeriods" class="note"></div>
-      <a id="earlyOfficialLink" href="https://vigilance.meteofrance.fr/fr/var" target="_blank" rel="noopener noreferrer">Voir la vigilance sur Météo-France</a>
-    </div>
-    <div class="card" style="padding:13px">
-      <strong id="earlyRainTitle">🌧️ Pluie récente dans le bassin</strong>
-      <p id="earlyRainStatus" class="note" role="status">Chargement…</p>
-      <div id="earlyRainRows" class="note"></div>
-      <p id="earlyRainDisclaimer" class="note" style="font-size:12px">Estimation du modèle Open-Meteo, pas des mesures radar. Aucun temps de crue prévu.</p>
-    </div>
-    <div class="card" style="padding:13px">
-      <strong id="earlyForecastTitle">🌦️ Pluie prévue · Météo-France</strong>
-      <p id="earlyForecastStatus" class="note" role="status">Chargement…</p>
-      <div id="earlyForecastRows" class="note"></div>
-      <p id="earlyForecastDisclaimer" class="note" style="font-size:12px">Prévisions des modèles AROME/ARPEGE via Open-Meteo, pas des mesures radar.</p>
-      <p id="earlyRadarStatus" class="note" style="font-size:12px" role="status"></p>
-    </div>
-    <div class="card" style="padding:13px">
-      <strong id="earlyUpstreamTitle">🌊 Stations en amont</strong>
-      <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
-      <div id="earlyUpstreamRows" class="note"></div>
-      <p id="earlyUpstreamDisclaimer" class="note" style="font-size:12px">Tendance locale mesurée à chaque station. Les hauteurs des stations ne sont pas directement comparables; aucun délai d’arrivée n’est calculé.</p>
-    </div>
-  </div>
-  <p id="earlySignalsChecked" class="note" style="font-size:12px" role="status"></p>
-  <button id="earlySignalsRefresh" type="button" style="margin-top:6px">↻ Actualiser les signaux précoces</button>
-</section>
-<section id="weatherPanel" class="panel" style="margin-top:15px;text-align:center" aria-label="Météo et pluie">
-<strong id="weatherHeading" style="display:block;line-height:1.35"><span id="weatherHeadingTitle">🌦️ Pluie et météo ☀️</span><span id="weatherHeadingLocation" style="display:block;margin-top:4px">Roquebrune-sur-Argens</span></strong>
-<p id="weatherSummary" class="note" role="status" style="margin:12px 0">Chargement des données météo…</p>
-<div id="weatherNumbers" class="cards hidden" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
-<div class="card" style="padding:10px 6px"><small id="weatherPastLabel">Pluie estimée · 24 h passées</small><strong id="weatherPast" style="font-size:21px">—</strong></div>
-<div class="card" style="padding:10px 6px"><small id="weatherSixLabel">Pluie prévue · 6 h</small><strong id="weatherSix" style="font-size:21px">—</strong></div>
-<div class="card" style="padding:13px"><small id="weatherDayLabel">Pluie prévue · 24 h</small><strong id="weatherDay" style="font-size:21px">—</strong></div>
-</div>
-<p id="weatherNote" class="note" style="margin:10px 0">Prévisions locales indicatives (Open-Meteo), pas une mesure des précipitations sur tout le bassin versant. Aucune prévision de crue n’en découle.</p>
-<details style="margin-top:13px;text-align:left"><summary id="radarToggle" style="cursor:pointer;font-weight:700;text-align:center">🗺 Afficher le radar de pluie</summary>
-<iframe title="Radar de pluie · région de l’Argens" loading="lazy" referrerpolicy="no-referrer" src="https://embed.windy.com/embed2.html?lat=43.44&amp;lon=6.64&amp;detailLat=43.44&amp;detailLon=6.64&amp;width=650&amp;height=360&amp;zoom=8&amp;level=surface&amp;overlay=radar&amp;product=radar&amp;menu=&amp;message=&amp;marker=&amp;calendar=&amp;pressure=&amp;type=map&amp;location=coordinates&amp;detail=&amp;metricWind=km%2Fh&amp;metricTemp=%C2%B0C" style="display:block;width:100%;height:310px;border:0;border-radius:13px;margin-top:12px" allowfullscreen></iframe>
-<p class="note" id="radarNote" style="margin-top:8px">Radar fourni par Windy (service externe). La carte peut nécessiter une connexion Internet.</p>
-<a href="https://www.windy.com/?radar,43.44,6.64,8" target="_blank" rel="noopener noreferrer" id="radarLink">Ouvrir le radar dans Windy</a>
-</details>
-</section>
 <div id="forecastPanel" class="panel" style="margin-top:15px;text-align:center" aria-live="polite">
 <strong id="forecastHeading">🔎 Projection des seuils</strong>
 <p id="forecastStatus" class="note" style="margin:10px 0">Calcul en attente de mesures récentes…</p><div id="forecastProjected" class="hidden" style="font-size:17px;font-weight:700;line-height:1.45;margin:12px 0;padding:13px 10px;background:#f3f8fa;border:1px solid #e2edf1;border-radius:15px;color:#123f57;text-align:center"></div>
@@ -275,6 +257,61 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 </div>
 <p id="forecastDisclaimer" class="note" style="margin:12px 0 0">Estimation basée sur les dernières variations du niveau d’eau. Ce n’est ni une prévision officielle ni une alerte. Le niveau peut changer rapidement.</p>
 </div>
+<section id="homeOfficialPanel" class="panel home-official" aria-labelledby="earlyOfficialTitle">
+ <div class="forecast-card-icon" aria-hidden="true">⚠️</div>
+ <strong id="earlyOfficialTitle">Vigilance officielle · Var (83)</strong>
+ <p id="earlyOfficialStatus" class="note" role="status">Chargement…</p>
+ <div id="earlyOfficialPeriods" class="official-period-grid"></div>
+ <a id="earlyOfficialLink" href="https://vigilance.meteofrance.fr/fr/var" target="_blank" rel="noopener noreferrer">Voir la vigilance sur Météo-France</a>
+</section>
+<p class="note safety-note">Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez <a href="https://www.vigicrues.gouv.fr/" target="_blank" rel="noopener noreferrer">Vigicrues</a> et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.</p></div>
+<div id="forecastPage" class="hidden">
+ <div class="section-title" id="forecastPageTitle">Prévisions · bassin de l’Argens</div>
+ <p id="forecastPageIntro" class="note" style="margin:0 3px 15px">Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.</p>
+ <section id="earlySignalsPanel" aria-label="Indicateurs de précocité Argens">
+  <strong id="earlySignalsHeading" class="forecast-section-heading">🌧️ Pluie et amont de l’Argens</strong>
+  <p id="earlySignalsIntro" class="note forecast-section-intro">Prévisions de pluie, estimations récentes et niveaux en amont. Informations complémentaires aux alertes.</p>
+  <div class="forecast-stack">
+   <article class="panel forecast-card" id="rainForecastCard">
+    <span class="forecast-card-icon" aria-hidden="true">🌦️</span>
+    <strong id="earlyForecastTitle">Pluie prévue · Météo-France</strong>
+    <p id="earlyForecastStatus" class="note" role="status">Chargement…</p>
+    <div id="earlyForecastRows" class="forecast-data-grid"></div>
+    <p id="earlyForecastDisclaimer" class="note forecast-disclaimer">Prévision des modèles AROME/ARPEGE via Open-Meteo, pas une mesure radar ni une prévision de crue.</p>
+   </article>
+   <article class="panel forecast-card" id="recentRainCard">
+    <span class="forecast-card-icon" aria-hidden="true">🌧️</span>
+    <strong id="earlyRainTitle">Pluie récente estimée</strong>
+    <p id="earlyRainStatus" class="note" role="status">Chargement…</p>
+    <div id="earlyRainRows" class="forecast-data-grid"></div>
+    <p id="earlyRainDisclaimer" class="note forecast-disclaimer">Estimations du modèle Open-Meteo, pas de données radar mesurées.</p>
+   </article>
+   <article class="panel forecast-card" id="upstreamForecastCard">
+    <span class="forecast-card-icon" aria-hidden="true">🌊</span>
+    <strong id="earlyUpstreamTitle">Stations en amont</strong>
+    <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
+    <div id="earlyUpstreamRows" class="forecast-upstream-grid"></div>
+    <p id="earlyUpstreamDisclaimer" class="note forecast-disclaimer">Tendances mesurées localement ; les hauteurs des stations ne sont pas comparables entre elles.</p>
+   </article>
+  </div>
+  <div class="forecast-updated">
+   <p id="earlySignalsChecked" class="note" role="status"></p>
+   <button id="earlySignalsRefresh" type="button">↻ Actualiser les données</button>
+  </div>
+ </section>
+ <section id="weatherPanel" class="panel forecast-card radar-panel" aria-label="Radar des précipitations">
+  <span class="forecast-card-icon" aria-hidden="true">📡</span>
+  <strong id="weatherHeadingTitle">Radar des précipitations</strong>
+  <div id="weatherHeadingLocation" class="note">Roquebrune-sur-Argens</div>
+  <p id="earlyRadarStatus" class="note" role="status">Vérification de la source officielle…</p>
+  <p id="radarDataNote" class="note forecast-disclaimer">Les données radar Météo-France sont accessibles par API, mais doivent encore être converties en carte.</p>
+  <details id="radarDetails" open>
+   <summary id="radarToggle">🗺️ Afficher la carte radar</summary>
+   <iframe title="Radar de pluie · région de l’Argens" loading="lazy" referrerpolicy="no-referrer" src="https://embed.windy.com/embed2.html?lat=43.44&amp;lon=6.64&amp;detailLat=43.44&amp;detailLon=6.64&amp;width=650&amp;height=360&amp;zoom=8&amp;level=surface&amp;overlay=radar&amp;product=radar&amp;menu=&amp;message=&amp;marker=&amp;calendar=&amp;pressure=&amp;type=map&amp;location=coordinates&amp;detail=&amp;metricWind=km%2Fh&amp;metricTemp=%C2%B0C" style="display:block;width:100%;height:330px;border:0;border-radius:15px;margin-top:12px" allowfullscreen></iframe>
+   <p class="note forecast-disclaimer" id="radarNote">Carte provisoire par Windy (service externe). Ce visuel n’utilise pas encore le radar Météo-France.</p>
+   <a href="https://www.windy.com/?radar,43.44,6.64,8" target="_blank" rel="noopener noreferrer" id="radarLink">Ouvrir le radar dans Windy</a>
+  </details>
+ </section>
 </div>
 <div id="pushSettings" class="hidden">
 <div class="section-title">Alertes</div>
