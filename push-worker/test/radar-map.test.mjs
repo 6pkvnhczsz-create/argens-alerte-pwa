@@ -99,9 +99,9 @@ test('radar OIDC allows only signed main-branch radar workflow, never Vigicrues 
  };
  const fetchImpl=async()=>({ok:true,json:async()=>({keys:[key]})});
  assert.equal((await verifyRadarWorkflowToken(await issue(claims),{now:NOW,fetchImpl})).runId,'');
- await assert.rejects(()=>verifyRadarWorkflowToken(await issue({...claims,aud:'riviere-alerte-vigicrues-sync'}),{now:NOW,fetchImpl}),/audience/);
- await assert.rejects(()=>verifyRadarWorkflowToken(await issue({...claims,workflow_ref:'unexpected'}),{now:NOW,fetchImpl}),/workflow/);
- await assert.rejects(()=>verifyRadarWorkflowToken(await issue({...claims,ref:'refs/heads/dev'}),{now:NOW,fetchImpl}),/branch/);
+ await assert.rejects(async()=>verifyRadarWorkflowToken(await issue({...claims,aud:'riviere-alerte-vigicrues-sync'}),{now:NOW,fetchImpl}),/audience/);
+ await assert.rejects(async()=>verifyRadarWorkflowToken(await issue({...claims,workflow_ref:'unexpected'}),{now:NOW,fetchImpl}),/workflow/);
+ await assert.rejects(async()=>verifyRadarWorkflowToken(await issue({...claims,ref:'refs/heads/dev'}),{now:NOW,fetchImpl}),/branch/);
 });
 test('the website retains Windy fallback and never exposes an API key',()=>{
  const page=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
