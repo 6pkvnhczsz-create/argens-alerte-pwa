@@ -83,12 +83,12 @@ export async function readVigicruesObservations(code,{limit=700,fetchImpl=fetch}
  }
  throw Error('Vigicrues unavailable: '+failures.join(' | '));
 }
-export async function getHydroObservations(code,{limit=100,fetchImpl=fetch}={}) {
+export async function getHydroObservations(code,{limit=100,fetchImpl=fetch,backupReader=null}={}) {
  try{
   return await readHubObservations(code,{limit,fetchImpl});
  }catch(hubError){
   try{
-   const backup=await readVigicruesObservations(code,{limit,fetchImpl});
+   const backup=backupReader?await backupReader(code,limit):await readVigicruesObservations(code,{limit,fetchImpl});
    console.warn('Hydro fallback active',code,String(hubError?.message||hubError));
    return backup;
   }catch(backupError){
