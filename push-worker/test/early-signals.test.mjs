@@ -96,10 +96,25 @@ test('Météo-France malformed bulletin uses generic safe diagnostic',async()=>{
    {ok:true,json:async()=>({access_token:'abcdefghijklmnopqrstuvwx',expires_in:3600})}:
    {ok:true,json:async()=>{throw Error('sensitive-diagnostic-should-not-escape')}}});
  assert.equal(r.status,'unavailable');
- assert.equal(r.diagnostic,'request_or_format_error');
+ assert.equal(r.diagnostic,'bulletin_invalid_json');
  assert.ok(!JSON.stringify(r).includes('sensitive'));
 });
 
+test('OAuth and official bulletin network failures report safe separate stages',async()=>{
+ for(const c of [{phase:'token',expected:'token_fetch_failed'},{phase:'bulletin',expected:'bulletin_fetch_failed'}]){
+  const fetchImpl=async url=>{
+   if(url.endsWith('/token')){
+    if(c.phase==='token')throw Error('connection details SECRET');
+    return {ok:true,json:async()=>({access_token:'this-is-an-access-token-with-sufficient-length',expires_in:3600})};
+   }
+   throw Error('upstream SECRET connection refused');
+  };
+  const r=await fetchOfficialVigilance({METEO_FRANCE_BASIC:'PRIVATE_CRED_'+c.phase},{now:NOW,fetchImpl});
+  assert.equal(r.diagnostic,c.expected);
+  assert.ok(!JSON.stringify(r).includes('SECRET'));
+  assert.ok(!JSON.stringify(r).includes('PRIVATE_CRED'));
+ }
+});
 test('independent data errors never generate flood alerts or artificial official levels',async()=>{
  const fetchImpl=async()=>({ok:false,status:503});
  const data=await buildEarlySignals({}, {now:NOW,fetchImpl});
