@@ -86,6 +86,10 @@ assert.equal(d.getElementById('piafSlider').max,'2');
 assert.equal(piafOverlays.length>=1,true,'A valid PIAF forecast image should be requested');
 assert.equal(d.getElementById('weatherPanel'),null,'Redundant still radar map is removed');
 assert.ok(d.getElementById('piafLegendBlock'),'PIAF legend block must be displayed');
+d.getElementById('piafLegendImage').dispatchEvent(new w.Event('error'));
+assert.equal(d.getElementById('piafLegendFallback').hidden,false,'A missing official legend must display a careful fallback');
+assert.equal(d.querySelectorAll('.piaf-color-key>div').length,6,'Public Météo-France standard radar palette has six indicative intensity bands');
+assert.match(d.getElementById('piafLegendFallbackNote').textContent,/PIAF/);
 assert.match(d.getElementById('piafLegendImage').src,/\/api\/piaf\/legend$/,'Only official WMS legend can label exact rainfall intensity');
 assert.equal(piafOverlays[0].opacity,0.82,'Loaded forecast image becomes visible only after decoding');
 assert.match(piafOverlays[0].url,/\/api\/piaf\/frame\?time=/);
@@ -162,6 +166,8 @@ for(const lang of ['de','en','fr']){
   assert.match(d.getElementById('piafForecastTitle').textContent,/Regenprognose/);
   assert.match(d.getElementById('stationSearchTitle').textContent,/Station in meiner Nähe finden/);
   assert.match(d.getElementById('stationSearchIntro').textContent,/Heimatstation auswählen/);
+  assert.match(d.getElementById('piafLegendFallbackIntro').textContent,/Radarskala/);
+  assert.match(d.getElementById('piafLegendFallbackNote').textContent,/keine|nicht verfügbar/);
  }
  assert.equal(d.querySelectorAll('#earlyForecastRows .rain-list-row').length,3);
 }
