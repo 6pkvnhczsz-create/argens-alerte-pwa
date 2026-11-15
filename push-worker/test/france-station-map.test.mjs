@@ -44,6 +44,11 @@ test('directed graph accepts genuinely upstream mainstem and tributaries but not
  const found=connectedUpstream(home,stations,flow);
  assert.deepEqual(found.map(x=>x.code).sort(),['Y111111111','Y222222222']);
  assert.ok(found.every(x=>x.graphHops>=1&&x.snapKm<=.18));
+ assert.ok(found.every(x=>Number.isFinite(x.riverDistanceKm)&&x.riverDistanceKm>=0));
+ assert.deepEqual(found.map(x=>x.code),['Y111111111','Y222222222'],
+  'Gauge order follows mapped river-route distance');
+ assert.deepEqual(connectedUpstream(home,stations,flow,{maxStations:1}).map(x=>x.code),['Y111111111'],
+  'Show at most the requested number of verified upstream gauges');
  const notFlow=flow.map(x=>({...x,properties:{...x.properties,SensEcoulementTH:'indéterminé'}}));
  assert.throws(()=>connectedUpstream(home,stations,notFlow),/No directed/);
 });
