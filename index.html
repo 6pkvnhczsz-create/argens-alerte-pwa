@@ -705,7 +705,33 @@ function selectMapStation(station,button,marker){
  if(marker&&stationMap){stationMap.panTo(marker.getLatLng());marker.closePopup()}
  document.querySelector('[data-tab="overview"]').click();
 }
+// Station availability is based on actual recent H observations, not directory presence.
+let stationSearchSequence=0;
+const stationAvailabilityCache=new Map();
+async function stationAvailability(code){
+ const cached=stationAvailabilityCache.get(code);
+ if(cached&&Date.now()-cached.checked<5*60000)return cached;
+ try{
+  const url='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite='+encodeURIComponent(code)+'&grandeur_hydro=H&size=1&sort=desc&format=json';
+  const response=await fetch(url,{cache:'no-store'});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const payload=await response.json();
+  const observation=(payload.data||[]).find(x=>Number.isFinite(Number(x.resultat_obs))&&Number.isFinite(Date.parse(x.date_obs)));
+  const age=observation?Date.now()-Date.parse(observation.date_obs):null;
+  const status=!observation?'none':age< -15*60000?'unknown':age<=3*3600000?'recent':'old';
+  const result={status,checked:Date.now(),age};stationAvailabilityCache.set(code,result);return result;
+ }catch(e){return {status:'unknown',checked:Date.now(),age:null}}
+}
+function availabilityLabel(info){
+ const en=document.documentElement.lang==='en';
+ if(info.status==='recent')return en?'● Recent water-level data':'● Données de hauteur récentes';
+ if(info.status==='old')return en?'● Older water-level data':'● Données de hauteur anciennes';
+ if(info.status==='none')return en?'● No water-level data':'● Aucune donnée de hauteur';
+ if(info.status==='checking')return en?'Checking measurements…':'Vérification des mesures…';
+ return en?'● Availability unknown':'● Disponibilité inconnue';
+}
 async function findStations(lat,lon){
+ const searchId=++stationSearchSequence;
  message.textContent=mapText('Recherche des stations à proximité…','Searching for nearby stations…');stationsEl.replaceChildren();
  try{
   let matches=[];
@@ -721,6 +747,23 @@ async function findStations(lat,lon){
   message.textContent=matches.length?mapText('Touchez une station sur la carte ou dans la liste.','Tap a station on the map or in the list.'):mapText('Aucune station trouvée à proximité.','No nearby stations found.');
   let L=null;
   try{L=await ensureStationMap(lat,lon);stationMarkers.clearLayers()}catch(e){message.textContent+=' '+mapText('Carte indisponible : utilisez la liste.','Map unavailable: use the list.')}
+  const availabilityFilter=document.createElement('label');
+  availabilityFilter.style.cssText='display:flex;align-items:center;gap:9px;margin:12px 0;padding:10px;border-radius:10px;background:#eaf4f6;font-size:14px;font-weight:600';
+  const availabilityCheckbox=document.createElement('input');availabilityCheckbox.type='checkbox';
+  const availabilityFilterText=document.createElement('span');
+  const syncFilterText=()=>{availabilityFilterText.textContent=mapText('Stations avec données récentes uniquement','Stations with recent data only')};
+  syncFilterText();document.addEventListener('argens-language-changed',syncFilterText,{once:true});
+  availabilityFilter.append(availabilityCheckbox,availabilityFilterText);
+  stationsEl.append(availabilityFilter);
+  const stationEntries=[];
+  const applyAvailabilityFilter=()=>{
+   for(const entry of stationEntries){
+    const hidden=availabilityCheckbox.checked&&entry.info.status!=='recent';
+    entry.button.hidden=hidden;
+    if(entry.marker&&stationMap){if(hidden)stationMarkers.removeLayer(entry.marker);else stationMarkers.addLayer(entry.marker)}
+   }
+  };
+  availabilityCheckbox.addEventListener('change',applyAvailabilityFilter);
   const bounds=[];
   for(const station of matches){
    const name=station.libelle_station||station.libelle_site||station.code_station;
@@ -728,6 +771,10 @@ async function findStations(lat,lon){
    const title=document.createElement('strong');title.textContent=name;
    const detail=document.createElement('div');detail.className='note';detail.textContent=station.distance.toFixed(1).replace('.',document.documentElement.lang==='en'?'.':',')+' km · '+station.code_station;
    btn.append(title,detail);
+   const availability=document.createElement('div');availability.className='note';
+   availability.style.cssText='font-size:12px;font-weight:700;margin-top:4px';
+   availability.textContent=availabilityLabel({status:'checking'});
+   btn.append(availability);
    let marker=null;
    if(L&&stationMarkers){
     const coords=[Number(station.latitude_station),Number(station.longitude_station)];bounds.push(coords);
@@ -737,7 +784,22 @@ async function findStations(lat,lon){
    }
    const add=document.createElement('button');add.type='button';add.className='map-add-swarm';add.textContent=mapText('+ Ajouter à un groupe','+ Add to group');add.addEventListener('click',e=>{e.stopPropagation();addStationToSwarm(station)});btn.append(add);
    btn.addEventListener('click',()=>selectMapStation(station,btn,marker));stationsEl.append(btn);
+   stationEntries.push({station,button:btn,marker,availability,info:{status:'checking'}});
+  
   }
+  // Check at most four stations concurrently to avoid overwhelming the public API.
+  const pending=[...stationEntries];
+  await Promise.all(Array.from({length:Math.min(4,pending.length)},async()=>{
+   while(pending.length){
+    const entry=pending.shift();
+    const info=await stationAvailability(entry.station.code_station);
+    if(searchId!==stationSearchSequence)return;
+    entry.info=info;entry.availability.textContent=availabilityLabel(info);
+    entry.availability.style.color=info.status==='recent'?'#08765e':info.status==='old'?'#9a6500':'#9b3440';
+    applyAvailabilityFilter();
+   }
+  }));
+  if(searchId!==stationSearchSequence)return;
   if(stationMap){if(bounds.length)stationMap.fitBounds(bounds,{padding:[24,24],maxZoom:12});else stationMap.setView([lat,lon],10);setTimeout(()=>stationMap.invalidateSize(),100)}
  }catch(e){message.textContent=mapText('Recherche indisponible pour le moment. Réessayez plus tard.','Search temporarily unavailable. Please try again.')}
 }
