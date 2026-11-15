@@ -61,11 +61,12 @@ export async function readHubObservations(code,{limit=100,fetchImpl=fetch}={}) {
 }
 export async function readVigicruesObservations(code,{limit=700,fetchImpl=fetch}={}) {
  if(!validHydroStation(code))throw Error('Invalid station code');
- const params='?CdStationHydro='+encodeURIComponent(code)+'&GrdSerie=H&FormatDate=iso';
+ const simpleParams='?CdStationHydro='+encodeURIComponent(code);
+ const params=simpleParams+'&GrdSerie=H&FormatDate=iso';
  // The canonical observations.json route is documented by Vigicrues.
  // index.php is retained as a fallback because legacy clients still use it.
  const endpoints=[
-  ['observations.json','https://www.vigicrues.gouv.fr/services/observations.json'+params],
+  ['observations.json','https://www.vigicrues.gouv.fr/services/observations.json'+simpleParams],
   ['index.php','https://www.vigicrues.gouv.fr/services/observations.json/index.php'+params],
   ['trailing-slash','https://www.vigicrues.gouv.fr/services/observations.json/'+params]
  ];
