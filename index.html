@@ -340,8 +340,6 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
  <div class="section-title" id="forecastPageTitle">Prévisions · bassin de l’Argens</div>
  <p id="forecastPageIntro" class="note" style="margin:0 3px 15px">Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.</p>
  <section id="earlySignalsPanel" aria-label="Indicateurs de précocité Argens">
-  <strong id="earlySignalsHeading" class="forecast-section-heading">🌧️ Pluie et amont de l’Argens</strong>
-  <p id="earlySignalsIntro" class="note forecast-section-intro">Prévisions de pluie, estimations récentes et niveaux en amont. Informations complémentaires aux alertes.</p>
   <div class="forecast-stack">
    <article class="panel forecast-card" id="rainForecastCard">
     <span class="forecast-card-icon" aria-hidden="true">🌦️</span>
@@ -514,7 +512,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <div class="legal-fr" lang="fr"><p><strong>Éditeur et responsable du contenu :</strong> Patrick Hammerschmidt, c/o one-shot Filmproduktionen GmbH, Kalscheurener Straße 19, 50354 Hürth, Allemagne. Exploitation à titre personnel, distincte de la société mentionnée uniquement comme adresse de correspondance.</p><p>Contact : <a href="mailto:privacy@riviere-alerte.fr">privacy@riviere-alerte.fr</a>. Infrastructure technique : Cloudflare. Rivière Alerte est un service indépendant, non affilié aux autorités publiques. Les données et estimations ne constituent pas des alertes officielles.</p></div>
 <div class="legal-en" lang="en" hidden><p><strong>Publisher and content responsibility:</strong> Patrick Hammerschmidt, c/o one-shot Filmproduktionen GmbH, Kalscheurener Straße 19, 50354 Hürth, Germany. Operated personally; the company is listed only as a correspondence address.</p><p>Contact: <a href="mailto:privacy@riviere-alerte.fr">privacy@riviere-alerte.fr</a>. Technical infrastructure: Cloudflare. Rivière Alerte is an independent service, not affiliated with public authorities. Data and estimates are not official warnings.</p></div>
 <div class="legal-de" lang="de" hidden><p><strong>Anbieter und inhaltlich Verantwortlicher:</strong> Patrick Hammerschmidt, c/o one-shot Filmproduktionen GmbH, Kalscheurener Straße 19, 50354 Hürth, Deutschland. Die App wird privat betrieben; das Unternehmen ist ausschließlich als Korrespondenzanschrift angegeben.</p><p>Kontakt: <a href="mailto:privacy@riviere-alerte.fr">privacy@riviere-alerte.fr</a>. Technische Infrastruktur: Cloudflare. Rivière Alerte ist ein unabhängiger Dienst ohne Verbindung zu öffentlichen Behörden. Die Daten und Schätzungen stellen keine amtlichen Warnungen dar.</p></div></details></section>
-<nav class="bottom" aria-label="Navigation"><button class="active" data-tab="overview"><span class="nav-icon">⌂</span><span>Accueil</span></button><button data-tab="Carte"><span class="nav-icon">⌖</span><span>Carte</span></button><button data-tab="Alertes"><span class="nav-icon">♧</span><span>Alertes</span></button><button data-tab="Prévisions"><span class="nav-icon">☁</span><span>Prévisions</span></button><button data-tab="Réglages"><span class="nav-icon">⚙</span><span>Réglages</span></button></nav>
+<nav class="bottom" aria-label="Navigation"><button class="active" data-tab="overview"><span class="nav-icon">⌂</span><span>Accueil</span></button><button data-tab="Carte"><span class="nav-icon">⌖</span><span>Carte</span></button><button data-tab="Alertes"><span class="nav-icon">♧</span><span>Messages d’alerte</span></button><button data-tab="Prévisions"><span class="nav-icon">☁</span><span>Prévisions</span></button><button data-tab="Réglages"><span class="nav-icon">⚙</span><span>Réglages</span></button></nav>
 </div><script src="./i18n-de.js"></script>
 <script>
 const slider=document.querySelector('#slider'),level=document.querySelector('#level'),status=document.querySelector('#status'),delta=document.querySelector('#delta');
@@ -1589,7 +1587,7 @@ async function officialUpstreamPosition(code){
  upstreamPositionRequests.set(code,promise);
  return promise;
 }
-// The order is an approximate crow-flight comparison with the downstream
+// The order is nearest first by approximate crow-flight distance to the downstream
 // Roquebrune hydrometric gauge. Distances are NOT river-route distances or
 // estimates of how quickly any flood wave will reach Roquebrune.
 const ROQUEBRUNE_STATION_FALLBACK={lat:43.4497,lon:6.6331};
@@ -1683,7 +1681,7 @@ async function updateUpstreamMap(){
  if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden'))return;
  const reference=referencePosition||ROQUEBRUNE_STATION_FALLBACK;
  const mapped=positions.filter(x=>x.point).map(x=>({...x,distanceKm:upstreamAirDistanceKm(x.point,reference)}))
-  .sort((a,b)=>b.distanceKm-a.distanceKm||String(a.g.code).localeCompare(String(b.g.code)))
+  .sort((a,b)=>a.distanceKm-b.distanceKm||String(a.g.code).localeCompare(String(b.g.code)))
   .map((entry,i)=>({...entry,rank:i+1}));
  const missing=positions.filter(x=>!x.point);
  renderUpstreamOrderedList([...mapped,...missing],locale,fmt);
@@ -1727,9 +1725,9 @@ async function updateUpstreamMap(){
   upstreamMapInstance.fitBounds(bounds,{padding:[32,32],maxZoom:10,animate:false});
   requestAnimationFrame(()=>upstreamMapInstance?.invalidateSize());
   earlyText('upstreamMapMessage',earlyI18n(
-   'Ordre : du plus éloigné au plus proche de Roquebrune · distance à vol d’oiseau, pas de durée d’écoulement.',
-   'Order: farthest to nearest Roquebrune · straight-line distance, not flood travel time.',
-   'Reihenfolge: weiteste bis nächste Station zu Roquebrune · Luftlinie, keine Fließzeit.')+
+   'Ordre : de la station la plus proche à la plus éloignée de Roquebrune · distance à vol d’oiseau, pas de durée d’écoulement.',
+   'Order: nearest to farthest from Roquebrune · straight-line distance, not flood travel time.',
+   'Reihenfolge: nächste bis weiteste Station von Roquebrune · Luftlinie, keine Fließzeit.')+
    (missing.length?earlyI18n(' · Autres mesures sans position',' · Other readings without location',' · Weitere Messwerte ohne Position'):''));
  }catch(error){
   if(id!==upstreamMapUpdateId)return;
@@ -1754,11 +1752,6 @@ function renderEarlySignals(){
   'Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.',
   'Forecasts, recent rainfall estimates and upstream gauges. Informational only: your alerts remain unchanged.',
   'Regenvorhersagen, bisherige Regenmengen und Oberlieger-Pegel. Zusätzliche Informationen ohne Änderung deiner Warnungen.'));
- earlyText('earlySignalsHeading',earlyI18n('🌧️ Pluie et amont de l’Argens','🌧️ Rainfall and upstream gauges','🌧️ Regen und Oberlieger-Pegel'));
- earlyText('earlySignalsIntro',earlyI18n(
-  'Les valeurs du modèle ne sont pas des mesures radar ni une prévision de crue.',
-  'Model values are neither measured radar rainfall nor flood forecasts.',
-  'Modellwerte sind keine gemessenen Radardaten und keine Hochwasserprognose.'));
  earlyText('earlyOfficialTitle',earlyI18n('Vigilance officielle · Var (83)','Official weather warnings · Var (83)','Amtliche Wetterwarnungen · Var (83)'));
  earlyText('earlyOfficialLink',earlyI18n('Consulter Météo-France','View official Météo-France warnings','Amtliche Warnungen bei Météo-France'));
  earlyText('earlyForecastTitle',earlyI18n('Pluie prévue · Météo-France','Forecast rain · Météo-France','Regenprognose · Météo-France'));
