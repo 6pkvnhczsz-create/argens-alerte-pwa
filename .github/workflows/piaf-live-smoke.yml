@@ -20,7 +20,7 @@ jobs:
           last=None
           for attempt in range(3):
             try:
-              req=urllib.request.Request(base+'/metadata',headers={'Accept':'application/json','Origin':'https://riviere-alerte.fr'})
+              req=urllib.request.Request(base+'/metadata',headers={'Accept':'application/json','Origin':'https://riviere-alerte.fr','User-Agent':'RiviereAlerteRadarSync/1.0 (+https://riviere-alerte.fr)'})
               with urllib.request.urlopen(req,timeout=28) as response:
                 data=json.load(response)
               assert data.get('ok') and data.get('available') and data.get('kind')=='forecast_5min',data
@@ -28,7 +28,7 @@ jobs:
               assert frames and len(frames)<=37,(len(frames),data.get('referenceTime'))
               frame=frames[0]
               from urllib.parse import quote
-              image_req=urllib.request.Request(base+'/frame?time='+quote(frame,safe=''),headers={'Accept':'image/png','Origin':'https://riviere-alerte.fr'})
+              image_req=urllib.request.Request(base+'/frame?time='+quote(frame,safe=''),headers={'Accept':'image/png','Origin':'https://riviere-alerte.fr','User-Agent':'RiviereAlerteRadarSync/1.0 (+https://riviere-alerte.fr)'})
               with urllib.request.urlopen(image_req,timeout=28) as response:
                 blob=response.read(1500001)
                 mimetype=response.headers.get('Content-Type','')
