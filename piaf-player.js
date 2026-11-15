@@ -16,7 +16,7 @@
  let playback=false,playTimer=null,drawSerial=0,preloadRun=0;
  const cache=new Map(),queued=[],pending=new Map();
  let working=0,sliderTimer=null;
- const imageURL=i=>API+'/frame?time='+encodeURIComponent(model.frames[i]);
+ const imageURL=i=>API+'/frame?time='+encodeURIComponent(model.frames[i])+'&run='+encodeURIComponent(model.referenceTime);
  const text=(el,s)=>{const e=id(el);if(e)e.textContent=s};
  const mapVisible=()=>!id('forecastPage').classList.contains('hidden');
  const canPreload=()=>model&&mapVisible()&&!document.hidden;
