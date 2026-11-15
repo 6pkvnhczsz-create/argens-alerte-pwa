@@ -714,7 +714,7 @@ export default {
     // These stations are never part of the verified upstream warning or prediction.
     const argensKnown=new Set(['Y530501501','Y523501002','Y521502002','Y520201001','Y511201001']);
     const nearSource=includeNearby?(result.nearby||[]).filter(st=>
-     code!==DEFAULT_STATION||!argensKnown.has(st.code)).slice(0,12):[];
+     code!==DEFAULT_STATION||!argensKnown.has(st.code)).slice(0,8):[];
     const nearbyMeasured=includeNearby?await measureBatch(nearSource):[];
     const nearby=nearSource.map((station,i)=>({
      ...station,...(nearbyMeasured[i]||{}),
