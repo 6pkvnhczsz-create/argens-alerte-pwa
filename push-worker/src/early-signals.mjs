@@ -121,7 +121,14 @@ async function fetchMeteoToken(basic,fetchImpl,now){
  })}catch{throw Error('token_fetch_failed')}
  if(!response.ok)throw Error('token_http_'+response.status);
  let reply;
- try{reply=await response.json()}catch{throw Error('token_invalid_json')}
+ try{reply=await response.json()}catch{
+  // Only classify metadata, never read or expose the response body (which could contain secrets).
+  const type=String(response.headers?.get?.('content-type')||'').toLowerCase();
+  const redirected=response.redirected===true;
+  if(type.includes('text/html'))throw Error(redirected?'token_html_redirect':'token_html_response');
+  if(type.includes('text/plain'))throw Error('token_text_response');
+  throw Error('token_invalid_json');
+ }
  if(typeof reply.access_token!=='string'||reply.access_token.length<10)throw Error('token_missing');
  const age=Math.min(3300,Math.max(60,Number(reply.expires_in)||3600));
  cachedToken={basic,value:reply.access_token,until:now+age*1000};
@@ -143,7 +150,7 @@ export async function fetchOfficialVigilance(env,{now=Date.now(),fetchImpl=fetch
   // Only fixed diagnostic codes are exposed; credentials, response bodies and tokens never are.
   const message=String(error?.message||'');
   const code=/^(?:token_http|bulletin_http)_\d{3}$/.test(message)?message
-   :['token_fetch_failed','token_invalid_json','bulletin_fetch_failed','bulletin_invalid_json'].includes(message)?message
+   :['token_fetch_failed','token_invalid_json','token_html_redirect','token_html_response','token_text_response','bulletin_fetch_failed','bulletin_invalid_json'].includes(message)?message
    :message==='token_missing'?'token_missing'
    :message==='Invalid Meteo-France product'?'invalid_bulletin'
    :message==='Outdated Meteo-France bulletin'?'outdated_bulletin'
