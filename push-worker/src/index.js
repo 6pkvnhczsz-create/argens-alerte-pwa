@@ -488,6 +488,18 @@ export default {
     return json(request,{ok:true});
    }catch(e){console.error('Device link failed',String(e));return json(request,{error:'Unable to link device'},500)}
   }
+  if(url.pathname==='/unsubscribe' && request.method==='POST'){
+   if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
+   const user=await authUser(request,env.DB);
+   if(!user)return json(request,{error:'Unauthorized'},401);
+   const body=await request.json().catch(()=>({}));
+   if(typeof body.endpoint!=='string'||body.endpoint.length>2048)return json(request,{error:'Invalid endpoint'},400);
+   const row=await env.DB.prepare('SELECT endpoint FROM push_user_devices WHERE endpoint=? AND user_id=?').bind(body.endpoint,user.id).first();
+   if(!row)return json(request,{error:'Not found'},404);
+   await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(body.endpoint).run();
+   await env.DB.prepare('DELETE FROM push_user_devices WHERE endpoint=? AND user_id=?').bind(body.endpoint,user.id).run();
+   return json(request,{ok:true});
+  }
   if(url.pathname==='/subscription/status'&&request.method==='POST'){
    if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
    if(!env.DB)return json(request,{error:'Database unavailable'},503);
