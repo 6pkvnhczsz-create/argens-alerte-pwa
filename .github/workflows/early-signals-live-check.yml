@@ -37,6 +37,10 @@ jobs:
                   # Never log credentials: diagnostic covers status, published time and validation only.
                   official=data.get('official') or {}
                   print('METEO FRANCE: status:',official.get('status'),'bulletin updated:',official.get('updatedAt'),'period count:',len(official.get('periods') or []),'department:',official.get('department'),'safe diagnostic:',official.get('diagnostic'),flush=True)
+                  radar=data.get('radar') or {}
+                  print('METEO FRANCE RADAR: status:',radar.get('status'),'observed UTC:',radar.get('observedAt'),'safe diagnostic:',radar.get('diagnostic'),'measurements available:',radar.get('measurementAvailable'),flush=True)
+                  for row in data.get('forecast',[]):
+                      print('METEO FRANCE FORECAST:',row.get('id'),row.get('status'),'next 6h:',row.get('next6hMm'),'next 24h:',row.get('next24hMm'),flush=True)
                   for row in data.get('upstream',[]):
                       print('UPSTREAM:',row.get('code'),row.get('status'),'last:',row.get('observedAt'),'trend:',row.get('trendCmH'),flush=True)
                   for row in data.get('rain',[]):
