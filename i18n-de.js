@@ -8,8 +8,8 @@ window.argensGermanDictionary={
   " before creating an account.": ", bevor Sie ein Konto erstellen.",
   "🌊 Argens Alerte": "🌊 Argens Alerte",
   "Roquebrune-sur-Argens": "Roquebrune-sur-Argens",
-  "Pluie estimée · 24 h passées": "Geschätzter Regen · vergangene 24 Std.",
-  "Estimated rain · past 24 h": "Geschätzter Regen · vergangene 24 Std.",
+  "Pluie estimée · 24 h passées": "Regen (geschätzt)\nletzte 24 h",
+  "Estimated rain · past 24 h": "Regen (geschätzt)\nletzte 24 h",
   "Source: HUB’EAU": "Quelle: HUB’EAU",
   "1 h": "1 h",
   "6 h": "6 h",
@@ -233,10 +233,10 @@ window.argensGermanDictionary={
   "🌧 Rain and weather · Roquebrune-sur-Argens": "🌧 Regen und Wetter · Roquebrune-sur-Argens",
   "Chargement des données météo…": "Wetterdaten werden geladen …",
   "Loading weather data…": "Wetterdaten werden geladen …",
-  "Pluie prévue · 6 h": "Regenvorhersage · 6 Std.",
-  "Forecast rain · 6 h": "Regenvorhersage · 6 Std.",
-  "Pluie prévue · 24 h": "Regenvorhersage · 24 Std.",
-  "Forecast rain · 24 h": "Regenvorhersage · 24 Std.",
+  "Pluie prévue · 6 h": "Regenprognose\n6 h",
+  "Forecast rain · 6 h": "Regenprognose\n6 h",
+  "Pluie prévue · 24 h": "Regenprognose\n24 h",
+  "Forecast rain · 24 h": "Regenprognose\n24 h",
   "Prévisions locales indicatives (Open-Meteo), pas une mesure des précipitations sur tout le bassin versant. Aucune prévision de crue n’en découle.": "Unverbindliche lokale Vorhersage (Open-Meteo), keine Messung der Niederschläge im gesamten Einzugsgebiet. Daraus ergibt sich keine Hochwasserprognose.",
   "Indicative local forecast (Open-Meteo), not rainfall measured across the whole river catchment. This is not a flood forecast.": "Unverbindliche lokale Vorhersage (Open-Meteo), keine Messung der Niederschläge im gesamten Einzugsgebiet. Daraus ergibt sich keine Hochwasserprognose.",
   "🗺 Afficher le radar de pluie": "🗺 Regenradar anzeigen",
@@ -697,7 +697,12 @@ window.argensGermanDictionary={
   "Service unavailable": "Dienst nicht verfügbar.",
   "Unable to save changes": "Änderungen konnten nicht gespeichert werden.",
   "Unable to fetch station": "Station konnte nicht geladen werden.",
-  "Aperçu : ": "Vorschau: "
+  "Aperçu : ": "Vorschau: ",
+  "Météo et pluie": "Wetter und Regen",
+  "Weather and rain": "Wetter und Regen",
+  "Radar de pluie · région de l’Argens": "Regenradar · Region Argens",
+  "Rain radar · Argens area": "Regenradar · Region Argens",
+  "Indisponible": "Nicht verfügbar"
 };
 
 /* Resolve both the original French and existing English strings to German.
