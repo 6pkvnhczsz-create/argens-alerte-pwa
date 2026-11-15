@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {boundsForStation,validateBounds,resolveStation,validStationCode} from '../src/piaf-station.mjs';
-import {localBboxes,connectedUpstream,recentUpstreamReading} from '../src/upstream-topage.mjs';
+import {localBboxes,nearbyBbox,distanceKm,findLocalUpstream,connectedUpstream,recentUpstreamReading} from '../src/upstream-topage.mjs';
 const edge=(from,to,a,b,sense='dans direction tronçon')=>({
  geometry:{type:'LineString',coordinates:[a,b]},
  properties:{CdNoeudDebut:from,CdNoeudFin:to,SensEcoulementTH:sense}
@@ -56,4 +56,39 @@ test('fresh Hub Eau observations supply genuine per-hour trend and reject stale 
  assert.equal(sample.levelM,1.21);assert.equal(sample.trendCmH,10);
  assert.equal(sample.status,'current');
  assert.equal(await recentUpstreamReading(station,{fetchImpl,now:now+3*3600000}),null);
+});
+
+test('40-km radius includes surrounding French stations without falsely marking unrelated rivers as upstream',async()=>{
+ const box=nearbyBbox(43.5,6.58);
+ assert.equal(box.split(',').length,4);
+ assert.ok(Number(box.split(',')[0])<6.1 && Number(box.split(',')[2])>7.05);
+ assert.ok(Math.abs(distanceKm(43.5,6.58,43.5,7.0)-34)<2);
+ const near=[
+  {code_station:'Y531201001',libelle_station:'Home',latitude_station:43.5,longitude_station:6.58},
+  {code_station:'Y111111111',libelle_station:'Upstream',latitude_station:43.5,longitude_station:6.45},
+  {code_station:'Y222222222',libelle_station:'Tributary',latitude_station:43.55,longitude_station:6.5},
+  {code_station:'Y444444444',libelle_station:'Nearby only',latitude_station:43.51,longitude_station:6.36},
+  {code_station:'Y555555555',libelle_station:'Outside 40km',latitude_station:43.5,longitude_station:5.6}
+ ];
+ const calls=[];
+ const fetchImpl=async uri=>{
+  const url=new URL(uri);calls.push(url.toString());
+  if(url.pathname.includes('/referentiel/stations')){
+   const station=url.searchParams.get('code_station');
+   return new Response(JSON.stringify({data:station?[near[0]]:near}),{headers:{'Content-Type':'application/json'}});
+  }
+  if(url.pathname.includes('/geo/topage2025')){
+   return new Response(JSON.stringify({type:'FeatureCollection',features:flow,numberMatched:flow.length}),{
+    headers:{'Content-Type':'application/json'}});
+  }
+  throw Error('Unexpected API');
+ };
+ const result=await findLocalUpstream('Y531201001',{fetchImpl});
+ assert.equal(result.extent,'within-40km-geographical-radius');
+ assert.ok(result.candidates.some(x=>x.code==='Y111111111'),'Hydrologically upstream remains verified');
+ assert.ok(result.nearby.some(x=>x.code==='Y444444444'),'Nearby unconnected gauge is shown separately');
+ assert.ok(!result.candidates.some(x=>x.code==='Y444444444'),'Unconnected gauge is not upstream');
+ assert.ok(!result.nearby.some(x=>x.code==='Y555555555'),'Stations beyond 40 km are excluded');
+ assert.ok(calls.filter(x=>x.includes('/geo/topage2025')).length>1,'Additional selected river corridors are probed');
+ assert.ok(calls.some(x=>x.includes('bbox=')&&x.includes('en_service=true')));
 });
