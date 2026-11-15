@@ -83,9 +83,32 @@
    const d=Number.isFinite(distance)?' · '+format(distance)+' km':'';
    const ok=st.status==='current'&&Number.isFinite(st.levelM)&&Number.isFinite(st.trendCmH);
    const sign=st.trendCmH>0?'↑ +':st.trendCmH<0?'↓ ':'→ ';
-   putLabel(list,String(st.name||st.code)+d,ok?
-    format(st.levelM)+' m · '+sign+format(st.trendCmH)+' cm/h':
-    lang('Mesure récente indisponible','No recent reading','Kein aktueller Messwert'));
+   const stationName=String(st.name||st.code);
+   const value=ok?format(st.levelM)+' m · '+sign+format(st.trendCmH)+' cm/h':
+    lang('Mesure récente indisponible','No recent reading','Kein aktueller Messwert');
+   const button=document.createElement('button');
+   button.type='button';button.className='upstream-distance-row nearby-station-choice';
+   button.setAttribute('aria-label',lang(
+    'Choisir comme station personnelle : ','Select as home station: ',
+    'Als Heimatstation auswählen: ')+stationName);
+   const title=document.createElement('strong');title.textContent=stationName+d;
+   const reading=document.createElement('span');reading.textContent=value;
+   button.append(title,reading);
+   button.addEventListener('click',()=>{
+    if(typeof st.code!=='string'||!/^[A-Z][A-Z0-9]{7,13}$/.test(st.code)||
+       typeof window.selectArgensHomeStation!=='function')return;
+    const question=lang(
+     'Voulez-vous choisir « '+stationName+' » comme station personnelle ?',
+     'Would you like to set “'+stationName+'” as your home station?',
+     'Möchten Sie „'+stationName+'“ als Ihre Heimatstation auswählen?');
+    const note=lang(
+     'Le choix sera enregistré sur cet appareil. Vos seuils d’alertes push resteront inchangés tant que vous ne les aurez pas enregistrés dans Réglages.',
+     'This selection will be saved on this device. Your push alert thresholds will stay unchanged until you save them in Settings.',
+     'Die Auswahl wird auf diesem Gerät gespeichert. Ihre Push-Warnschwellen bleiben unverändert, bis Sie diese in den Einstellungen speichern.');
+    if(!window.confirm(question+'\n\n'+note))return;
+    window.selectArgensHomeStation({code:st.code,name:stationName});
+   });
+   list.append(button);
   }
  }
  async function loadNearby(){
