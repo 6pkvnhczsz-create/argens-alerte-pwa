@@ -7,11 +7,13 @@ import {JSDOM,VirtualConsole} from 'jsdom';
 const piafScript=readFileSync(new URL('../piaf-player.js',import.meta.url),'utf8');
 const paletteScript=readFileSync(new URL('../piaf-palette.js',import.meta.url),'utf8');
 const nationalScript=readFileSync(new URL('../national-upstream.js',import.meta.url),'utf8');
+const vigilanceScript=readFileSync(new URL('../home-vigilance.js',import.meta.url),'utf8');
 const page=readFileSync(new URL('../index.html',import.meta.url),'utf8')
  .replace(/<script src="\.\/i18n-de\.js"><\/script>/,'')
  .replace('<script src="./piaf-palette.js"></script>','<script>'+paletteScript+'</script>')
  .replace('<script src="./piaf-player.js"></script>','<script>'+piafScript+'</script>')
- .replace('<script src="./national-upstream.js"></script>','<script>'+nationalScript+'</script>');
+ .replace('<script src="./national-upstream.js"></script>','<script>'+nationalScript+'</script>')
+ .replace('<script src="./home-vigilance.js"></script>','<script>'+vigilanceScript+'</script>');
 const codes=['Y511201001','Y530501501','Y520201001','Y523501002','Y521502002'];
 const names=['Carcès · Argens','Le Muy · Endre','Les Arcs · Argens','Trans-en-Provence · Nartuby','Vidauban · Aille'];
 const coords=[[43.4777864,6.1964135],[43.5033105,6.5896057],[43.4466067,6.471459],[43.5045146,6.4839904],[43.3971748,6.45585]];
@@ -88,12 +90,30 @@ const dom=new JSDOM(page,{url:'https://riviere-alerte.fr/',runScripts:'dangerous
    else if(str.includes('/api/radar-map/info'))data={available:false};
    else if(str.includes('/api/piaf/metadata'))data=new URL(str).searchParams.get('station')==='H123456789'?parisMock:piafMock;
    else if(str.includes('/api/upstream/stations'))data=new URL(str).searchParams.get('station')==='H123456789'?parisUpstream:argensUpstream;
+   else if(str.includes('/api/vigilance/station')){
+    const station=new URL(str).searchParams.get('station');
+    data=station==='Y531201001'?{ok:true,station,status:'official',department:'83',
+     departmentName:'VAR',link:'https://vigilance.meteofrance.fr/fr/var',
+     updatedAt:new Date().toISOString(),periods:[
+      {period:'J',color:'yellow',phenomena:[{id:'3',fr:'Orages',en:'Thunderstorms',color:'yellow'}]},
+      {period:'J1',color:'green',phenomena:[]}]}:
+    station==='H123456789'?{ok:true,station,status:'official',department:'75',
+     departmentName:'PARIS',link:'https://vigilance.meteofrance.fr/fr',
+     updatedAt:new Date().toISOString(),periods:[
+      {period:'J',color:'red',phenomena:[{id:'2',fr:'Pluie-inondation',en:'Rain and flooding',color:'red'}]},
+      {period:'J1',color:'orange',phenomena:[]}]}:
+     {ok:false,station,status:'unavailable',periods:[]};
+   }
    else if(str.includes('/health'))data={ok:true,pushConfigured:true};
    return {ok:true,status:200,json:async()=>data,text:async()=>JSON.stringify(data),headers:{get:()=>null}};
   };
  }});
 const w=dom.window,d=w.document;
 await new Promise(resolve=>setTimeout(resolve,350));
+assert.equal(d.getElementById('homeOfficialPanel').hidden,false,'Official panel remains on Home for initial Var station');
+assert.match(d.getElementById('earlyOfficialTitle').textContent,/Var \(83\)/,'Var title comes from the actual station department');
+assert.equal(d.querySelectorAll('#earlyOfficialPeriods .official-period').length,2);
+assert.match(d.getElementById('earlyOfficialPeriods').textContent,/Jaune|Yellow|Gelb/);
 d.querySelector('[data-tab="Prévisions"]').click();
 await new Promise(resolve=>setTimeout(resolve,750));
 const blocks=[...d.querySelectorAll('#earlyForecastRows .rain-list-row')];
@@ -217,7 +237,12 @@ d.dispatchEvent(new w.CustomEvent('argens-station-selected',{detail:{code:'H1234
 await new Promise(resolve=>setTimeout(resolve,490));
 assert.equal(d.getElementById('rainForecastCard').hidden,true,'Argens rain totals must not masquerade as Paris data');
 assert.equal(d.getElementById('recentRainCard').hidden,true,'Argens rain estimates must be hidden outside Argens');
-assert.equal(d.getElementById('homeOfficialPanel').hidden,true,'Var warning must not appear for a Paris home');
+assert.equal(d.getElementById('homeOfficialPanel').hidden,false,'Official warning panel remains present for a non-Var station');
+assert.match(d.getElementById('earlyOfficialTitle').textContent,/Paris \(75\)/,'Department follows selected home station');
+assert.doesNotMatch(d.getElementById('earlyOfficialTitle').textContent,/Var \(83\)/);
+assert.equal(d.querySelectorAll('#earlyOfficialPeriods .official-period').length,2);
+assert.match(d.getElementById('earlyOfficialPeriods').textContent,/Rouge|Red|Rot/,'Official color now comes from Paris, not Var');
+assert.match(d.getElementById('earlyOfficialLink').href,/vigilance\.meteofrance\.fr\/fr\/?$/);
 assert.equal(d.getElementById('nationalUpstreamContainer').hidden,false,'Station-specific TOPAGE card is now visible');
 assert.equal(d.getElementById('upstreamMap').hidden,true,'Legacy Argens upstream map is hidden');
 assert.match(d.getElementById('nationalUpstreamRows').textContent,/Seine upstream/,'Only genuinely connected readings are upstream');
@@ -227,6 +252,17 @@ assert.match(d.getElementById('nearbyGaugesSubtitle').textContent,/connexion|not
 assert.match(d.getElementById('forecastPageTitle').textContent,/Paris/);
 assert.equal(piafOverlays[piafOverlays.length-1].bounds[0][0],48.22,'Forecast now covers Paris latitude, not Argens');
 assert.equal(piafOverlays[piafOverlays.length-1].bounds[0][1],1.34,'Forecast now covers Paris longitude, not Argens');
+// A station whose department cannot be verified must not inherit Paris/Var colors.
+d.dispatchEvent(new w.CustomEvent('argens-station-selected',{detail:{code:'H765432100',name:'Unverified station'}}));
+await new Promise(resolve=>setTimeout(resolve,100));
+assert.equal(d.getElementById('homeOfficialPanel').hidden,false);
+assert.equal(d.getElementById('earlyOfficialPeriods').children.length,0,'No stale colored warning after an unavailable station');
+assert.match(d.getElementById('earlyOfficialStatus').textContent,/indisponible|unavailable|nicht verfügbar/);
+assert.doesNotMatch(d.getElementById('earlyOfficialTitle').textContent,/Paris \(75\)|Var \(83\)/);
+d.dispatchEvent(new w.CustomEvent('argens-home-station-restored',{detail:{code:'Y531201001',name:'Roquebrune-sur-Argens'}}));
+await new Promise(resolve=>setTimeout(resolve,100));
+assert.match(d.getElementById('earlyOfficialTitle').textContent,/Var \(83\)/,'Restoring home resets the proper department');
+assert.equal(d.querySelectorAll('#earlyOfficialPeriods .official-period').length,2);
 d.querySelector('[data-tab="Alertes"]').click();
 assert.equal(d.querySelector('#pushSettings').classList.contains('hidden'),false,'Alerts still clickable');
 assert.deepEqual(errors,[],'No runtime errors after map/list or language changes');
