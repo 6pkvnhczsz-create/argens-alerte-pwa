@@ -121,19 +121,31 @@ async function fetchMeteoToken(basic,fetchImpl,now){
  })}catch{throw Error('token_fetch_failed')}
  if(!response.ok)throw Error('token_http_'+response.status);
  let reply;
- try{reply=await response.json()}catch{throw Error('token_invalid_json')}
+ try{reply=await response.json()}catch{
+  // Only classify metadata, never read or expose the response body (which could contain secrets).
+  const type=String(response.headers?.get?.('content-type')||'').toLowerCase();
+  const redirected=response.redirected===true;
+  if(type.includes('text/html'))throw Error(redirected?'token_html_redirect':'token_html_response');
+  if(type.includes('text/plain'))throw Error('token_text_response');
+  throw Error('token_invalid_json');
+ }
  if(typeof reply.access_token!=='string'||reply.access_token.length<10)throw Error('token_missing');
  const age=Math.min(3300,Math.max(60,Number(reply.expires_in)||3600));
  cachedToken={basic,value:reply.access_token,until:now+age*1000};
  return cachedToken.value;
 }
 export async function fetchOfficialVigilance(env,{now=Date.now(),fetchImpl=fetch}={}){
- const fallback={status:env?.METEO_FRANCE_BASIC?'unavailable':'not_configured',provider:'Météo-France',department:'83',periods:[],link:OFFICIAL_LINK};
- if(!env?.METEO_FRANCE_BASIC)return fallback;
+ const configured=Boolean(env?.METEO_FRANCE_BASIC||env?.METEO_FRANCE_API_KEY);
+ const fallback={status:configured?'unavailable':'not_configured',provider:'Météo-France',department:'83',periods:[],link:OFFICIAL_LINK};
+ if(!configured)return fallback;
  try{
-  const token=await fetchMeteoToken(env.METEO_FRANCE_BASIC,fetchImpl,now);
+  // Météo-France accepts an API key directly. Prefer it when configured to avoid
+  // token portal HTML/interstitials; preserve existing OAuth2 as a fallback mode.
+  const headers=env.METEO_FRANCE_API_KEY?
+   {apikey:env.METEO_FRANCE_API_KEY,Accept:'application/json'}:
+   {Authorization:'Bearer '+await fetchMeteoToken(env.METEO_FRANCE_BASIC,fetchImpl,now),Accept:'application/json'};
   let response;
-  try{response=await fetchImpl(METEO_VIGILANCE,{headers:{Authorization:'Bearer '+token,Accept:'application/json'},
+  try{response=await fetchImpl(METEO_VIGILANCE,{headers,
    signal:AbortSignal.timeout(12000)})}catch{throw Error('bulletin_fetch_failed')}
   if(!response.ok)throw Error('bulletin_http_'+response.status);
   let bulletin;
@@ -143,7 +155,7 @@ export async function fetchOfficialVigilance(env,{now=Date.now(),fetchImpl=fetch
   // Only fixed diagnostic codes are exposed; credentials, response bodies and tokens never are.
   const message=String(error?.message||'');
   const code=/^(?:token_http|bulletin_http)_\d{3}$/.test(message)?message
-   :['token_fetch_failed','token_invalid_json','bulletin_fetch_failed','bulletin_invalid_json'].includes(message)?message
+   :['token_fetch_failed','token_invalid_json','token_html_redirect','token_html_response','token_text_response','bulletin_fetch_failed','bulletin_invalid_json'].includes(message)?message
    :message==='token_missing'?'token_missing'
    :message==='Invalid Meteo-France product'?'invalid_bulletin'
    :message==='Outdated Meteo-France bulletin'?'outdated_bulletin'
