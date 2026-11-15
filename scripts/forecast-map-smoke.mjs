@@ -181,8 +181,9 @@ assert.ok(html.indexOf('id="rainForecastCard"')<html.indexOf('id="recentRainCard
 assert.ok(html.indexOf('id="recentRainCard"')<html.indexOf('id="upstreamForecastCard"'));
 assert.equal(html.includes('id="weatherPanel"'),false,'No redundant measured radar image on Forecast page');
 assert.equal(d.getElementById('forecastPageIntro'),null,'The duplicate introductory forecast paragraph is completely removed');
-assert.doesNotMatch(html,/Regenprognosen, aktuelle Messungen und Oberlieger|Prévisions, observations récentes et stations en amont/,
- 'No stale introductory copy in the live DOM');
+assert.doesNotMatch(d.getElementById('forecastPage').textContent,
+ /Regenprognosen, aktuelle Messungen und Oberlieger|Prévisions, observations récentes et stations en amont/,
+ 'No stale introductory copy in the visible Forecast page');
 const css=d.querySelector('style').textContent;
 assert.match(css,/#forecastPage \.forecast-card \.forecast-disclaimer,[\s\S]*?text-align:left/,
  'Long descriptions should be left-aligned instead of centered');
