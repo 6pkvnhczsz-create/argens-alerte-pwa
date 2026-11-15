@@ -686,7 +686,7 @@ export default {
     return json(request,{error:'Invalid station'},400);
    try{
     const cache=globalThis.caches?.default;
-    const key=new Request('https://riviere-alerte.fr/__hydro_cache/upstream_v1?station='+code);
+    const key=new Request('https://riviere-alerte.fr/__hydro_cache/upstream_v2?station='+code);
     let result=null;
     if(cache){const hit=await cache.match(key);if(hit)result=await hit.json().catch(()=>null)}
     if(!result||result.home?.code!==code){
@@ -694,11 +694,28 @@ export default {
      if(cache)await cache.put(key,new Response(JSON.stringify(result),{headers:{
       'Content-Type':'application/json','Cache-Control':'public, max-age=900'}}));
     }
-    const observations=await Promise.all(result.candidates.map(x=>recentUpstreamReading(x)));
-    const stations=observations.filter(Boolean);
+    // Rate-limit requests to the public Hub'Eau source (four at once).
+    async function measureBatch(items){
+     const source=items||[],results=new Array(source.length),queue=source.map((v,i)=>({v,i}));
+     await Promise.all(Array.from({length:Math.min(4,queue.length)},async()=>{
+      while(queue.length){const x=queue.shift();results[x.i]=await recentUpstreamReading(x.v)}
+     }));
+     return results;
+    }
+    const verified=await measureBatch((result.candidates||[]).slice(0,10));
+    const stations=verified.filter(Boolean);
+    const nearSource=(result.nearby||[]).slice(0,14);
+    const nearbyMeasured=await measureBatch(nearSource);
+    const nearby=nearSource.map((station,i)=>({
+     ...station, ...(nearbyMeasured[i]||{}),
+     classification:'nearby_not_verified',
+     status:nearbyMeasured[i]?'current':'no_recent_measurement'
+    }));
     return json(request,{ok:true,status:stations.length?'verified':'no_current_verified',
-     home:result.home,stations,checkedAt:new Date().toISOString(),
-     source:result.evidence,extent:result.extent,hydrologicalConnectivity:'directed_verified_local_only',
+     home:result.home,stations,nearby,nearbyRadiusKm:40,checkedAt:new Date().toISOString(),
+     source:result.evidence,extent:result.extent,connectivityCoverage:result.connectivityCoverage,
+     directoryTruncated:result.directoryTruncated===true,
+     hydrologicalConnectivity:'directed_verified_local_only',
      excludedUnverified:true,notForAlerts:true});
    }catch(error){
     console.warn('Official directed upstream graph unavailable',String(error?.message||error));
@@ -762,7 +779,7 @@ export default {
     if(run&&run!==info.referenceTime)return json(request,{error:'PIAF model run changed'},409);
     if(!info.frames.includes(time))return json(request,{error:'PIAF frame not listed in current model'},404);
     const cache=globalThis.caches?.default;
-    const key=new Request('https://riviere-alerte.fr/__piaf_cache/frame_v2?station='+code+
+    const key=new Request('https://riviere-alerte.fr/__piaf_cache/frame_v3?station='+code+
      '&reference='+encodeURIComponent(info.referenceTime)+'&time='+encodeURIComponent(time));
     let imageBytes;
     if(cache){const hit=await cache.match(key);if(hit)imageBytes=await hit.arrayBuffer()}
