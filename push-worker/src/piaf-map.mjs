@@ -107,11 +107,30 @@ export function buildPiafLegendUrl(meta){
  });
  return BASE+'GetLegendGraphic?'+query;
 }
-export async function fetchPiafLegend(env,meta,{fetchImpl=fetch}={}){
- const key=apiKey(env);if(!key)throw Error('PIAF key unavailable');
- const response=await fetchImpl(buildPiafLegendUrl(meta),{
-  headers:{apikey:key,Accept:'image/png'},redirect:'manual',
-  signal:AbortSignal.timeout(20000),cf:{cacheTtl:0}
+
+function officialStyleLegendUrl(xml,style){
+ const styles=[...xml.matchAll(/<Style\b[^>]*>([\s\S]*?)<\/Style>/gi)];
+ for(const entry of styles){
+  const fragment=entry[1],name=fragment.match(/<Name>\s*([A-Z0-9_]+)\s*<\/Name>/i)?.[1];
+  if(name!==style)continue;
+  const legend=fragment.match(/<LegendURL\b[^>]*>([\s\S]*?)<\/LegendURL>/i)?.[1];
+  const href=legend?.match(/<(?:\w+:)?OnlineResource\b[^>]*?(?:xlink:href|href)\s*=\s*["']([^"']+)["']/i)?.[1];
+  if(!href)continue;
+  try{
+   const url=new URL(href.replace(/&amp;/g,'&'),BASE);
+   if(url.protocol!=='https:'||url.username||url.password||
+     !['api.meteofrance.fr','geoservices.meteofrance.fr','geoservices.meteo.fr'].includes(url.hostname)||
+     [...url.searchParams.keys()].some(key=>/secret|token|api.?key|authorization/i.test(key)))continue;
+   return url.toString();
+  }catch{}
+ }
+ return null;
+}
+async function getLegendPng(key,url,fetchImpl){
+ const parsed=new URL(url);
+ const response=await fetchImpl(url,{
+  headers:{...(parsed.hostname==='api.meteofrance.fr'?{apikey:key}:{}),Accept:'image/png'},
+  redirect:'manual',signal:AbortSignal.timeout(18000),cf:{cacheTtl:0}
  });
  if(!response.ok||response.redirected)throw Error('PIAF legend HTTP '+response.status);
  if(!String(response.headers.get('content-type')||'').toLowerCase().startsWith('image/png'))
@@ -122,4 +141,24 @@ export async function fetchPiafLegend(env,meta,{fetchImpl=fetch}={}){
   ![137,80,78,71,13,10,26,10].every((x,i)=>x===data[i]))
   throw Error('PIAF legend format invalid');
  return data;
+}
+export async function fetchPiafLegend(env,meta,{fetchImpl=fetch}={}){
+ const key=apiKey(env);if(!key)throw Error('PIAF key unavailable');
+ const fallback=buildPiafLegendUrl(meta);
+ try{return await getLegendPng(key,fallback,fetchImpl)}catch(firstError){
+  // Some WMS gateways do not expose GetLegendGraphic as a Swagger resource.
+  // A layer style can also advertise an official LegendURL in GetCapabilities.
+  const res=await fetchImpl(BASE+'GetCapabilities?service=WMS&version=1.3.0',{
+   headers:{apikey:key,Accept:'application/xml'},redirect:'manual',
+   signal:AbortSignal.timeout(16000),cf:{cacheTtl:0}
+  });
+  if(!res.ok||res.redirected||!String(res.headers.get('content-type')||'').toLowerCase().includes('xml'))
+   throw firstError;
+  if(Number(res.headers.get('content-length'))>MAX_XML)throw firstError;
+  const xml=await res.text();
+  if(xml.length>MAX_XML)throw firstError;
+  const styleUrl=officialStyleLegendUrl(xml,meta.style);
+  if(!styleUrl||styleUrl===fallback)throw firstError;
+  return getLegendPng(key,styleUrl,fetchImpl);
+ }
 }
