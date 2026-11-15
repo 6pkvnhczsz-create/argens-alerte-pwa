@@ -23,9 +23,9 @@ function fixtureOfficial(){
  }};
 }
 test('only documented, distinct upstream Argens tributary stations are selected',()=>{
- assert.equal(UPSTREAM_STATIONS.length,3);
- assert.equal(new Set(UPSTREAM_STATIONS.map(x=>x.code)).size,3);
- assert.deepEqual(UPSTREAM_STATIONS.map(x=>x.code),['Y530501501','Y520201001','Y523501001']);
+ assert.equal(UPSTREAM_STATIONS.length,5);
+ assert.equal(new Set(UPSTREAM_STATIONS.map(x=>x.code)).size,5);
+ assert.deepEqual(UPSTREAM_STATIONS.map(x=>x.code),['Y511201001','Y530501501','Y520201001','Y523501002','Y521502002']);
 });
 test('upstream rates use individual station trends, never compare different gauge zeroes',()=>{
  const points=[{time:NOW-5*60000,mm:1450},{time:NOW-65*60000,mm:1100},{time:NOW-115*60000,mm:900}];
