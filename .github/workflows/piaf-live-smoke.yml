@@ -37,7 +37,13 @@ jobs:
               assert (int.from_bytes(blob[16:20],'big'),int.from_bytes(blob[20:24],'big'))==(720,500)
               print('PASS official PIAF',data['referenceTime'],'first valid time',frame,'frames',len(frames),'png bytes',len(blob))
               break
-            except (Exception,) as ex:
+            except urllib.error.HTTPError as ex:
+              last='HTTP '+str(ex.code)
+              detail=ex.read(500).decode('utf-8','replace')
+              print('PIAF live attempt',attempt+1,last,'response:',detail[:400], 'server:',ex.headers.get('Server'))
+              if attempt==8:raise
+              time.sleep(10)
+            except Exception as ex:
               last=str(ex)
               print('PIAF live attempt',attempt+1,':',last[:350])
               if attempt==8:raise
