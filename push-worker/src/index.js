@@ -664,10 +664,18 @@ export default {
    try{await verifyRadarWorkflowToken(bearer.slice(7))}
    catch{return json(request,{ok:false,error:'Workflow identity rejected'},401)}
    if(!env.METEO_FRANCE_API_KEY)return json(request,{ok:false,error:'API key not configured'},503);
+   // Météo-France uses short and marketing names for some API routes.
+   // Only compare explicitly whitelisted public endpoints; never return the API key.
+   const service='/wms/MF-NWP-HIGHRES-PIAF-001-FRANCE-WMS/GetCapabilities?service=WMS&version=1.3.0&language=fre';
    const candidates=[
-    'https://public-api.meteofrance.fr/public/piaf/1.0/wms/MF-NWP-HIGHRES-PIAF-001-FRANCE-WMS/GetCapabilities?service=WMS&version=1.3.0&language=fre',
-    'https://public-api.meteofrance.fr/public/piaf/1.0/wms/MF-NWP-PIAF-001-FRANCE-WMS/GetCapabilities?service=WMS&version=1.3.0&language=fre'
-   ];
+    'https://public-api.meteofrance.fr/public/piaf/1.0',
+    'https://public-api.meteofrance.fr/public/aromepiaf/1.0',
+    'https://public-api.meteofrance.fr/public/PrevisionImmediatePrecipitations/1.0',
+    'https://public-api.meteofrance.fr/public/PrevisionImmediatePrecipitations/v1.0',
+    'https://public-api.meteofrance.fr/public/arome-piaf/1.0',
+    'https://public-api.meteofrance.fr/public/piaf/v1.0',
+    'https://public-api.meteofrance.fr/public/aromepiaf/v1.0'
+   ].map(base=>base+service);
    const answers=[];
    for(let i=0;i<candidates.length;i++){
     try{
