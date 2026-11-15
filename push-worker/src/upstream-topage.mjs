@@ -7,8 +7,20 @@ const WFS='https://services.sandre.eaufrance.fr/geo/topage2025';
 const REG='https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations';
 const OBS='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr';
 const MAX_EDGES=4500,MAX_BYTES=9500000,MAX_STATIONS=800;
+export const NEARBY_RADIUS_KM=40;
+const MAX_CORRIDOR_PAGES=8; // bounded targeted network expansion, not full catchment
+const MAX_PROBE_TARGETS=3;
 const kmPerDegree=111.2;
 function delta(lat){return {y:0.045,x:0.045/Math.max(0.55,Math.cos(lat*Math.PI/180))}}
+export function distanceKm(latA,lonA,latB,lonB){
+ const p=Math.PI/180,dlat=(latB-latA)*p,dlon=(lonB-lonA)*p;
+ const a=Math.sin(dlat/2)**2+Math.cos(latA*p)*Math.cos(latB*p)*Math.sin(dlon/2)**2;
+ return 12742*Math.asin(Math.min(1,Math.sqrt(a)));
+}
+export function nearbyBbox(lat,lon,radiusKm=NEARBY_RADIUS_KM){
+ const dy=radiusKm/kmPerDegree,dx=dy/Math.max(.45,Math.cos(lat*Math.PI/180));
+ return [lon-dx,lat-dy,lon+dx,lat+dy].map(x=>x.toFixed(5)).join(',');
+}
 export function localBboxes(lat,lon){
  const d=delta(lat);
  const bounds=[lon-d.x,lat-d.y,lon+d.x,lat+d.y];
@@ -108,31 +120,103 @@ async function publicJson(url,{fetchImpl=fetch,maxBytes=MAX_BYTES}={}){
  let json;try{json=JSON.parse(raw)}catch{throw Error('Official source returned incomplete JSON')}
  return json;
 }
-export async function findLocalUpstream(code,{fetchImpl=fetch}={}){
- const home=await cachedStation(code,{fetchImpl});
- const bboxes=localBboxes(home.lat,home.lon);
+function wfsUrl(bbox){
  const wfs=new URL(WFS);
  for(const [k,v] of Object.entries({service:'WFS',version:'2.0.0',request:'GetFeature',
   typeNames:'sa:TronconHydrographique_FXX_Topage2025',count:String(MAX_EDGES),
-  srsName:'EPSG:4326',bbox:bboxes.topage,outputFormat:'geojson'}))
-  wfs.searchParams.set(k,v);
+  srsName:'EPSG:4326',bbox,outputFormat:'geojson'}))wfs.searchParams.set(k,v);
+ return wfs.toString();
+}
+function verifiedGraph(data){
+ if(!Array.isArray(data?.features)||data.features.length>=MAX_EDGES||
+  (Number.isFinite(Number(data.numberMatched))&&Number(data.numberMatched)>data.features.length))
+  throw Error('Truncated hydrological network');
+ return data.features;
+}
+function corridorProbes(home,candidates){
+ const found=new Map(),radius=NEARBY_RADIUS_KM;
+ // A limited set of 9-km square WFS tiles follows straight corridors to nearby
+ // candidate gauges. Only exact directed node connectivity can confirm upstream.
+ // Meandering paths outside this corridor remain UNVERIFIED, never guessed.
+ const latStep=.08,lonStep=.08/Math.cos(home.lat*Math.PI/180);
+ for(const st of candidates.slice(0,MAX_PROBE_TARGETS)){
+  const d=distanceKm(home.lat,home.lon,st.lat,st.lon);
+  if(d<5||d>radius)continue;
+  const steps=Math.min(18,Math.ceil(d/4));
+  for(let i=0;i<=steps;i++){
+   const t=i/steps,lat=home.lat+(st.lat-home.lat)*t,lon=home.lon+(st.lon-home.lon)*t;
+   const row=Math.floor(lat/latStep),col=Math.floor(lon/lonStep),key=row+':'+col;
+   if(!found.has(key)){
+    const y=(row+.5)*latStep,x=(col+.5)*lonStep,box=localBboxes(y,x).topage;
+    found.set(key,box);
+   }
+   if(found.size>=MAX_CORRIDOR_PAGES)return [...found.values()];
+  }
+ }
+ return [...found.values()];
+}
+export async function findLocalUpstream(code,{fetchImpl=fetch}={}){
+ const home=await cachedStation(code,{fetchImpl});
+ const bboxes=localBboxes(home.lat,home.lon);
  const reg=new URL(REG);
- for(const [k,v] of Object.entries({bbox:bboxes.hubeau,format:'json',size:String(MAX_STATIONS),en_service:'true'}))reg.searchParams.set(k,v);
+ for(const [k,v] of Object.entries({bbox:nearbyBbox(home.lat,home.lon),
+  format:'json',size:String(MAX_STATIONS),en_service:'true'}))reg.searchParams.set(k,v);
  const [network,nearby]=await Promise.all([
-  publicJson(wfs.toString(),{fetchImpl,maxBytes:MAX_BYTES}),
+  publicJson(wfsUrl(bboxes.topage),{fetchImpl,maxBytes:MAX_BYTES}),
   publicJson(reg.toString(),{fetchImpl,maxBytes:1200000})
  ]);
- if(!Array.isArray(network.features)||network.features.length>=MAX_EDGES||
-  (Number.isFinite(Number(network.numberMatched))&&Number(network.numberMatched)>network.features.length)||
-  !Array.isArray(nearby.data)||nearby.data.length>=MAX_STATIONS)
-  throw Error('River graph truncated: refusing to infer connectivity');
+ if(!Array.isArray(nearby.data))throw Error('Official station listing unavailable');
+ const directoryTruncated=nearby.data.length>=MAX_STATIONS||
+  (Number.isFinite(Number(nearby.count))&&Number(nearby.count)>nearby.data.length);
  const stations=nearby.data.map(x=>({code:String(x.code_station||''),
-  name:String(x.libelle_station||x.libelle_site||'').slice(0,100),
-  lat:Number(x.latitude_station),lon:Number(x.longitude_station)}));
- return {home:{code:home.code,name:home.name,lat:home.lat,lon:home.lon},
-  candidates:connectedUpstream(home,stations,network.features),
-  evidence:'BD TOPAGE 2025 / Hub Eau',extent:'local-approximately-5km',
-  checkedAt:new Date().toISOString()};
+  name:String(x.libelle_station||x.libelle_site||x.code_station||'').slice(0,100),
+  lat:Number(x.latitude_station),lon:Number(x.longitude_station)}))
+  .filter(x=>validStationCode(x.code)&&Number.isFinite(x.lat)&&Number.isFinite(x.lon))
+  .map(x=>({...x,distanceKm:Number(distanceKm(home.lat,home.lon,x.lat,x.lon).toFixed(1))}))
+  .filter(x=>x.distanceKm<=NEARBY_RADIUS_KM&&x.code!==code)
+  .sort((a,b)=>a.distanceKm-b.distanceKm||a.code.localeCompare(b.code));
+ const unique=[...new Map(stations.map(x=>[x.code,x])).values()];
+ // The 40-km station directory is not proof of an upstream connection.
+ // Explicitly keep unverified stations separate and named "nearby".
+ let graph=[],networkVerified=false,coverage='partial';
+ try{graph=verifiedGraph(network);networkVerified=true}catch{}
+ if(networkVerified&&unique.length){
+  const probes=corridorProbes(home,unique.filter(x=>x.distanceKm>5));
+  if(probes.length){
+   const extra=await Promise.all(probes.map(async bbox=>{
+    try{
+     const data=await publicJson(wfsUrl(bbox),{fetchImpl,maxBytes:MAX_BYTES});
+     return verifiedGraph(data);
+    }catch{return []}
+   }));
+   // Dedupe by exact directed nodes and source geometry endpoints.
+   const edges=new Map();
+   for(const f of [...graph,...extra.flat()]){
+    const p=f?.properties||{},coords=f?.geometry?.coordinates;
+    if(!Array.isArray(coords)||coords.length<2)continue;
+    const key=[p.CdNoeudDebut,p.CdNoeudFin,p.SensEcoulementTH,
+     coords[0]?.join(','),coords[coords.length-1]?.join(',')].join('|');
+    edges.set(key,f);
+   }
+   graph=[...edges.values()];
+  }
+ }
+ let verified=[];
+ if(networkVerified){
+  try{verified=connectedUpstream(home,unique,graph,{maxStations:10})}
+  catch{networkVerified=false}
+ }
+ const linkedCodes=new Set(verified.map(x=>x.code));
+ // Nearby stations are for geographic context ONLY and must never be
+ // presented as hydrologically upstream without verified directed graph.
+ const neighbours=unique.filter(x=>!linkedCodes.has(x.code)).slice(0,18);
+ return {
+  home:{code:home.code,name:home.name,lat:home.lat,lon:home.lon},
+  candidates:verified,nearby:neighbours,
+  evidence:'BD TOPAGE 2025 / Hub Eau',extent:'within-40km-geographical-radius',
+  connectivityCoverage:networkVerified?'verified-corridors-partial':'not-verified',
+  directoryTruncated,checkedAt:new Date().toISOString()
+ };
 }
 export async function recentUpstreamReading(station,{fetchImpl=fetch,now=Date.now()}={}){
  const url=new URL(OBS);
