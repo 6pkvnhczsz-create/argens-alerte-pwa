@@ -5,6 +5,7 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { getHydroObservations, readVigicruesObservations, validHydroStation } from './water-sources.mjs';
 import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, activeBackupStationCodes, markVigicruesUnavailable, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
+import { translateFeedbackRecord } from './feedback-translation.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
  async vigicruesHealthAdmin(){
@@ -33,6 +34,7 @@ export class AdminPushService extends WorkerEntrypoint {
   });
   return {stations:coverage,activeCount:active.length,coveredCount:coverage.filter(x=>x.status==='good').length};
  }
+ async translateFeedbackAdmin(id){return translateFeedbackRecord(this.env,id)}
  async broadcastAdmin(data){
   if(!['test','maintenance','incident','custom'].includes(data?.kind)||typeof data.title!=='string'||typeof data.body!=='string'||!data.title.trim()||!data.body.trim()||data.title.length>90||data.body.length>400)throw Error('Invalid admin message');
   const db=this.env.DB;
@@ -525,7 +527,7 @@ Rivière Alerte · riviere-alerte.fr`;
 }
 
 export default {
- async fetch(request,env){
+ async fetch(request,env,ctx){
   const url=new URL(request.url);
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors(request)});
   if(url.pathname.startsWith('/auth/')||url.pathname==='/user/station'){try{return await accountRoute(request,env,url)}catch(e){console.error('Auth error',String(e));return json(request,{error:'Authentication unavailable'},500)}}
@@ -561,6 +563,11 @@ export default {
     const inserted=await env.DB.prepare("INSERT INTO app_feedback(user_id,kind,message) SELECT ?,?,? WHERE (SELECT COUNT(*) FROM app_feedback WHERE user_id=? AND created_at >= datetime('now','-24 hours')) < 5").bind(user.id,data.kind,data.message.trim(),user.id).run();
     if(!inserted.meta?.changes)return json(request,{error:'Maximum five feedback messages within 24 hours',code:'feedback_daily_limit'},429);
     await env.DB.prepare('INSERT INTO feedback_rate_limit(user_id,last_sent) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET last_sent=excluded.last_sent').bind(user.id,now).run();
+    // Translate newly received feedback asynchronously; never delay or reject the user's submission.
+    const feedbackId=Number(inserted.meta?.last_row_id);
+    if(Number.isSafeInteger(feedbackId)&&feedbackId>0&&ctx?.waitUntil){
+     ctx.waitUntil(translateFeedbackRecord(env,feedbackId).catch(error=>console.error('Feedback translation unavailable',feedbackId,String(error?.message||error))));
+    }
     return json(request,{ok:true});
    }catch(e){console.error('Feedback submission error',String(e));return json(request,{error:'Unable to save feedback'},503)}
   }
