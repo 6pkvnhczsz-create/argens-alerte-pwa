@@ -135,12 +135,17 @@ async function fetchMeteoToken(basic,fetchImpl,now){
  return cachedToken.value;
 }
 export async function fetchOfficialVigilance(env,{now=Date.now(),fetchImpl=fetch}={}){
- const fallback={status:env?.METEO_FRANCE_BASIC?'unavailable':'not_configured',provider:'Météo-France',department:'83',periods:[],link:OFFICIAL_LINK};
- if(!env?.METEO_FRANCE_BASIC)return fallback;
+ const configured=Boolean(env?.METEO_FRANCE_BASIC||env?.METEO_FRANCE_API_KEY);
+ const fallback={status:configured?'unavailable':'not_configured',provider:'Météo-France',department:'83',periods:[],link:OFFICIAL_LINK};
+ if(!configured)return fallback;
  try{
-  const token=await fetchMeteoToken(env.METEO_FRANCE_BASIC,fetchImpl,now);
+  // Météo-France accepts an API key directly. Prefer it when configured to avoid
+  // token portal HTML/interstitials; preserve existing OAuth2 as a fallback mode.
+  const headers=env.METEO_FRANCE_API_KEY?
+   {apikey:env.METEO_FRANCE_API_KEY,Accept:'application/json'}:
+   {Authorization:'Bearer '+await fetchMeteoToken(env.METEO_FRANCE_BASIC,fetchImpl,now),Accept:'application/json'};
   let response;
-  try{response=await fetchImpl(METEO_VIGILANCE,{headers:{Authorization:'Bearer '+token,Accept:'application/json'},
+  try{response=await fetchImpl(METEO_VIGILANCE,{headers,
    signal:AbortSignal.timeout(12000)})}catch{throw Error('bulletin_fetch_failed')}
   if(!response.ok)throw Error('bulletin_http_'+response.status);
   let bulletin;
