@@ -253,7 +253,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <p id="installBannerHint" class="note"></p>
   </div>
 </section>
-<div id="overview"><div class="hero"><div class="hero-orb" aria-hidden="true"></div><small>NIVEAU D’EAU ACTUEL</small><div class="station-heading"><span id="stationTitle">Roquebrune-sur-Argens</span><span id="stationUpdated" class="station-updated" aria-label="Date et heure de la dernière mesure"></span></div><div class="level"><span class="level-glass"><span id="level">—</span><span style="font-size:25px;letter-spacing:0"> m</span></span></div><div class="level-connector" aria-hidden="true"><svg viewBox="0 0 300 44" preserveAspectRatio="none" focusable="false"><path d="M150 0 V23 H50 V44" /></svg></div><div class="threshold-row" aria-label="Seuils indicatifs"><span class="threshold threshold-green" data-threshold="green">0–3 m</span><span class="threshold threshold-orange" data-threshold="orange">3–4,5 m</span><span class="threshold threshold-red" data-threshold="red">≥ 4,5 m</span></div><div id="status" class="threshold-message" role="status">Données en attente</div><div id="thresholdNotice" class="threshold-notice" hidden><div id="thresholdNoticeText">Aucun seuil d’alerte n’est défini pour cette station. Définissez vos seuils personnels dans les réglages.</div><button id="thresholdSettingsLink" type="button" style="margin-top:14px;padding:12px 18px;border:1px solid #ffffff99;border-radius:11px;background:#ffffffed;color:#195469;font:inherit;font-weight:700;cursor:pointer">⚙ Définir mes seuils</button></div><div class="sub" id="trend">Chargement des mesures</div><div class="hero-chart-head"><div class="hero-chart-label">ÉVOLUTION DU NIVEAU</div><div class="range-switch" role="group" aria-label="Période du graphique"><button type="button" data-hours="1" aria-pressed="true">1 h</button><button type="button" data-hours="6">6 h</button><button type="button" data-hours="12">12 h</button><button type="button" data-hours="24">24 h</button><button type="button" data-hours="48">48 h</button></div></div><div class="range-info" id="rangeInfo"></div><div class="chart-with-scale"><div class="height-scale height-scale-left" id="heightScaleLeft" aria-label="Hauteurs en mètres"></div><svg class="chart" id="chart" viewBox="0 0 340 110" preserveAspectRatio="none" aria-label="Évolution des dernières mesures"><path d="M0 106 H340" stroke="#456476" stroke-dasharray="5 5"/></svg><div class="height-scale height-scale-right" id="heightScaleRight" aria-hidden="true"></div></div><div class="chart-times" id="chartTimes" aria-label="Heures des mesures"></div><div class="hidden"><span id="readingTime"></span></div><div class="hero-source-footer" id="waterDataSource" aria-live="polite">Source: HUB’EAU</div></div>
+<div id="overview"><div class="hero"><div class="hero-orb" aria-hidden="true"></div><small>NIVEAU D’EAU ACTUEL</small><div class="station-heading"><span id="stationTitle">Roquebrune-sur-Argens</span><span id="stationUpdated" class="station-updated" aria-label="Date et heure de la dernière mesure"></span></div><div class="level"><span class="level-glass"><span id="level">—</span><span style="font-size:25px;letter-spacing:0"> m</span></span></div><div class="level-connector" aria-hidden="true" style="visibility:hidden"><svg viewBox="0 0 300 44" preserveAspectRatio="none" focusable="false"><path d="M150 0 V23 H50 V44" /></svg></div><div class="threshold-row" aria-label="Seuils indicatifs"><span class="threshold threshold-green" data-threshold="green">0–3 m</span><span class="threshold threshold-orange" data-threshold="orange">3–4,5 m</span><span class="threshold threshold-red" data-threshold="red">≥ 4,5 m</span></div><div id="status" class="threshold-message" role="status">Données en attente</div><div id="thresholdNotice" class="threshold-notice" hidden><div id="thresholdNoticeText">Aucun seuil d’alerte n’est défini pour cette station. Définissez vos seuils personnels dans les réglages.</div><button id="thresholdSettingsLink" type="button" style="margin-top:14px;padding:12px 18px;border:1px solid #ffffff99;border-radius:11px;background:#ffffffed;color:#195469;font:inherit;font-weight:700;cursor:pointer">⚙ Définir mes seuils</button></div><div class="sub" id="trend">Chargement des mesures</div><div class="hero-chart-head"><div class="hero-chart-label">ÉVOLUTION DU NIVEAU</div><div class="range-switch" role="group" aria-label="Période du graphique"><button type="button" data-hours="1" aria-pressed="true">1 h</button><button type="button" data-hours="6">6 h</button><button type="button" data-hours="12">12 h</button><button type="button" data-hours="24">24 h</button><button type="button" data-hours="48">48 h</button></div></div><div class="range-info" id="rangeInfo"></div><div class="chart-with-scale"><div class="height-scale height-scale-left" id="heightScaleLeft" aria-label="Hauteurs en mètres"></div><svg class="chart" id="chart" viewBox="0 0 340 110" preserveAspectRatio="none" aria-label="Évolution des dernières mesures"><path d="M0 106 H340" stroke="#456476" stroke-dasharray="5 5"/></svg><div class="height-scale height-scale-right" id="heightScaleRight" aria-hidden="true"></div></div><div class="chart-times" id="chartTimes" aria-label="Heures des mesures"></div><div class="hidden"><span id="readingTime"></span></div><div class="hero-source-footer" id="waterDataSource" aria-live="polite">Source: HUB’EAU</div></div>
 <div class="hidden" aria-hidden="true"><span id="delta"></span><span id="deltaPeriod"></span></div><div class="panel simulation-panel hidden"><strong>Tester les couleurs d’alerte (simulation uniquement)</strong><p class="note">Déplacez le curseur pour prévisualiser les couleurs. Les données réelles restent distinctes. Aperçu uniquement : les seuils réels sont configurés séparément.</p><div id="simulation" class="status green">Aperçu : vert</div><input type="range" min="1" max="4" step=".05" value="1.56" id="slider"><div class="muted" style="display:flex;justify-content:space-between"><span>1,00 m</span><span>4,00 m</span></div></div>
 <div id="forecastPanel" class="panel" style="margin-top:15px;text-align:center" aria-live="polite">
 <strong id="forecastHeading">🔎 Projection des seuils</strong>
@@ -458,47 +458,59 @@ function activeThresholds(code){return personalThresholds&&personalThresholds.co
 function renderThresholdLabels(code){const t=activeThresholds(code),fr=document.documentElement.lang!=='en',fmt=n=>n.toLocaleString(fr?'fr-FR':'en-GB',{maximumFractionDigits:2,minimumFractionDigits:2});const chips=document.querySelectorAll('[data-threshold]');if(chips.length===3){chips[0].textContent='< '+fmt(t.orange)+' m';chips[1].textContent=fmt(t.orange)+'–'+fmt(t.red)+' m';chips[2].textContent='≥ '+fmt(t.red)+' m'}const labels=document.querySelectorAll('#forecastResults .card small');if(labels.length===2){labels[0].textContent=(fr?'🟠 Seuil ':'🟠 Threshold ')+fmt(t.orange)+' m';labels[1].textContent=(fr?'🔴 Seuil ':'🔴 Threshold ')+fmt(t.red)+' m'}}
 function renderAlertRules(code){const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code),en=document.documentElement.lang==='en',fmt=n=>n.toLocaleString(document.documentElement.lang==='de'?'de-DE':en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});document.querySelector('#alertWaterHeading').textContent=en?'Water level':'Niveau d’eau';document.querySelector('#alertStationName').textContent=(en?'Flood thresholds · ':'Seuils de crue · ')+(stationTitle.textContent.trim()||code);document.querySelector('#alertGreenRule').textContent='< '+fmt(t.orange)+' m'+(en?' and rise < 30 cm/h':' et hausse < 30 cm/h');document.querySelector('#alertOrangeRule').textContent=fmt(t.orange)+(en?' to below ':' à moins de ')+fmt(t.red)+' m';document.querySelector('#alertRedRule').textContent='≥ '+fmt(t.red)+' m';document.querySelectorAll('[data-rapid-rule]').forEach(el=>el.hidden=false)}
 // Connect the current water-level tile to the actually active threshold tile.
+let connectorPending=false;
 function updateLevelConnector(){
- const connector=document.querySelector('.level-connector');
+ connectorPending=false;
+ const hero=document.querySelector('#overview .hero');
+ const connector=hero?.querySelector('.level-connector');
  const svg=connector?.querySelector('svg');
  const path=svg?.querySelector('path');
- const glass=document.querySelector('.level-glass');
- const active=document.querySelector('.threshold-row:not([hidden]) .threshold.is-current');
- if(!connector||!svg||!path)return;
- const show=!!(glass&&active&&document.querySelector('.hero').dataset.alert!=='unknown');
+ const glass=hero?.querySelector('.level-glass');
+ const row=hero?.querySelector('.threshold-row');
+ const active=row?.querySelector('.threshold.is-current');
+ if(!hero||!connector||!svg||!path)return;
+ const band=hero.dataset.alert;
+ const colors={green:'#50edb0',orange:'#ff9000',red:'#ff4558'};
+ const show=!!(glass&&active&&colors[band]&&active.dataset.threshold===band&&!row.hidden&&!document.querySelector('#overview').classList.contains('hidden'));
  connector.style.visibility=show?'visible':'hidden';
  if(!show)return;
  const rect=connector.getBoundingClientRect(),from=glass.getBoundingClientRect(),to=active.getBoundingClientRect();
- if(!rect.width||!rect.height)return;
- const x1=from.left+from.width/2-rect.left,x2=to.left+to.width/2-rect.left;
+ if(rect.width<=0||rect.height<=0||from.width<=0||to.width<=0)return;
+ const xStart=Math.round((from.left+from.width/2-rect.left)*10)/10;
+ const xEnd=Math.round((to.left+to.width/2-rect.left)*10)/10;
  const midY=Math.round(rect.height*.55);
- const colors={green:'#86e6b2',orange:'#ffba63',red:'#ff8f9b'};
- path.style.stroke=colors[active.dataset.threshold]||colors.green;
+ const xAlign=Math.abs(xStart-xEnd)<2;
  svg.setAttribute('viewBox','0 0 '+rect.width+' '+rect.height);
- // A single orthogonal route, aligned to the centres of the two tiles.
- // For the middle tile, draw one uninterrupted vertical segment.
- const xStart=Math.round(x1*10)/10,xEnd=Math.round(x2*10)/10;
- path.setAttribute('d',Math.abs(xStart-xEnd)<2
+ path.style.stroke=colors[band];
+ path.setAttribute('d',xAlign
   ?'M '+xStart+' 0 V '+rect.height
   :'M '+xStart+' 0 V '+midY+' H '+xEnd+' V '+rect.height);
 }
-function scheduleLevelConnector(){requestAnimationFrame(updateLevelConnector)}
-window.addEventListener('resize',scheduleLevelConnector);
-function refreshThresholdAppearance(code){
- const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code),local=code==='Y531201001'||custom;
- const latest=chartReadings[0],reference=latest&&chartReadings.find(x=>{const minutes=(latest.date-x.date)/60000;return minutes>=30&&minutes<=180});
- const riseRate=reference?(latest.value-reference.value)/10/((latest.date-reference.date)/3600000):null;
- const rapidRise=riseRate!==null&&riseRate>=RAPID_RISE_CM_PER_HOUR;
- const metres=latest?latest.value/1000:null,stale=!latest||Date.now()-latest.date.getTime()>3*3600000||Date.now()-latest.date.getTime()< -15*60000;
- const band=metres===null?'unknown':metres>=t.red||(riseRate!==null&&riseRate>=50)?'red':metres>=t.orange||rapidRise?'orange':'green';
- document.querySelector('.threshold-row').hidden=!local;
- document.querySelector('#thresholdNotice').hidden=local;
- document.querySelector('.hero').dataset.alert=stale||!local?'unknown':band;
- document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.toggle('is-current',!stale&&local&&x.dataset.threshold===band));scheduleLevelConnector();
- const statusEl=document.querySelector('#status');statusEl.className='threshold-message';
- statusEl.textContent=stale?mapText('● Mesure ancienne · statut non fiable','● Outdated reading · status unreliable'):!local?'':rapidRise&&metres<t.orange?mapText('● Montée rapide (≥ 30 cm/h)','● Rapid rise (≥ 30 cm/h)'):'';
+function scheduleLevelConnector(){
+ if(connectorPending)return;
+ connectorPending=true;
+ requestAnimationFrame(updateLevelConnector);
 }
-function applyPersonalThresholds(){renderThresholdLabels(activeStation);renderAlertRules(activeStation);refreshThresholdAppearance(activeStation);if(chartReadings.length)loadMeasurements(activeStation,{silent:true}).catch(console.warn)}
+window.addEventListener('resize',scheduleLevelConnector);
+window.addEventListener('load',scheduleLevelConnector);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleLevelConnector()});
+const connectorHero=document.querySelector('#overview .hero');
+connectorHero?.addEventListener('animationend',scheduleLevelConnector);
+if(document.fonts?.ready)document.fonts.ready.then(scheduleLevelConnector);
+if(typeof ResizeObserver!=='undefined'){
+ const observer=new ResizeObserver(scheduleLevelConnector);
+ ['.level-connector','.level-glass','.threshold-row'].forEach(selector=>{
+  const element=connectorHero?.querySelector(selector);
+  if(element)observer.observe(element);
+ });
+}
+if(typeof MutationObserver!=='undefined'&&connectorHero){
+ const observer=new MutationObserver(scheduleLevelConnector);
+ const row=connectorHero.querySelector('.threshold-row'),glass=connectorHero.querySelector('.level-glass');
+ if(row)observer.observe(row,{subtree:true,attributes:true,childList:true,characterData:true,attributeFilter:['class','hidden','style']});
+ if(glass)observer.observe(glass,{subtree:true,childList:true,characterData:true});
+ observer.observe(connectorHero,{attributes:true,attributeFilter:['data-alert']});
+}
 const RAPID_RISE_CM_PER_HOUR=30; // Seuil indicatif à valider localement.
 let activeStation='Y531201001',loadSequence=0;let chartHours=1,chartReadings=[];document.querySelectorAll('[data-hours]').forEach(b=>b.addEventListener('click',()=>{chartHours=Number(b.dataset.hours);document.querySelectorAll('[data-hours]').forEach(x=>x.setAttribute('aria-pressed',String(Number(x.dataset.hours)===chartHours)));drawChart(chartReadings)}));
 // Client-side service checks: reachability is not proof of scheduled push delivery.
@@ -559,8 +571,6 @@ function loadLocalWeather(){
   'The Météo-France radar API is connected. Displaying its own map requires processing georeferenced raw files.',
   'Die Météo-France-Radar-API ist verbunden. Für eine eigene Radarkarte müssen die Rohdaten erst geografisch aufbereitet werden.'));
 }
-loadLocalWeather();
-document.addEventListener('argens-language-changed',loadLocalWeather);
 function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
  const en=document.documentElement.lang==='en',de=document.documentElement.lang==='de';
@@ -1142,7 +1152,7 @@ function translate(text){if(lang==='de')return window.argensGermanText?window.ar
  .replace(' · données potentiellement anciennes',' · readings may be outdated')
  .replace(' cm/h (estimation)',' cm/h (estimated)');}
 function applyNode(node){if(node.nodeType!==3)return;const current=node.nodeValue;if(!current.trim())return;let fr=original.get(node);if(fr===undefined||current!==rendered.get(node)){fr=current;original.set(node,fr)}const next=lang==='de'?translate(fr):lang==='en'?translate(fr).replace(/^Sur (\d+ min)$/,'Over $1'):fr;rendered.set(node,next);if(current!==next)node.nodeValue=next}
-function walk(root){if(root.nodeType===3){applyNode(root);return}if(root.nodeType!==1&&root.nodeType!==9)return;const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);while(walker.nextNode())applyNode(walker.currentNode);if(root.nodeType===1||root.nodeType===9){for(const el of [...(root.nodeType===1?[root]:[]),...root.querySelectorAll('[placeholder],[aria-label]')])for(const attr of ['placeholder','aria-label']){if(!el.hasAttribute(attr))continue;const key='i18n'+attr;const fr=el.dataset[key]||el.getAttribute(attr);el.dataset[key]=fr;el.setAttribute(attr,lang==='fr'?fr:translate(fr))}}}
+function walk(root){if(root.nodeType===3){applyNode(root);return}if(root.nodeType!==1&&root.nodeType!==9)return;const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);while(walker.nextNode())applyNode(walker.currentNode);if(root.nodeType===1||root.nodeType===9){for(const el of [...(root.nodeType===1?[root]:[]),...root.querySelectorAll('[placeholder],[aria-label]')])for(const attr of ['placeholder','aria-label']){if(!el.hasAttribute(attr))continue;const key=attr==='aria-label'?'i18nAriaLabel':'i18nPlaceholder';const fr=el.dataset[key]||el.getAttribute(attr);el.dataset[key]=fr;el.setAttribute(attr,lang==='fr'?fr:translate(fr))}}}
 function setLanguage(next){if(!['fr','en','de'].includes(next))return;lang=next;localStorage.setItem('argens-language',lang);syncPushLanguage(lang);document.documentElement.lang=lang;document.title=lang==='de'?'Argens Alerte · Hochwasserüberwachung':lang==='en'?'Argens Alerte · Flood monitoring':'Argens Alerte · Surveillance des crues';document.querySelector('.lang-switch').setAttribute('aria-label',lang==='de'?'Sprache auswählen':lang==='en'?'Choose language':'Choisir la langue');document.dispatchEvent(new Event('argens-language-changed'));document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===lang)));walk(document);document.querySelector('#accountFirstName').placeholder=lang==='de'?'Vorname':lang==='en'?'First name':'Prénom';document.querySelector('#accountLastName').placeholder=lang==='de'?'Nachname':lang==='en'?'Last name':'Nom';renderAccountLocale()}
 function syncLegalLanguage(){const language=document.documentElement.lang;document.querySelectorAll('#legalInfo .legal-fr').forEach(el=>el.hidden=language!=='fr');document.querySelectorAll('#legalInfo .legal-en').forEach(el=>el.hidden=language!=='en');document.querySelectorAll('#legalInfo .legal-de').forEach(el=>el.hidden=language!=='de');document.querySelectorAll('#legalInfo [data-legal-fr]').forEach(el=>el.textContent=language==='de'?(el.dataset.legalDe||el.dataset.legalFr):language==='en'?el.dataset.legalEn:el.dataset.legalFr)}
 document.addEventListener('argens-language-changed',syncLegalLanguage);
@@ -1321,63 +1331,7 @@ accountRestore();
 setLanguage(lang);
 })();
 
-// Connect the measured water level to the currently active threshold band.
-// Use the same active-state class as the alert UI; never derive a second threshold.
-(function(){
-  const hero=document.querySelector('#overview .hero');
-  const connector=hero?.querySelector('.level-connector');
-  const glass=hero?.querySelector('.level-glass');
-  const row=hero?.querySelector('.threshold-row');
-  if(!connector||!glass||!row)return;
-  const svg=connector.querySelector('svg');
-  const path=connector.querySelector('path');
-  const colors={green:'#50edb0',orange:'#ff9000',red:'#ff4558'};
-  let pending=false;
-  function align(){
-    pending=false;
-    const band=hero.dataset.alert;
-    const pill=row.querySelector('.threshold.is-current');
-    if(!pill||!colors[band]||pill.dataset.threshold!==band){
-      connector.style.visibility='hidden';
-      return;
-    }
-    const bounds=connector.getBoundingClientRect();
-    const g=glass.getBoundingClientRect();
-    const p=pill.getBoundingClientRect();
-    if(!bounds.width||!g.width||!p.width)return;
-    // Orange is centered under the reading: one straight vertical segment.
-    // Green and red are offset: start at the upper card center, bend once,
-    // and finish exactly at the center of the active threshold pill.
-    const topCenter=g.left+g.width/2-bounds.left;
-    const pillCenter=p.left+p.width/2-bounds.left;
-    svg.setAttribute('viewBox',`0 0 ${bounds.width} 44`);
-    const d=band==='orange'
-      ? `M${pillCenter} 0 V44`
-      : `M${topCenter} 0 V23 H${pillCenter} V44`;
-    path.setAttribute('d',d);
-    path.style.stroke=colors[band];
-    connector.style.visibility='visible';
-  }
-  function schedule(){
-    if(pending)return;
-    pending=true;
-    requestAnimationFrame(align);
-  }
-  window.addEventListener('resize',schedule);
-  window.addEventListener('load',schedule);
-  if(document.fonts?.ready)document.fonts.ready.then(schedule);
-  if(typeof ResizeObserver!=='undefined'){
-    const observer=new ResizeObserver(schedule);
-    [connector,glass,row].forEach(el=>observer.observe(el));
-  }
-  if(typeof MutationObserver!=='undefined'){
-    const observer=new MutationObserver(schedule);
-    observer.observe(row,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','style']});
-    observer.observe(hero,{attributes:true,attributeFilter:['data-alert']});
-    observer.observe(glass,{childList:true,characterData:true,subtree:true});
-  }
-  schedule();
-})();
+// One connector renderer only: updateLevelConnector above owns all SVG position/color updates.
 </script>
 <script>
 /* Install help: native prompt on compatible Chromium browsers, honest steps on iOS. */
@@ -1462,6 +1416,9 @@ function earlyI18n(fr,en,de){
  return lang==='de'?de:lang==='en'?en:fr;
 }
 function earlyText(id,value){const node=document.getElementById(id);if(node)node.textContent=value}
+// The early-radar helpers live in this separate script; call the presenter only now.
+loadLocalWeather();
+document.addEventListener('argens-language-changed',loadLocalWeather);
 function earlyLine(text){
  const div=document.createElement('div');div.textContent=text;div.style.cssText='margin:7px 0;line-height:1.4';return div;
 }
