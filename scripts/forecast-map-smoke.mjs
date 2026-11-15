@@ -1,5 +1,5 @@
 // Simulate actual forecast page and official Hub'Eau station-coordinate responses.
-// This checks that one list per rainfall source and five genuine positioned pins
+// This checks that one list per rainfall source and five genuine gauge pins plus Roquebrune reference
 // work at runtime, without a real network or credential.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -75,7 +75,7 @@ assert.equal(pins.length,6,'Five current gauges plus the Roquebrune reference pi
 assert.equal(d.getElementById('upstreamMap').hidden,false,'Map must become visible');
 assert.equal(d.querySelectorAll('#upstreamMap .upstream-map-tooltip').length,0,'No permanent tooltip boxes');
 const flowIndex=[1,3,4,2,0]; // Endre, Nartuby, Aille, Argens Les Arcs, Argens Carcès
-for(let i=0;i<pins.length;i++){
+for(let i=0;i<5;i++){
  const p=pins[i],point=coords[flowIndex[i]];
  assert.equal(p.position[0],point[0]);
  assert.equal(p.position[1],point[1]);
@@ -130,5 +130,5 @@ for(const lang of ['de','en','fr']){
 d.querySelector('[data-tab="Alertes"]').click();
 assert.equal(d.querySelector('#pushSettings').classList.contains('hidden'),false,'Alerts still clickable');
 assert.deepEqual(errors,[],'No runtime errors after map/list or language changes');
-console.log('PASS: compact forecast lists, five verified station pins with readings, old-station removal, radar-last layout, translations, navigation');
+console.log('PASS: five gauge trends, one popup per pin, Roquebrune reference marker, old-gauge removal, radar-last layout, translations');
 process.exit(0);
