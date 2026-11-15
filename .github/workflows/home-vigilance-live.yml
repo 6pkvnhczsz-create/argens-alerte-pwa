@@ -1,0 +1,45 @@
+name: Live departmental official vigilance by home gauge
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/home-vigilance-live.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  official-vigilance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify the same official API selects different real French departments
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,time,urllib.request,urllib.parse,urllib.error
+          base='https://argens-alerte-push.p-hammerschmidt.workers.dev/api/vigilance/station'
+          headers={'User-Agent':'RiviereAlerteRadarSync/1.0 (+https://riviere-alerte.fr)',
+                   'Origin':'https://riviere-alerte.fr','Accept':'application/json'}
+          for code,expected in [('Y531201001','83'),('O200004001','31')]:
+            for attempt in range(10):
+              url=base+'?'+urllib.parse.urlencode({'station':code})
+              try:
+                with urllib.request.urlopen(urllib.request.Request(url,headers=headers),timeout=25) as res:
+                  data=json.load(res)
+                assert data.get('ok') is True and data.get('station')==code,data
+                assert data.get('department')==expected,('wrong department',expected,data)
+                status=data.get('status')
+                assert status in ('official','unavailable','not_configured'),status
+                if status=='official':
+                  periods=data.get('periods') or []
+                  assert periods,('no official warning periods',data)
+                  assert all(p.get('color') in ('green','yellow','orange','red') for p in periods)
+                  print('PASS',code,'department',expected,'official',[(p['period'],p['color']) for p in periods])
+                else:
+                  assert not data.get('periods'),('fabricated warning levels',data)
+                  print('PASS',code,'department',expected,'official data',status,'no inferred levels')
+                break
+              except (Exception,) as error:
+                print('RETRY',code,attempt+1,str(error)[:250])
+                if attempt==9:raise
+                time.sleep(10)
+          PY
