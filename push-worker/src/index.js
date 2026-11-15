@@ -488,6 +488,24 @@ export default {
     return json(request,{ok:true});
    }catch(e){console.error('Device link failed',String(e));return json(request,{error:'Unable to link device'},500)}
   }
+  if(url.pathname==='/feedback' && request.method==='POST'){
+   if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
+   if(!env.DB)return json(request,{error:'Database unavailable'},503);
+   const user=await authUser(request,env.DB);if(!user)return json(request,{error:'Sign in required'},401);
+   const raw=await request.text();if(raw.length>2400)return json(request,{error:'Message too long'},413);
+   let data;try{data=JSON.parse(raw)}catch{return json(request,{error:'Invalid request'},400)}
+   if(!['idea','problem','other'].includes(data.kind)||typeof data.message!=='string'||data.message.trim().length<5||data.message.trim().length>1000)return json(request,{error:'Invalid message'},400);
+   try{
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS app_feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, kind TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'new', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS feedback_rate_limit (user_id TEXT PRIMARY KEY,last_sent INTEGER NOT NULL)').run();
+    const now=Date.now();
+    const last=await env.DB.prepare('SELECT last_sent FROM feedback_rate_limit WHERE user_id=?').bind(user.id).first();
+    if(last&&now-Number(last.last_sent)<60000)return json(request,{error:'Please wait a minute before sending another message'},429);
+    await env.DB.prepare('INSERT INTO app_feedback(user_id,kind,message) VALUES(?,?,?)').bind(user.id,data.kind,data.message.trim()).run();
+    await env.DB.prepare('INSERT INTO feedback_rate_limit(user_id,last_sent) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET last_sent=excluded.last_sent').bind(user.id,now).run();
+    return json(request,{ok:true});
+   }catch(e){console.error('Feedback submission error',String(e));return json(request,{error:'Unable to save feedback'},503)}
+  }
   if(url.pathname==='/unsubscribe' && request.method==='POST'){
    if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
    const user=await authUser(request,env.DB);
