@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parsePiafCapabilities,buildPiafMapUrl,fetchPiafFrame,PIAF_LAYER} from '../src/piaf-map.mjs';
+import {parsePiafCapabilities,buildPiafMapUrl,fetchPiafFrame,buildPiafLegendUrl,fetchPiafLegend,PIAF_LAYER} from '../src/piaf-map.mjs';
 const now=Date.parse('2026-11-15T20:30:00Z'),run='2026-11-15T20:25:00Z';
 const layer=PIAF_LAYER;
 const xml=`<?xml version="1.0"?><WMS_Capabilities><Capability><Layer><Layer><Name>${layer}</Name>
@@ -48,4 +48,24 @@ test('a PNG is returned only if type, size and header are valid',async()=>{
  await assert.rejects(fetchPiafFrame({METEO_FRANCE_PIAF_API_KEY:'test-local'},meta,meta.frames[0],{
   fetchImpl:async()=>new Response('<xml/>',{headers:{'Content-Type':'text/xml'}})
  }),/no PNG/);
+});
+
+test('official PIAF legend is requested for exactly the displayed layer/style',async()=>{
+ const url=new URL(buildPiafLegendUrl(meta));
+ assert.match(url.pathname,/GetLegendGraphic$/);
+ assert.equal(url.searchParams.get('layer'),PIAF_LAYER);
+ assert.equal(url.searchParams.get('style'),meta.style);
+ assert.equal(url.searchParams.get('format'),'image/png');
+ const png=new Uint8Array(90);png.set([137,80,78,71,13,10,26,10],0);
+ const bytes=await fetchPiafLegend({METEO_FRANCE_PIAF_API_KEY:'local-test'},meta,{
+  fetchImpl:async(uri,opts)=>{
+   assert.match(uri,/GetLegendGraphic/);
+   assert.equal(opts.headers.apikey,'local-test');
+   return new Response(png,{headers:{'Content-Type':'image/png'}});
+  }
+ });
+ assert.equal(bytes.length,90);
+ await assert.rejects(fetchPiafLegend({METEO_FRANCE_PIAF_API_KEY:'local-test'},meta,{
+  fetchImpl:async()=>new Response('<Error>Bad legend</Error>',{headers:{'Content-Type':'text/xml'},status:200})
+ }),/not PNG/);
 });
