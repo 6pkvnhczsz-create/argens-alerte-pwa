@@ -1,0 +1,24 @@
+name: German admin feedback translation checks
+
+on:
+  pull_request:
+    paths:
+      - 'push-worker/src/feedback-translation.mjs'
+      - 'push-worker/src/index.js'
+      - 'push-worker/wrangler.jsonc'
+      - 'admin-worker/src/index.js'
+      - 'push-worker/test/feedback-translation.test.mjs'
+      - '.github/workflows/feedback-translation-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  translation-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test translated feedback, admin UI and original preservation
+        run: node --test push-worker/test/feedback-translation.test.mjs
