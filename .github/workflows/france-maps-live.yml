@@ -28,7 +28,7 @@ jobs:
               roquebrune=metadata('Y531201001')
               toulouse=metadata('O200004001')
               assert roquebrune.get('station',{}).get('code')=='Y531201001'
-              assert roquebrune.get('bounds')==[5.85,43.18,6.91,43.85]
+              assert roquebrune.get('bounds')==[5.6331,42.8097,7.6331,44.0897]
               st=toulouse.get('station',{})
               assert st.get('code')=='O200004001',st
               assert 43.4<float(st['lat'])<43.8 and 1.2<float(st['lon'])<1.7,st
@@ -57,7 +57,12 @@ jobs:
               data=json.load(res)
             assert data.get('hydrologicalConnectivity')=='directed_verified_local_only'
             assert data.get('home',{}).get('code')=='O200004001'
-            print('LOCAL TOPAGE STATUS',data['status'],'verified current gauges',len(data.get('stations',[])))
+            assert data.get('nearbyRadiusKm')==40,data
+            assert isinstance(data.get('nearby'),list),data
+            assert all(x.get('classification')=='nearby_not_verified' and 0<=x.get('distanceKm',-1)<=40 for x in data['nearby']),data
+            assert isinstance(data.get('stations'),list),data
+            assert all(x['code'] not in {y['code'] for y in data['stations']} for x in data['nearby']),data
+            print('40-KM TOPAGE STATUS',data['status'],'verified upstream',len(data.get('stations',[])),'nearby not verified',len(data.get('nearby',[])))
           except urllib.error.HTTPError as e:
             print('LOCAL TOPAGE NOT VERIFIED',e.code,e.read(120).decode('utf-8','replace'))
           PY

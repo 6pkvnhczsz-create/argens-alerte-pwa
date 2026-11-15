@@ -24,7 +24,7 @@ test('WMS request keeps time, reference time, colour style and EPSG:4326 latitud
  assert.equal(url.searchParams.get('reference_time'),run);
  assert.equal(url.searchParams.get('time'),meta.frames[0]);
  assert.equal(url.searchParams.get('crs'),'EPSG:4326');
- assert.equal(url.searchParams.get('bbox'),'43.18,5.85,43.85,6.91');
+ assert.equal(url.searchParams.get('bbox'),'42.8097,5.6331,44.0897,7.6331');
  assert.equal(url.searchParams.get('layers'),PIAF_LAYER);
  assert.equal(url.searchParams.get('styles'),'PRECIP__GROUND__RADAR_SHADING');
  assert.equal(url.searchParams.get('transparent'),'true');
