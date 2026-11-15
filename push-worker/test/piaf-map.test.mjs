@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {parsePiafCapabilities,buildPiafMapUrl,fetchPiafFrame,PIAF_LAYER} from '../src/piaf-map.mjs';
 const now=Date.parse('2026-11-15T20:30:00Z'),run='2026-11-15T20:25:00Z';
 const layer=PIAF_LAYER;
-const xml=\`<?xml version="1.0"?><WMS_Capabilities><Capability><Layer><Layer><Name>\${layer}</Name>
-<Dimension name="reference_time" default="\${run}">2026-11-15T20:20:00Z,\${run}</Dimension>
+const xml=`<?xml version="1.0"?><WMS_Capabilities><Capability><Layer><Layer><Name>${layer}</Name>
+<Dimension name="reference_time" default="${run}">2026-11-15T20:20:00Z,${run}</Dimension>
 <Dimension name="time" default="2026-11-15T20:30:00Z">2026-11-15T20:30:00Z,2026-11-15T20:35:00Z,2026-11-15T20:40:00Z</Dimension>
 <Style><Name>PRECIP__GROUND__NO_SHADING</Name></Style>
 <Style><Name>PRECIP__GROUND__RADAR_SHADING</Name></Style>
-</Layer></Layer></Capability></WMS_Capabilities>\`;
+</Layer></Layer></Capability></WMS_Capabilities>`;
 const meta=parsePiafCapabilities(xml,{now});
 test('approved layer, current run and only real forecast times',()=>{
  assert.equal(meta.source,'Météo-France PIAF');
