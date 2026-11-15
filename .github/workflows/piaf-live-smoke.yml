@@ -36,6 +36,15 @@ jobs:
               assert blob.startswith(b'\x89PNG\r\n\x1a\n') and len(blob)<=1500000,len(blob)
               assert (int.from_bytes(blob[16:20],'big'),int.from_bytes(blob[20:24],'big'))==(720,500)
               print('PASS official PIAF',data['referenceTime'],'first valid time',frame,'frames',len(frames),'png bytes',len(blob))
+              legend_req=urllib.request.Request(base+'/legend',headers={'Accept':'image/png','Origin':'https://riviere-alerte.fr','User-Agent':'RiviereAlerteRadarSync/1.0 (+https://riviere-alerte.fr)'})
+              try:
+                with urllib.request.urlopen(legend_req,timeout=28) as legend_response:
+                  legend=legend_response.read(1500001)
+                  legend_type=legend_response.headers.get('Content-Type','')
+                assert legend_type=='image/png' and legend.startswith(blob[:8])
+                print('PASS official same-style PIAF legend',len(legend),'bytes')
+              except urllib.error.HTTPError as legend_error:
+                print('OFFICIAL PIAF LEGEND UNAVAILABLE',legend_error.code,legend_error.read(200).decode('utf-8','replace'))
               break
             except urllib.error.HTTPError as ex:
               last='HTTP '+str(ex.code)
