@@ -1587,25 +1587,36 @@ async function officialUpstreamPosition(code){
  upstreamPositionRequests.set(code,promise);
  return promise;
 }
-// The order is nearest first by approximate crow-flight distance to the downstream
-// Roquebrune hydrometric gauge. Distances are NOT river-route distances or
-// estimates of how quickly any flood wave will reach Roquebrune.
+// The map order now follows hydrographic confluences, not geographical distances.
 const ROQUEBRUNE_STATION_FALLBACK={lat:43.4497,lon:6.6331};
 let upstreamMarkerByCode=new Map();
-function upstreamAirDistanceKm(point,reference){
- const rad=x=>x*Math.PI/180;
- const dLat=rad(point.lat-reference.lat),dLon=rad(point.lon-reference.lon);
- const a=Math.sin(dLat/2)**2+Math.cos(rad(reference.lat))*Math.cos(rad(point.lat))*Math.sin(dLon/2)**2;
- return 6371*2*Math.asin(Math.min(1,Math.sqrt(a)));
-}
-function upstreamDistanceLabel(km,locale){
- return (Math.round(km*10)/10).toLocaleString(locale,{maximumFractionDigits:1})+' km';
+// Hydrological junction order, downstream toward upstream. Different tributaries
+// are parallel branches: numbers indicate where branches join the Argens, NOT
+// river-route kilometres, a linear chain of gauges, or flood-wave travel time.
+// Official HydroPortail metadata: Argens Y531 is downstream of Endre Y530;
+// Endre lies downstream of Nartuby; Les Arcs RN7 is above Aille confluence.
+const UPSTREAM_CONFLUENCE_ORDER=[
+ 'Y530501501', // 1 Endre, nearest junction downstream
+ 'Y523501002', // 2 Nartuby
+ 'Y521502002', // 3 Aille
+ 'Y520201001', // 4 main Argens before Aille
+ 'Y511201001'  // 5 main Argens further upstream
+];
+function upstreamConfluenceNote(code){
+ const notes={
+  Y530501501:['Endre · confluent près du Muy','Endre · joins near Le Muy','Endre · Mündung bei Le Muy'],
+  Y523501002:['Nartuby · confluent avant l’Endre','Nartuby · joins before the Endre','Nartuby · Mündung oberhalb der Endre'],
+  Y521502002:['Aille · confluent aux Arcs','Aille · joins near Les Arcs','Aille · Mündung bei Les Arcs'],
+  Y520201001:['Argens · en amont de l’Aille','Argens · above the Aille confluence','Argens · oberhalb der Aille-Mündung'],
+  Y511201001:['Argens · en amont des Arcs','Argens · upstream of Les Arcs','Argens · oberhalb von Les Arcs']
+ };
+ return earlyI18n(...(notes[code]||['Affluent de l’Argens','Argens tributary','Argens-Zufluss']));
 }
 function renderUpstreamOrderedList(items,locale,fmt){
  const panel=document.getElementById('earlyUpstreamRows');
  panel.replaceChildren();
  panel.hidden=items.length===0;
- for(const {g,point,rank,distanceKm} of items){
+ for(const {g,point,rank} of items){
   const mapped=Boolean(point&&rank);
   const node=document.createElement(mapped?'button':'div');
   if(mapped)node.type='button';
@@ -1613,13 +1624,11 @@ function renderUpstreamOrderedList(items,locale,fmt){
   if(mapped)node.setAttribute('aria-label',String(rank)+'. '+g.name+
    ', '+fmt(g.levelM)+' m, '+(g.trendCmH>=0?'+':'')+fmt(g.trendCmH)+' cm/h');
   const marker=document.createElement('span');marker.className='upstream-distance-rank';
-  marker.textContent=mapped?String(rank):'–';
+  marker.textContent=rank?String(rank):'–';
   const details=document.createElement('span');details.className='upstream-distance-info';
   const title=document.createElement('strong');title.textContent=g.name;
   const subtitle=document.createElement('small');
-  subtitle.textContent=mapped?
-   upstreamDistanceLabel(distanceKm,locale)+' '+earlyI18n('à vol d’oiseau','straight line','Luftlinie'):
-   earlyI18n('Localisation non disponible','Location unavailable','Standort nicht verfügbar');
+  subtitle.textContent=upstreamConfluenceNote(g.code)+(point?'':earlyI18n(' · position indisponible',' · location unavailable',' · Position nicht verfügbar'));
   details.append(title,subtitle);
   const level=document.createElement('span');level.className='upstream-distance-values';
   const height=document.createElement('strong');height.textContent=fmt(g.levelM)+' m';
@@ -1680,11 +1689,11 @@ async function updateUpstreamMap(){
  ]);
  if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden'))return;
  const reference=referencePosition||ROQUEBRUNE_STATION_FALLBACK;
- const mapped=positions.filter(x=>x.point).map(x=>({...x,distanceKm:upstreamAirDistanceKm(x.point,reference)}))
-  .sort((a,b)=>a.distanceKm-b.distanceKm||String(a.g.code).localeCompare(String(b.g.code)))
-  .map((entry,i)=>({...entry,rank:i+1}));
- const missing=positions.filter(x=>!x.point);
- renderUpstreamOrderedList([...mapped,...missing],locale,fmt);
+ const ordered=positions.map(({g,point})=>({g,point,rank:UPSTREAM_CONFLUENCE_ORDER.indexOf(g.code)+1}))
+  .sort((a,b)=>a.rank-b.rank||String(a.g.code).localeCompare(String(b.g.code)));
+ const mapped=ordered.filter(x=>x.point);
+ const missing=ordered.filter(x=>!x.point);
+ renderUpstreamOrderedList(ordered,locale,fmt);
  if(!mapped.length){
   mapNode.hidden=true;
   if(upstreamMapMarkers)upstreamMapMarkers.clearLayers();
@@ -1725,15 +1734,15 @@ async function updateUpstreamMap(){
   upstreamMapInstance.fitBounds(bounds,{padding:[32,32],maxZoom:10,animate:false});
   requestAnimationFrame(()=>upstreamMapInstance?.invalidateSize());
   earlyText('upstreamMapMessage',earlyI18n(
-   'Ordre : de la station la plus proche à la plus éloignée de Roquebrune · distance à vol d’oiseau, pas de durée d’écoulement.',
-   'Order: nearest to farthest from Roquebrune · straight-line distance, not flood travel time.',
-   'Reihenfolge: nächste bis weiteste Station von Roquebrune · Luftlinie, keine Fließzeit.')+
+   'Ordre des confluences sur l’Argens, de l’aval vers l’amont. Les affluents sont des branches distinctes ; pas une distance ni un temps de crue.',
+   'Junction order along the Argens, downstream to upstream. Tributaries are separate branches, not distances or flood travel times.',
+   'Reihenfolge der Einmündungen in den Argens, von unten nach oben. Nebenflüsse sind getrennte Äste; keine Fließstrecke oder Hochwasser-Laufzeit.')+
    (missing.length?earlyI18n(' · Autres mesures sans position',' · Other readings without location',' · Weitere Messwerte ohne Position'):''));
  }catch(error){
   if(id!==upstreamMapUpdateId)return;
   mapNode.hidden=true;
   upstreamMarkerByCode.clear();
-  renderUpstreamOrderedList([...mapped,...missing],locale,fmt);
+  renderUpstreamOrderedList(ordered,locale,fmt);
   earlyText('upstreamMapMessage',earlyI18n('Carte indisponible · données classées ci-dessous','Map unavailable · ranked readings below','Karte nicht verfügbar · geordnete Messwerte unten'));
  }
 }
