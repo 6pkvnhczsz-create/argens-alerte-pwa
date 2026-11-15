@@ -1,0 +1,23 @@
+name: Early signal sources and public indicators
+
+on:
+  pull_request:
+    paths:
+      - 'push-worker/src/early-signals.mjs'
+      - 'push-worker/src/index.js'
+      - 'push-worker/test/early-signals.test.mjs'
+      - 'index.html'
+      - '.github/workflows/early-signals-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check official warnings, rainfall, upstream trends and untouched alert thresholds
+        run: node --test push-worker/test/early-signals.test.mjs push-worker/test/water-sources.test.mjs
