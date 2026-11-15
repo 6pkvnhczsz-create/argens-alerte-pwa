@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
  getHydroObservations,
  readVigicruesObservations,
+ readHubObservations,
  parseHubObservations,
  parseVigicruesObservations,
  validHydroStation
@@ -81,4 +82,17 @@ test('only permits canonical hydrometric station codes',()=>{
  assert.equal(validHydroStation(station),true);
  assert.equal(validHydroStation('https://example.com'),false);
  assert.equal(validHydroStation('../secret'),false);
+});
+
+test('Cloudflare hydrometry requests use only one compatible cache directive',async()=>{
+ const called=[];
+ const fetchImpl=async(url,options)=>{
+  called.push({url,options});
+  return {ok:true,status:200,json:async()=>hub};
+ };
+ const result=await readHubObservations(station,{fetchImpl});
+ assert.equal(result.source,'hubeau');
+ assert.equal(called.length,1);
+ assert.equal(called[0].options.cf.cacheTtl,0);
+ assert.equal(called[0].options.cache,undefined,'Do not combine cache: no-store with cf.cacheTtl: 0 in Cloudflare Workers');
 });

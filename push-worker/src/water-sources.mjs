@@ -47,7 +47,6 @@ export function assertFresh(points, now=Date.now()) {
 async function readJson(url, fetchImpl=fetch) {
  const response=await fetchImpl(url,{
   headers:{Accept:'application/json'},
-  cache:'no-store',
   signal:AbortSignal.timeout(11000),
   cf:{cacheTtl:0}
  });
