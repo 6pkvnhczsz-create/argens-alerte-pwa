@@ -29,7 +29,13 @@
   // Radar Synergie shading progresses from violet through blue/cyan, green,
   // yellow and orange/red as rain intensifies. These bins retain the *order*
   // of hues, not unverified rainfall-intensity thresholds.
-  if(h>=275)return 0;
+  if(h>=275){
+   // In the published Météo-France radar scale, deep violet can represent
+   // very weak rain, but bright magenta is a separate extreme category.
+   // Never downgrade a bright magenta pixel to the light-blue low band.
+   if(r>=180&&b>=160&&g<=110)return 5;
+   return 0;
+  }
   if(h>=225)return 1;
   if(h>=175)return 2;
   if(h>=75)return 3;
