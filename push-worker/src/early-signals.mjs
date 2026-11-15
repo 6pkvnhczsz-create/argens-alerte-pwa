@@ -118,9 +118,9 @@ async function fetchMeteoToken(basic,fetchImpl,now){
   headers:{Authorization:'Basic '+basic,'Content-Type':'application/x-www-form-urlencoded',Accept:'application/json'},
   body:'grant_type=client_credentials',signal:AbortSignal.timeout(9000)
  });
- if(!response.ok)throw Error('Meteo-France authorization unavailable');
+ if(!response.ok)throw Error('token_http_'+response.status);
  const reply=await response.json();
- if(typeof reply.access_token!=='string'||reply.access_token.length<10)throw Error('Meteo-France token unavailable');
+ if(typeof reply.access_token!=='string'||reply.access_token.length<10)throw Error('token_missing');
  const age=Math.min(3300,Math.max(60,Number(reply.expires_in)||3600));
  cachedToken={basic,value:reply.access_token,until:now+age*1000};
  return cachedToken.value;
@@ -132,11 +132,19 @@ export async function fetchOfficialVigilance(env,{now=Date.now(),fetchImpl=fetch
   const token=await fetchMeteoToken(env.METEO_FRANCE_BASIC,fetchImpl,now);
   const response=await fetchImpl(METEO_VIGILANCE,{headers:{Authorization:'Bearer '+token,Accept:'application/json'},
    signal:AbortSignal.timeout(12000),cf:{cacheTtl:600}});
-  if(!response.ok)throw Error('Official vigilance feed unavailable');
+  if(!response.ok)throw Error('bulletin_http_'+response.status);
   return parseMeteoVigilance(await response.json(),{now});
  }catch(error){
-  console.warn('Meteo-France vigilance unavailable',String(error?.message||error));
-  return fallback;
+  // Only fixed diagnostic codes are exposed; credentials, response bodies and tokens never are.
+  const message=String(error?.message||'');
+  const code=/^(?:token_http|bulletin_http)_\d{3}$/.test(message)?message
+   :message==='token_missing'?'token_missing'
+   :message==='Invalid Meteo-France product'?'invalid_bulletin'
+   :message==='Outdated Meteo-France bulletin'?'outdated_bulletin'
+   :message==='No valid Var vigilance period'?'missing_var_period'
+   :'request_or_format_error';
+  console.warn('Meteo-France vigilance unavailable:',code);
+  return {...fallback,diagnostic:code};
  }
 }
 export async function buildEarlySignals(env,{now=Date.now(),fetchImpl=fetch}={}){
