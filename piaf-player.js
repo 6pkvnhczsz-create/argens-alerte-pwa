@@ -11,7 +11,7 @@
   document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',
   {hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'});
  const slider=id('piafSlider'),play=id('piafPlay'),mapNode=id('piafForecastMap'),controls=id('piafForecastControls');
- const legend=id('piafLegendImage'),legendFallback=id('piafLegendFallback');
+ const palette=window.PiafPalette;
  let map=null,overlay=null,model=null,frameIndex=0,loading=false,lastCheck=0,requestSerial=0;
  let playback=false,playTimer=null,drawSerial=0,preloadRun=0;
  const cache=new Map(),queued=[],pending=new Map();
@@ -32,37 +32,30 @@
    'Prévision Météo-France PIAF, par pas de 5 min. Ni radar mesuré, ni prévision de crue. Sans effet sur les alertes.',
    'Météo-France PIAF forecast in 5-minute steps. Not measured radar or a flood forecast. Does not affect alerts.',
    'Météo-France PIAF-Prognose in 5-Minuten-Schritten. Kein gemessener Regen und keine Hochwasserprognose. Warnungen unverändert.'));
-  text('piafLegendTitle',lang('Intensité de pluie prévue · mm/h','Forecast rain intensity · mm/h','Vorhergesagte Regenintensität · mm/h'));
+  text('piafLegendTitle',lang('Intensité relative de la pluie prévue','Relative forecast rain intensity','Relative Intensität des vorhergesagten Regens'));
+  const names=[
+   lang('Très faible','Very light','Sehr leicht'),
+   lang('Faible','Light','Leicht'),
+   lang('Modérée','Moderate','Mittel'),
+   lang('Soutenue','Steady','Kräftig'),
+   lang('Forte','Heavy','Stark'),
+   lang('Très forte','Very heavy','Sehr stark')
+  ];
+  for(let i=0;i<names.length;i++)text('piafBand'+i,names[i]);
+  text('piafLegendNote',lang(
+   'Couleurs choisies pour cette carte : échelle relative, sans seuils précis en mm/h. Les alertes restent indépendantes.',
+   'Custom map colours: relative intensity only, not precise mm/h thresholds. Flood alerts remain independent.',
+   'Eigene Kartenfarben: relative Regenstärke, keine exakten mm/h-Grenzen. Die Hochwasserwarnungen bleiben unabhängig.'));
   slider.setAttribute('aria-label',lang('Heure prévue','Forecast time','Vorhersagezeit'));
   play.setAttribute('aria-label',lang('Lancer ou arrêter l’animation','Play or pause animation','Animation starten oder pausieren'));
   mapNode.setAttribute('aria-label',lang('Carte de pluie prévue','Forecast rain map','Regenprognose-Karte'));
-  legend.alt=lang('Légende officielle des couleurs Météo-France PIAF',
-   'Official Météo-France PIAF colour legend','Offizielle Météo-France-PIAF-Farbskala');
+
   if(model){
    text('piafFrameTime',time(model.frames[frameIndex]));
    text('piafRunTime',lang('Modèle actualisé : ','Model run: ','Modelllauf: ')+time(model.referenceTime)+' · Météo-France');
    text('piafForecastStatus',lang('Pluie prévue à ','Forecast rain at ','Regenvorhersage für ')+time(model.frames[frameIndex])+' · PIAF');
   }
  }
- // Only a genuine legend from the same WMS style may claim exact mm/h values.
- legend.onload=()=>{
-  legend.hidden=false;legendFallback.hidden=true;
- };
- function fallbackLegendLabels(){
-  text('piafLegendFallbackIntro',lang(
-   'Repères indicatifs de l’échelle radar générale de Météo-France (et non une calibration vérifiée du style PIAF) :',
-   'Indicative ranges from Météo-France’s general radar scale (not a verified calibration of the PIAF style):',
-   'Orientierungswerte der allgemeinen Météo-France-Radarskala (keine bestätigte PIAF-Modell-Farbskala):'));
-  text('piafLegendFallbackNote',lang(
-   'mm/h · les valeurs des couleurs sont indicatives. La légende exacte du style PIAF n’est pas disponible.',
-   'mm/h · indicative values only. The exact PIAF style legend is not available.',
-   'mm/h · nur Richtwerte. Die exakte Farbzuordnung des PIAF-Kartenstils ist derzeit nicht verfügbar.'));
- }
- legend.onerror=()=>{
-  legend.hidden=true;legendFallback.hidden=false;
-  fallbackLegendLabels();
- };
- legend.src=API+'/legend';
  // Preload a limited window: 3 parallel requests max, ~8 images ahead.
  // No huge up-front downloads or network requests while page is hidden.
  function cancelPrefetch(){
@@ -74,11 +67,26 @@
    if(job.generation!==preloadRun||!model){job.resolve(false);continue}
    working++;
    const img=new Image();img.decoding='async';
+   // CORS is needed for an untainted canvas; our Cloudflare Worker grants
+   // the app's approved origins. If decoding fails, do not show raw purple PNG.
+   img.crossOrigin='anonymous';
    let done=false;
    const complete=async(ok)=>{
     if(done)return;done=true;
-    if(ok&&typeof img.decode==='function'){try{await img.decode()}catch{}}
-    if(job.generation===preloadRun&&ok)cache.set(job.index,img);
+    if(ok&&typeof img.decode==='function'){try{await img.decode()}catch{ok=false}}
+    if(job.generation===preloadRun&&ok){
+     try{
+      if(!palette)throw Error('PIAF palette unavailable');
+      const coloured=palette.recolorImage(img);
+      if(!coloured.startsWith('data:image/png;base64,'))throw Error('Invalid recoloured image');
+      cache.set(job.index,coloured);
+      // Bound data URL memory for long-running iPhone sessions.
+      if(cache.size>14){
+       for(const old of [...cache.keys()])if(old<frameIndex-2)cache.delete(old);
+       while(cache.size>14)cache.delete(cache.keys().next().value);
+      }
+     }catch(error){console.warn('PIAF color rendering unavailable',String(error?.message||''));ok=false}
+    }
     if(pending.get(job.index)===job.promise)pending.delete(job.index);
     working=Math.max(0,working-1);job.resolve(ok&&job.generation===preloadRun);pump();
    };
@@ -114,7 +122,7 @@
     }
     return false;
    }
-   const layer=window.L.imageOverlay(imageURL(desired),BOUNDS,{opacity:0,interactive:false});
+   const layer=window.L.imageOverlay(cache.get(desired),BOUNDS,{opacity:0,interactive:false});
    return new Promise(resolve=>{
     let finished=false;
     const finish=ok=>{
@@ -183,11 +191,17 @@
  mapLabels();labels();
  document.addEventListener('argens-language-changed',()=>{
   mapLabels();labels();
-  if(legend.hidden&&!legendFallback.hidden)fallbackLegendLabels();
+
  });
  document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
  async function load(){
   if(!mapVisible()||loading)return;
+  if(!palette){
+   text('piafForecastStatus',lang('La palette des couleurs ne peut pas être chargée.',
+    'The custom colour palette could not be loaded.',
+    'Die eigene Farbskala konnte nicht geladen werden.'));
+   return;
+  }
   if(model&&Date.now()-lastCheck<110000){map?.invalidateSize();return}
   loading=true;pause();const request=++requestSerial;
   text('piafForecastStatus',lang('Chargement de la prévision PIAF…','Loading PIAF forecast…','PIAF-Regenprognose wird geladen…'));
