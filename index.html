@@ -252,6 +252,16 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <p id="pushPreferencesDescription" class="note">Gérez les alertes sur cet appareil.</p>
 <label class="push-preferences-toggle" for="pushPreferencesToggle"><span id="pushPreferencesLabel">Notifications activées</span><input id="pushPreferencesToggle" type="checkbox" disabled aria-describedby="pushPreferencesStatus"></label>
 <p id="pushPreferencesStatus" class="note" role="status" aria-live="polite">Vérification du statut…</p>
+</section><section class="panel" id="feedbackPanel" style="margin-top:15px">
+<strong id="feedbackTitle">💬 Votre avis sur l’application</strong>
+<p class="note" id="feedbackIntro">Une idée, une suggestion ou un problème à signaler ? Envoyez-nous un court message. Connexion requise.</p>
+<form id="feedbackForm">
+<label for="feedbackKind" id="feedbackKindLabel">Type de message</label>
+<select id="feedbackKind" style="width:100%;padding:12px;border:1px solid #c7dbe3;border-radius:10px;background:white;margin:8px 0"><option value="idea">Idée ou souhait</option><option value="problem">Signaler un problème</option><option value="other">Autre commentaire</option></select>
+<label for="feedbackText" id="feedbackTextLabel">Votre message</label>
+<textarea id="feedbackText" maxlength="1000" rows="4" required placeholder="Écrivez votre message ici…" style="width:100%;padding:12px;border:1px solid #c7dbe3;border-radius:10px;font:inherit;resize:vertical;margin:8px 0"></textarea>
+<button type="submit" id="feedbackSend" class="push-cta-button">Envoyer le message</button>
+</form><p id="feedbackStatus" class="note" role="status" aria-live="polite"></p>
 </section><section class="panel" id="personalStationPanel" style="margin-top:15px"><strong id="personalStationTitle">🌊 Ma station et mes seuils</strong><p class="note" id="personalStationIntro"><a href="#mapPage" id="personalStationMapLink" style="color:#087f91;font-weight:700;text-decoration:underline">Choisissez votre station</a>, puis définissez vos seuils personnels. Connexion requise.</p><p id="personalStationName" class="note"></p><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0"><label><span id="personalOrangeLabel">🟠 Orange dès (m)</span><input id="personalOrange" type="number" min="0" max="100" step="0.01" value="3" style="width:100%;padding:12px;border:1px solid #cbdce4;border-radius:10px;font:inherit"></label><label><span id="personalRedLabel">🔴 Rouge dès (m)</span><input id="personalRed" type="number" min="0" max="100" step="0.01" value="4.5" style="width:100%;padding:12px;border:1px solid #cbdce4;border-radius:10px;font:inherit"></label></div><button id="savePersonalStation" type="button" style="padding:12px 18px;background:#087f91;color:white;border:0;border-radius:11px;font:inherit;font-weight:700">Enregistrer les seuils</button><p id="personalStationMessage" class="note" role="status"></p><p id="personalStationDisclaimer" class="note">Seuils personnels non officiels. Les alertes sont envoyées lors d’un changement de niveau, après enregistrement.</p></section><section class="panel" id="systemHealthPanel" style="margin-top:15px" aria-label="État des services">
 <strong id="systemHealthTitle">🛡 État des services</strong>
 <div style="display:grid;gap:10px;margin-top:12px;font-size:14px">
@@ -982,6 +992,41 @@ let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queue
 
 /* Optional email-code sign-in. Never claim sync until server-side group storage exists. */
 const accountTokenKey='argens-account-token-v1';
+function feedbackLanguage(){return document.documentElement.lang==='en'}
+function updateFeedbackForm(){
+ const en=feedbackLanguage(),token=localStorage.getItem('argens-account-token-v1'),logged=Boolean(token)&&!document.querySelector('#accountSignedIn').classList.contains('hidden');
+ document.querySelector('#feedbackTitle').textContent=en?'💬 Feedback & suggestions':'💬 Votre avis sur l’application';
+ document.querySelector('#feedbackIntro').textContent=en?'Have an idea, a suggestion, or a problem to report? Send us a short message. An account is required.':'Une idée, une suggestion ou un problème à signaler ? Envoyez-nous un court message. Un compte est nécessaire.';
+ document.querySelector('#feedbackKindLabel').textContent=en?'Message type':'Type de message';
+ document.querySelector('#feedbackKind').options[0].text=en?'Idea or feature request':'Idée ou souhait';
+ document.querySelector('#feedbackKind').options[1].text=en?'Report a problem':'Signaler un problème';
+ document.querySelector('#feedbackKind').options[2].text=en?'Other feedback':'Autre commentaire';
+ document.querySelector('#feedbackTextLabel').textContent=en?'Your message':'Votre message';
+ document.querySelector('#feedbackText').placeholder=en?'Write your message here…':'Écrivez votre message ici…';
+ document.querySelector('#feedbackSend').textContent=en?'Send message':'Envoyer le message';
+ document.querySelector('#feedbackSend').disabled=!logged;
+ document.querySelector('#feedbackText').disabled=!logged;
+ document.querySelector('#feedbackKind').disabled=!logged;
+ if(!logged)document.querySelector('#feedbackStatus').textContent=en?'Sign in above to send feedback.':'Connectez-vous ci-dessus pour envoyer un message.';
+ else if(document.querySelector('#feedbackStatus').textContent==='Connectez-vous ci-dessus pour envoyer un message.'||document.querySelector('#feedbackStatus').textContent==='Sign in above to send feedback.')document.querySelector('#feedbackStatus').textContent='';
+}
+document.querySelector('#feedbackForm').addEventListener('submit',async event=>{
+ event.preventDefault();const btn=document.querySelector('#feedbackSend'),status=document.querySelector('#feedbackStatus'),token=localStorage.getItem('argens-account-token-v1');
+ const message=document.querySelector('#feedbackText').value.trim();
+ if(!token){updateFeedbackForm();return}
+ if(message.length<5){status.textContent=feedbackLanguage()?'Please enter at least 5 characters.':'Écrivez au moins 5 caractères.';return}
+ btn.disabled=true;status.textContent=feedbackLanguage()?'Sending…':'Envoi en cours…';
+ try{
+  const response=await fetch(PUSH_API_URL+'/feedback',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({kind:document.querySelector('#feedbackKind').value,message})});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(result.error||'HTTP '+response.status);
+  document.querySelector('#feedbackText').value='';
+  status.textContent=feedbackLanguage()?'Thank you! Your message has been sent.':'Merci ! Votre message a été envoyé.';
+ }catch(e){status.textContent=(feedbackLanguage()?'Could not send message: ':'Envoi impossible : ')+e.message}
+ finally{updateFeedbackForm()}
+});
+document.addEventListener('argens-language-changed',updateFeedbackForm);
+
 async function linkCurrentPushDevice(){
  const token=localStorage.getItem('argens-account-token-v1');
  if(!token||!('serviceWorker' in navigator)||!('PushManager' in window))return;
@@ -993,7 +1038,7 @@ async function linkCurrentPushDevice(){
 
 const accountEmail=document.querySelector('#accountEmail'),accountMessage=document.querySelector('#accountMessage');
 const accountRequest=document.querySelector('#accountRequest'),accountVerify=document.querySelector('#accountVerify');
-function accountView(user){if(!user)document.querySelector('#accountDeleteConfirm').classList.add('hidden');document.querySelector('#accountSignedOut').classList.toggle('hidden',!!user);document.querySelector('#accountSignedIn').classList.toggle('hidden',!user);document.querySelector('#accountIdentity').textContent=user?([user.first_name,user.last_name].filter(Boolean).join(' ')+(user.first_name||user.last_name?' · ':'')+user.email):''}
+function accountView(user){if(!user)document.querySelector('#accountDeleteConfirm').classList.add('hidden');document.querySelector('#accountSignedOut').classList.toggle('hidden',!!user);document.querySelector('#accountSignedIn').classList.toggle('hidden',!user);document.querySelector('#accountIdentity').textContent=user?([user.first_name,user.last_name].filter(Boolean).join(' ')+(user.first_name||user.last_name?' · ':'')+user.email):'';updateFeedbackForm()}
 async function accountCall(path,body,token){
  const res=await fetch(PUSH_API_URL+'/auth/'+path,{method:path==='me'?'GET':'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{})});
  const data=await res.json().catch(()=>({}));if(!res.ok)throw Error(data.error||'Service unavailable');return data;
