@@ -518,7 +518,7 @@ document.addEventListener('argens-language-changed',()=>{renderSwarms();const in
 checkPushHealth();
 setInterval(()=>{if(!document.hidden){checkPushHealth();renderSystemHealth()}},5*60*1000);
 // Weather follows the station selected on the map; this does not change server-side alerts.
-let weatherLocation={lat:43.44,lon:6.64,name:'Roquebrune-sur-Argens'},weatherRequestId=0;
+let weatherLocation={lat:43.44,lon:6.64,name:'Roquebrune-sur-Argens'};
 function setWeatherStation(station){
  const lat=Number(station.latitude_station),lon=Number(station.longitude_station);
  if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
@@ -528,51 +528,28 @@ function setWeatherStation(station){
  loadLocalWeather();
 }
 // Informational weather widget; intentionally independent of flood alerts and push subscriptions.
-async function loadLocalWeather(){
- const requestId=++weatherRequestId,location={...weatherLocation};
- const en=document.documentElement.lang==='en',de=document.documentElement.lang==='de';
- const tr=(fr,english)=>mapText(fr,english);
- const summary=document.querySelector('#weatherSummary'),numbers=document.querySelector('#weatherNumbers');
- const heading=document.querySelector('#weatherHeading'),note=document.querySelector('#weatherNote');
- document.querySelector('#weatherHeadingTitle').textContent=tr('🌦️ Pluie et météo ☀️','🌦️ Rain and weather ☀️');document.querySelector('#weatherHeadingLocation').textContent=location.name;
- document.querySelector('#weatherPanel').setAttribute('aria-label',tr('Météo et pluie','Weather and rain'));
- document.querySelector('#weatherPanel iframe').setAttribute('title',tr('Radar de pluie · région de l’Argens','Rain radar · Argens area'));
- summary.textContent=tr('Chargement des données météo…','Loading weather data…');
- document.querySelector('#weatherPastLabel').textContent=tr('Pluie estimée · 24 h passées','Estimated rain · past 24 h');
- document.querySelector('#weatherSixLabel').textContent=tr('Pluie prévue · 6 h','Forecast rain · 6 h');
- document.querySelector('#weatherDayLabel').textContent=tr('Pluie prévue · 24 h','Forecast rain · 24 h');
- document.querySelector('#radarToggle').textContent=tr('🗺 Afficher le radar de pluie','🗺 Show rain radar');
- document.querySelector('#radarNote').textContent=tr('Radar fourni par Windy (service externe). La carte peut nécessiter une connexion Internet.','Radar by Windy (external service). Internet connection required.');
- document.querySelector('#radarLink').textContent=tr('Ouvrir le radar dans Windy','Open radar in Windy');
- note.textContent=tr('Estimations locales du modèle Open-Meteo : la pluie passée ne provient pas d’un pluviomètre et la pluie future est une prévision. Ces valeurs ne représentent pas tout le bassin versant et ne constituent pas une prévision de crue.','Local Open-Meteo model estimates: past rainfall is not a rain-gauge measurement, and future rainfall is a forecast. Neither represents the whole river catchment or constitutes a flood forecast.');
- try{
-  const url='https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(location.lat)+'&longitude='+encodeURIComponent(location.lon)+'&current=temperature_2m&hourly=precipitation&past_days=2&forecast_days=3&timezone=auto';
-  const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(12000)});
-  if(!response.ok)throw Error('weather unavailable');
-  const data=await response.json();if(requestId!==weatherRequestId)return;
-  const times=data.hourly?.time||[],rain=data.hourly?.precipitation||[];
-  const now=Date.now(),start=Math.floor(now/3600000)*3600000;
-  // Open-Meteo local timestamps use the forecast timezone, which can switch between CET and CEST.
-  // Use utc_offset_seconds to convert local wall-clock times to absolute instants.
-  const offset=Number(data.utc_offset_seconds||0)*1000;
-  const points=times.map((t,i)=>({t:Date.parse(t+'Z')-offset,v:Number(rain[i])}));
-  const future=points.filter(p=>p.t>=start&&Number.isFinite(p.v));
-  if(!future.length)throw Error('no forecast');
-  const sum=hours=>future.filter(p=>p.t<start+hours*3600000).reduce((a,p)=>a+p.v,0);
-  const locale=de?'de-DE':en?'en-GB':'fr-FR';
- const fmt=n=>n.toLocaleString(locale,{minimumFractionDigits:1,maximumFractionDigits:1})+' mm';
-  const past=points.filter(p=>p.t>=start-24*3600000&&p.t<start&&Number.isFinite(p.v));
-  document.querySelector('#weatherPast').textContent=past.length>=20?fmt(past.reduce((a,p)=>a+p.v,0)):tr('Indisponible','Unavailable');
-  document.querySelector('#weatherSix').textContent=fmt(sum(6));
-  document.querySelector('#weatherDay').textContent=fmt(sum(24));
-  const temp=data.current?.temperature_2m;
-  summary.textContent=tr('Température actuelle : ','Current temperature: ')+(Number.isFinite(temp)?temp.toLocaleString(locale,{maximumFractionDigits:1})+' °C':tr('indisponible','not available'));
-  numbers.classList.remove('hidden');healthState.weather='good';renderSystemHealth();
- }catch(err){if(requestId!==weatherRequestId)return;healthState.weather='bad';renderSystemHealth();numbers.classList.add('hidden');summary.textContent=tr('Données météo temporairement indisponibles. Le radar reste éventuellement accessible.','Weather data temporarily unavailable. Radar may still be accessible.');console.warn('Weather panel',err)}
+// The displayed rain forecasts now come solely from the Météo-France models
+// in the Early Signals snapshot. This presenter does not fetch duplicate rain
+// forecasts from Open-Meteo. Radar visualization remains clearly attributed.
+function loadLocalWeather(){
+ const l=weatherLocation;
+ earlyText('weatherHeadingTitle',earlyI18n('📡 Radar des précipitations','📡 Rain radar','📡 Regenradar'));
+ earlyText('weatherHeadingLocation',l.name);
+ const iframe=document.querySelector('#weatherPanel iframe');
+ if(iframe)iframe.title=earlyI18n('Radar de pluie · région de l’Argens','Rain radar · Argens basin','Regenradar · Argens-Einzugsgebiet');
+ earlyText('radarToggle',earlyI18n('🗺️ Afficher la carte radar','🗺️ Show radar map','🗺️ Radarkarte anzeigen'));
+ earlyText('radarNote',earlyI18n(
+  'Carte provisoire fournie par Windy (service externe), pas par l’API radar Météo-France.',
+  'Temporary radar map by Windy (external provider), not the Météo-France radar API.',
+  'Vorläufige Radarkarte von Windy (externer Anbieter), noch keine Darstellung der Météo-France-Radardaten.'));
+ earlyText('radarLink',earlyI18n('Ouvrir le radar dans Windy','Open radar in Windy','Radar bei Windy öffnen'));
+ earlyText('radarDataNote',earlyI18n(
+  'L’API radar Météo-France est connectée. Une carte issue de ces données nécessite un traitement géographique des fichiers bruts.',
+  'The Météo-France radar API is connected. Displaying its own map requires processing georeferenced raw files.',
+  'Die Météo-France-Radar-API ist verbunden. Für eine eigene Radarkarte müssen die Rohdaten erst geografisch aufbereitet werden.'));
 }
 loadLocalWeather();
-setInterval(()=>{if(!document.hidden)loadLocalWeather()},30*60*1000);
-document.addEventListener('argens-language-changed',()=>loadLocalWeather());
+document.addEventListener('argens-language-changed',loadLocalWeather);
 function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
  const en=document.documentElement.lang==='en',de=document.documentElement.lang==='de';
