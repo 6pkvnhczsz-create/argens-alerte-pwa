@@ -1020,7 +1020,7 @@ function translate(text){if(lang==='de')return window.argensGermanText?window.ar
  .replace(' cm/h (estimation)',' cm/h (estimated)');}
 function applyNode(node){if(node.nodeType!==3)return;const current=node.nodeValue;if(!current.trim())return;let fr=original.get(node);if(fr===undefined||current!==rendered.get(node)){fr=current;original.set(node,fr)}const next=lang==='de'?translate(fr):lang==='en'?translate(fr).replace(/^Sur (\d+ min)$/,'Over $1'):fr;rendered.set(node,next);if(current!==next)node.nodeValue=next}
 function walk(root){if(root.nodeType===3){applyNode(root);return}if(root.nodeType!==1&&root.nodeType!==9)return;const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);while(walker.nextNode())applyNode(walker.currentNode);if(root.nodeType===1||root.nodeType===9){for(const el of [...(root.nodeType===1?[root]:[]),...root.querySelectorAll('[placeholder],[aria-label]')])for(const attr of ['placeholder','aria-label']){if(!el.hasAttribute(attr))continue;const key='i18n'+attr;const fr=el.dataset[key]||el.getAttribute(attr);el.dataset[key]=fr;el.setAttribute(attr,lang==='fr'?fr:translate(fr))}}}
-function setLanguage(next){if(!['fr','en','de'].includes(next))return;lang=next;localStorage.setItem('argens-language',lang);syncPushLanguage(lang);document.documentElement.lang=lang;document.title=lang==='de'?'Argens Alerte · Hochwasserüberwachung':lang==='en'?'Argens Alerte · Flood monitoring':'Argens Alerte · Surveillance des crues';document.querySelector('.lang-switch').setAttribute('aria-label',lang==='de'?'Sprache auswählen':lang==='en'?'Choose language':'Choisir la langue');document.dispatchEvent(new Event('argens-language-changed'));document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===lang)));walk(document);document.querySelector('#accountFirstName').placeholder=lang==='de'?'Vorname':lang==='en'?'First name':'Prénom';document.querySelector('#accountLastName').placeholder=lang==='de'?'Nachname':lang==='en'?'Last name':'Nom'}
+function setLanguage(next){if(!['fr','en','de'].includes(next))return;lang=next;localStorage.setItem('argens-language',lang);syncPushLanguage(lang);document.documentElement.lang=lang;document.title=lang==='de'?'Argens Alerte · Hochwasserüberwachung':lang==='en'?'Argens Alerte · Flood monitoring':'Argens Alerte · Surveillance des crues';document.querySelector('.lang-switch').setAttribute('aria-label',lang==='de'?'Sprache auswählen':lang==='en'?'Choose language':'Choisir la langue');document.dispatchEvent(new Event('argens-language-changed'));document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===lang)));walk(document);document.querySelector('#accountFirstName').placeholder=lang==='de'?'Vorname':lang==='en'?'First name':'Prénom';document.querySelector('#accountLastName').placeholder=lang==='de'?'Nachname':lang==='en'?'Last name':'Nom';renderAccountLocale()}
 function syncLegalLanguage(){const language=document.documentElement.lang;document.querySelectorAll('#legalInfo .legal-fr').forEach(el=>el.hidden=language!=='fr');document.querySelectorAll('#legalInfo .legal-en').forEach(el=>el.hidden=language!=='en');document.querySelectorAll('#legalInfo .legal-de').forEach(el=>el.hidden=language!=='de');document.querySelectorAll('#legalInfo [data-legal-fr]').forEach(el=>el.textContent=language==='de'?(el.dataset.legalDe||el.dataset.legalFr):language==='en'?el.dataset.legalEn:el.dataset.legalFr)}
 document.addEventListener('argens-language-changed',syncLegalLanguage);
 // Open legal disclosures explicitly: hash navigation alone does not expand <details>.
@@ -1047,41 +1047,47 @@ let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queue
 /* Optional email-code sign-in. Never claim sync until server-side group storage exists. */
 const accountTokenKey='argens-account-token-v1';
 function feedbackLanguage(){return document.documentElement.lang==='en'}
+function feedbackText(fr,en){return mapText(fr,en)}
 function updateFeedbackForm(){
- const en=feedbackLanguage(),token=localStorage.getItem('argens-account-token-v1'),logged=Boolean(token)&&!document.querySelector('#accountSignedIn').classList.contains('hidden');
- document.querySelector('#feedbackTitle').textContent=en?'💬 Feedback & suggestions':'💬 Votre avis sur l’application';
- document.querySelector('#feedbackIntro').textContent=en?'Have an idea, a suggestion, or a problem to report? Send us a short message. An account is required.':'Une idée, une suggestion ou un problème à signaler ? Envoyez-nous un court message. Un compte est nécessaire.';
- document.querySelector('#feedbackKindLabel').textContent=en?'Message type':'Type de message';
- document.querySelector('#feedbackKind').options[0].text=en?'Idea or feature request':'Idée ou souhait';
- document.querySelector('#feedbackKind').options[1].text=en?'Report a problem':'Signaler un problème';
- document.querySelector('#feedbackKind').options[2].text=en?'Other feedback':'Autre commentaire';
- document.querySelector('#feedbackTextLabel').textContent=en?'Your message':'Votre message';
- document.querySelector('#feedbackText').placeholder=en?'Write your message here…':'Écrivez votre message ici…';
- document.querySelector('#feedbackSend').textContent=en?'Send message':'Envoyer le message';
+ const token=localStorage.getItem('argens-account-token-v1'),logged=Boolean(token)&&!document.querySelector('#accountSignedIn').classList.contains('hidden');
+ document.querySelector('#feedbackTitle').textContent=feedbackText('💬 Votre avis sur l’application','💬 Feedback & suggestions');
+ document.querySelector('#feedbackIntro').textContent=feedbackText('Une idée, une suggestion ou un problème à signaler ? Envoyez-nous un court message. Un compte est nécessaire.','Have an idea, a suggestion, or a problem to report? Send us a short message. An account is required.');
+ document.querySelector('#feedbackKindLabel').textContent=feedbackText('Type de message','Message type');
+ document.querySelector('#feedbackKind').options[0].text=feedbackText('Idée ou souhait','Idea or feature request');
+ document.querySelector('#feedbackKind').options[1].text=feedbackText('Signaler un problème','Report a problem');
+ document.querySelector('#feedbackKind').options[2].text=feedbackText('Autre commentaire','Other feedback');
+ document.querySelector('#feedbackTextLabel').textContent=feedbackText('Votre message','Your message');
+ document.querySelector('#feedbackText').placeholder=feedbackText('Écrivez votre message ici…','Write your message here…');
+ document.querySelector('#feedbackSend').textContent=feedbackText('Envoyer le message','Send message');
  document.querySelector('#feedbackSend').disabled=!logged;
  document.querySelector('#feedbackText').disabled=!logged;
  document.querySelector('#feedbackKind').disabled=!logged;
- if(!logged)document.querySelector('#feedbackStatus').textContent=en?'Sign in above to send feedback.':'Connectez-vous ci-dessus pour envoyer un message.';
- else if(document.querySelector('#feedbackStatus').textContent==='Connectez-vous ci-dessus pour envoyer un message.'||document.querySelector('#feedbackStatus').textContent==='Sign in above to send feedback.')document.querySelector('#feedbackStatus').textContent='';
+ const status=document.querySelector('#feedbackStatus');
+ const loginPrompt=feedbackText('Connectez-vous ci-dessus pour envoyer un message.','Sign in above to send feedback.');
+ const knownPrompts=['Connectez-vous ci-dessus pour envoyer un message.','Sign in above to send feedback.','Melden Sie sich oben an, um Feedback zu senden.'];
+ if(!logged)status.textContent=loginPrompt;
+ else if(knownPrompts.includes(status.textContent))status.textContent='';
 }
 document.querySelector('#feedbackForm').addEventListener('submit',async event=>{
  event.preventDefault();const btn=document.querySelector('#feedbackSend'),status=document.querySelector('#feedbackStatus'),token=localStorage.getItem('argens-account-token-v1');
  const message=document.querySelector('#feedbackText').value.trim();
  if(!token){updateFeedbackForm();return}
- if(message.length<5){status.textContent=feedbackLanguage()?'Please enter at least 5 characters.':'Écrivez au moins 5 caractères.';return}
- btn.disabled=true;status.textContent=feedbackLanguage()?'Sending…':'Envoi en cours…';
+ if(message.length<5){status.textContent=feedbackText('Écrivez au moins 5 caractères.','Please enter at least 5 characters.');return}
+ btn.disabled=true;status.textContent=feedbackText('Envoi en cours…','Sending…');
  try{
   const response=await fetch(PUSH_API_URL+'/feedback',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({kind:document.querySelector('#feedbackKind').value,message})});
   const result=await response.json().catch(()=>({}));
   if(!response.ok){
-   if(result.code==='feedback_daily_limit')throw Error(feedbackLanguage()?'You can send up to 5 messages within 24 hours. Please try again later.':'Vous pouvez envoyer 5 messages maximum sur 24 heures. Réessayez plus tard.');
-   if(result.code==='feedback_cooldown')throw Error(feedbackLanguage()?'Please wait at least one minute between messages.':'Veuillez attendre au moins une minute entre deux messages.');
+   if(result.code==='feedback_daily_limit')throw Error(feedbackText('Vous pouvez envoyer 5 messages maximum sur 24 heures. Réessayez plus tard.','You can send up to 5 messages within 24 hours. Please try again later.'));
+   if(result.code==='feedback_cooldown')throw Error(feedbackText('Veuillez attendre au moins une minute entre deux messages.','Please wait at least one minute between messages.'));
    throw Error(result.error||'HTTP '+response.status);
   }
   document.querySelector('#feedbackText').value='';
-  status.textContent=feedbackLanguage()?'Thank you! Your message has been sent.':'Merci ! Votre message a été envoyé.';
- }catch(e){status.textContent=(feedbackLanguage()?'Could not send message: ':'Envoi impossible : ')+e.message}
- finally{updateFeedbackForm()}
+  status.textContent=feedbackText('Merci ! Votre message a été envoyé.','Thank you! Your message has been sent.');
+ }catch(e){
+  const error=document.documentElement.lang==='de'&&window.argensGermanText?window.argensGermanText(e.message):e.message;
+  status.textContent=feedbackText('Envoi impossible : ','Could not send message: ')+error;
+ }finally{updateFeedbackForm()}
 });
 document.addEventListener('argens-language-changed',updateFeedbackForm);
 
@@ -1093,6 +1099,26 @@ async function linkCurrentPushDevice(){
  const response=await fetch(PUSH_API_URL+'/devices/link',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({endpoint:sub.endpoint})});
  if(!response.ok)console.warn('Device account link unavailable',response.status);
 }
+
+
+function renderAccountLocale(){
+ const t=(fr,en)=>mapText(fr,en);
+ const set=(selector,text)=>{const el=document.querySelector(selector);if(el&&el.textContent!==text)el.textContent=text};
+ set('#accountTitle',t('👤 Mon compte','👤 My account'));
+ set('#accountIntro',t('Créez votre compte gratuit pour recevoir des notifications en cas de crue de l’Argens ou de fortes pluies prévues. Renseignez votre prénom, votre nom et votre adresse e-mail.','Create your free account to receive notifications about flooding on the Argens or forecast heavy rainfall. Enter your first name, last name and email address.'));
+ set('label[for="accountFirstName"]',t('Prénom','First name'));
+ set('label[for="accountLastName"]',t('Nom','Last name'));
+ set('label[for="accountEmail"]',t('Adresse e-mail','Email address'));
+ set('label[for="accountCode"]',t('Code à 6 chiffres','6-digit code'));
+ document.querySelector('#accountFirstName').placeholder=t('Prénom','First name');
+ document.querySelector('#accountLastName').placeholder=t('Nom','Last name');
+ document.querySelector('#accountEmail').placeholder=t('nom@exemple.fr','name@example.com');
+ set('#accountRequest',t('Recevoir un code','Send code'));
+ set('#accountVerify',t('Valider','Verify'));
+ set('#accountLogout',t('Déconnexion','Sign out'));
+ set('#accountDelete',t('Supprimer mon compte','Delete my account'));
+}
+document.addEventListener('argens-language-changed',renderAccountLocale);
 
 const accountEmail=document.querySelector('#accountEmail'),accountMessage=document.querySelector('#accountMessage');
 const accountRequest=document.querySelector('#accountRequest'),accountVerify=document.querySelector('#accountVerify');
