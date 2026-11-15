@@ -71,7 +71,7 @@ assert.equal(d.querySelectorAll('#earlyForecastRows .forecast-datum').length,0,'
 assert.equal(d.querySelectorAll('#earlyRainRows .forecast-datum').length,0,'No more rain mini cards');
 assert.match(blocks[0].textContent,/mm/);
 assert.deepEqual(new Set(coordRequests),new Set([...codes,'Y531201001']),'Distances must reference official downstream station');
-assert.equal(pins.length,5,'Exactly five current stations must appear as map pins');
+assert.equal(pins.length,6,'Five current gauges plus the Roquebrune reference pin');
 assert.equal(d.getElementById('upstreamMap').hidden,false,'Map must become visible');
 assert.equal(d.querySelectorAll('#upstreamMap .upstream-map-tooltip').length,0,'No permanent tooltip boxes');
 const flowIndex=[1,3,4,2,0]; // Endre, Nartuby, Aille, Argens Les Arcs, Argens Carcès
@@ -80,9 +80,20 @@ for(let i=0;i<pins.length;i++){
  assert.equal(p.position[0],point[0]);
  assert.equal(p.position[1],point[1]);
  assert.match(p.opts.title,new RegExp('^'+(i+1)+'\.'),'Map pins must be numbered by tributary junction order');
- assert.equal(p.tooltipOptions.permanent,false,'Permanent labels should not obscure map');
- assert.match(p.popup.textContent,/m.*cm\/h/,'Water level and trend available on tap');
+ assert.equal(p.tooltipOptions,undefined,'A second Leaflet tooltip must not open on mobile tap');
+ assert.match(p.opts.icon.html,/upstream-gauge-trend/,'Compact trend chip must be visible on each map marker');
+ assert.match(p.opts.icon.html,/cm\/h/,'Visible chip must show the trend rate');
+ assert.match(p.opts.icon.html,/[↑↓→]/,'Visible chip must include the direction arrow');
+ assert.match(p.popup.textContent,/m.*cm\/h/,'Compact popup shows level and trend');
+ assert.equal(p.popup.querySelectorAll('details.upstream-popup-extra').length,1,'More details must be expandable inside the same popup');
+ assert.equal(p.popup.querySelector('details.upstream-popup-extra').open,false,'Extra details start collapsed');
 }
+const home=pins[5];
+assert.deepEqual(home.position,[downstream.lat,downstream.lon],'Roquebrune pin must use official reference coordinates');
+assert.match(home.opts.title,/Roquebrune-sur-Argens/);
+assert.match(home.opts.icon.className,/upstream-home-pin-wrap/,'Reference pin must be visually distinct');
+assert.equal(home.tooltipOptions,undefined,'Roquebrune must not show two info bubbles');
+assert.match(home.popup.textContent,/Y531201001/);
 const rows=[...d.querySelectorAll('#earlyUpstreamRows .upstream-distance-row')];
 assert.equal(rows.length,5,'All five recent upstream observations should be present');
 assert.deepEqual(rows.map(x=>x.querySelector('.upstream-distance-rank').textContent),['1','2','3','4','5']);
@@ -109,7 +120,7 @@ assert.ok(html.indexOf('id="upstreamForecastCard"')<html.indexOf('id="weatherPan
 model.upstream[0].observedAt=new Date(Date.now()-120*60000).toISOString();
 w.renderEarlySignals();
 await new Promise(resolve=>setTimeout(resolve,200));
-assert.equal(pins.length,4,'Outdated stations must not stay on map');
+assert.equal(pins.length,5,'Outdated gauge must disappear while the reference pin remains');
 for(const lang of ['de','en','fr']){
  d.querySelector('[data-lang="'+lang+'"]').click();
  await new Promise(resolve=>setTimeout(resolve,80));
