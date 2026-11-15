@@ -71,6 +71,35 @@ test('configured Météo-France obtains short lived OAuth2 token and validates o
  assert.equal(r.status,'official');assert.equal(seen.length,2);
  assert.equal(seen[0].options.headers.Authorization,'Basic fictional-test-only');
 });
+test('Météo-France diagnostics never expose credentials, token body or URL',async()=>{
+ const secret='SUPER_PRIVATE_DO_NOT_EXPOSE';
+ const cases=[
+  {status:401,phase:'token',expected:'token_http_401'},
+  {status:403,phase:'bulletin',expected:'bulletin_http_403'},
+  {status:503,phase:'bulletin',expected:'bulletin_http_503'}
+ ];
+ for(const c of cases){
+  const fetchImpl=async(url)=>{
+   if(url.endsWith('/token'))return c.phase==='token'?{ok:false,status:c.status}:{ok:true,json:async()=>({access_token:'verylongplaceholder-access-token-123',expires_in:3600})};
+   return {ok:false,status:c.status};
+  };
+  const r=await fetchOfficialVigilance({METEO_FRANCE_BASIC:secret+c.expected},{now:NOW,fetchImpl});
+  assert.equal(r.status,'unavailable');
+  assert.equal(r.diagnostic,c.expected);
+  assert.ok(!JSON.stringify(r).includes(secret));
+  assert.equal(r.periods.length,0);
+ }
+});
+test('Météo-France malformed bulletin uses generic safe diagnostic',async()=>{
+ const r=await fetchOfficialVigilance({METEO_FRANCE_BASIC:'test-key-throw-json-error'},{
+  now:NOW,fetchImpl:async(url)=>url.endsWith('/token')?
+   {ok:true,json:async()=>({access_token:'abcdefghijklmnopqrstuvwx',expires_in:3600})}:
+   {ok:true,json:async()=>{throw Error('sensitive-diagnostic-should-not-escape')}}});
+ assert.equal(r.status,'unavailable');
+ assert.equal(r.diagnostic,'request_or_format_error');
+ assert.ok(!JSON.stringify(r).includes('sensitive'));
+});
+
 test('independent data errors never generate flood alerts or artificial official levels',async()=>{
  const fetchImpl=async()=>({ok:false,status:503});
  const data=await buildEarlySignals({}, {now:NOW,fetchImpl});
