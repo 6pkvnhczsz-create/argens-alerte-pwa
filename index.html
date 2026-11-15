@@ -237,6 +237,32 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <a href="https://www.windy.com/?radar,43.44,6.64,8" target="_blank" rel="noopener noreferrer" id="radarLink">Ouvrir le radar dans Windy</a>
 </details>
 </section>
+<section id="earlySignalsPanel" class="panel" aria-label="Indicateurs de précocité Argens" style="margin-top:15px">
+  <strong id="earlySignalsHeading" style="display:block;margin-bottom:7px">🌧️ Signaux précoces · bassin de l’Argens</strong>
+  <p id="earlySignalsIntro" class="note">Informations complémentaires : vigilance officielle, estimations de pluie et stations en amont. Aucun changement de vos seuils ou alertes personnels.</p>
+  <div class="cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+    <div class="card" style="padding:13px">
+      <strong id="earlyOfficialTitle">⚠️ Vigilance officielle · Var (83)</strong>
+      <p id="earlyOfficialStatus" class="note" role="status">Chargement…</p>
+      <div id="earlyOfficialPeriods" class="note"></div>
+      <a id="earlyOfficialLink" href="https://vigilance.meteofrance.fr/fr/var" target="_blank" rel="noopener noreferrer">Voir la vigilance sur Météo-France</a>
+    </div>
+    <div class="card" style="padding:13px">
+      <strong id="earlyRainTitle">🌧️ Pluie récente dans le bassin</strong>
+      <p id="earlyRainStatus" class="note" role="status">Chargement…</p>
+      <div id="earlyRainRows" class="note"></div>
+      <p id="earlyRainDisclaimer" class="note" style="font-size:12px">Estimation du modèle Open-Meteo, pas des mesures radar. Aucun temps de crue prévu.</p>
+    </div>
+    <div class="card" style="padding:13px">
+      <strong id="earlyUpstreamTitle">🌊 Stations en amont</strong>
+      <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
+      <div id="earlyUpstreamRows" class="note"></div>
+      <p id="earlyUpstreamDisclaimer" class="note" style="font-size:12px">Tendance locale mesurée à chaque station. Les hauteurs des stations ne sont pas directement comparables; aucun délai d’arrivée n’est calculé.</p>
+    </div>
+  </div>
+  <p id="earlySignalsChecked" class="note" style="font-size:12px" role="status"></p>
+  <button id="earlySignalsRefresh" type="button" style="margin-top:6px">↻ Actualiser les signaux précoces</button>
+</section>
 <div class="hidden" aria-hidden="true"><span id="delta"></span><span id="deltaPeriod"></span></div><div class="panel simulation-panel hidden"><strong>Tester les couleurs d’alerte (simulation uniquement)</strong><p class="note">Déplacez le curseur pour prévisualiser les couleurs. Les données réelles restent distinctes. Aperçu uniquement : les seuils réels sont configurés séparément.</p><div id="simulation" class="status green">Aperçu : vert</div><input type="range" min="1" max="4" step=".05" value="1.56" id="slider"><div class="muted" style="display:flex;justify-content:space-between"><span>1,00 m</span><span>4,00 m</span></div></div>
 <p class="note safety-note">Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez <a href="https://www.vigicrues.gouv.fr/" target="_blank" rel="noopener noreferrer">Vigicrues</a> et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.</p></div>
 <div id="pushSettings" class="hidden">
@@ -1393,4 +1419,93 @@ setLanguage(lang);
   if(!dismissed)banner.classList.remove('hidden');
  }
 })();
+
+/* Information only. These supplementary signals never change risk colors or Push. */
+let earlySignalsSnapshot=null;
+function earlyI18n(fr,en,de){
+ const lang=document.documentElement.lang;
+ return lang==='de'?de:lang==='en'?en:fr;
+}
+function earlyText(id,value){const node=document.getElementById(id);if(node)node.textContent=value}
+function earlyLine(text){
+ const div=document.createElement('div');div.textContent=text;div.style.cssText='margin:7px 0;line-height:1.4';return div;
+}
+function renderEarlySignals(){
+ const d=earlySignalsSnapshot;
+ earlyText('earlySignalsHeading',earlyI18n('🌧️ Signaux précoces · bassin de l’Argens','🌧️ Early indicators · Argens basin','🌧️ Frühindikatoren · Argens-Einzugsgebiet'));
+ earlyText('earlySignalsIntro',earlyI18n(
+  'Compléments d’information : vigilance officielle, pluie estimée et stations en amont. Vos seuils et notifications restent inchangés.',
+  'Additional information: official vigilance, estimated rainfall and upstream gauges. Your thresholds and alerts remain unchanged.',
+  'Zusatzinformationen: amtliche Warnlage, geschätzter Regen und Oberlieger-Pegel. Deine Schwellen und Warnungen bleiben unverändert.'));
+ earlyText('earlyOfficialTitle',earlyI18n('⚠️ Vigilance officielle · Var (83)','⚠️ Official vigilance · Var (83)','⚠️ Amtliche Wetterwarnlage · Var (83)'));
+ earlyText('earlyRainTitle',earlyI18n('🌧️ Pluie récente estimée','🌧️ Estimated recent rainfall','🌧️ Geschätzter Regen der letzten Stunden'));
+ earlyText('earlyUpstreamTitle',earlyI18n('🌊 Stations en amont','🌊 Upstream gauges','🌊 Flussaufwärts gelegene Pegel'));
+ earlyText('earlyOfficialLink',earlyI18n('Voir la vigilance sur Météo-France','Check Météo-France official vigilance','Amtliche Warnungen bei Météo-France ansehen'));
+ earlyText('earlyRainDisclaimer',earlyI18n(
+  'Données Open-Meteo issues d’un modèle, non de mesures radar. Il ne s’agit pas d’une prévision de crue.',
+  'Open-Meteo model estimates, not measured radar rainfall. This is not a flood forecast.',
+  'Open-Meteo-Modellschätzung, keine gemessenen Radardaten. Keine Hochwasserprognose.'));
+ earlyText('earlyUpstreamDisclaimer',earlyI18n(
+  'Tendances par station uniquement. Les hauteurs ne sont pas comparables, ni converties en délai de propagation.',
+  'Station-specific trends only. Gauge heights are not comparable, and no travel time is estimated.',
+  'Nur Trends je Station. Pegelhöhen sind nicht direkt vergleichbar; es wird keine Ankunftszeit berechnet.'));
+ earlyText('earlySignalsRefresh',earlyI18n('↻ Actualiser les indicateurs','↻ Refresh indicators','↻ Indikatoren aktualisieren'));
+ const upstreamNode=document.getElementById('earlyUpstreamRows'),rainNode=document.getElementById('earlyRainRows'),officialNode=document.getElementById('earlyOfficialPeriods');
+ upstreamNode.replaceChildren();rainNode.replaceChildren();officialNode.replaceChildren();
+ if(!d||!d.ok){
+  const none=earlyI18n('Données temporairement indisponibles','Data temporarily unavailable','Daten derzeit nicht verfügbar');
+  ['earlyOfficialStatus','earlyRainStatus','earlyUpstreamStatus'].forEach(id=>earlyText(id,none));
+  earlyText('earlySignalsChecked','');
+  return;
+ }
+ const o=d.official;
+ if(o?.status==='official'){
+  earlyText('earlyOfficialStatus',earlyI18n('Bulletin officiel Météo-France','Official Météo-France bulletin','Amtlicher Météo-France-Bericht'));
+  const names={green:earlyI18n('Vert','Green','Grün'),yellow:earlyI18n('Jaune','Yellow','Gelb'),orange:'Orange',red:earlyI18n('Rouge','Red','Rot')};
+  for(const period of o.periods||[]){
+   const bits=(period.phenomena||[]).filter(x=>x.color!=='green').map(x=>(document.documentElement.lang==='fr'?x.fr:document.documentElement.lang==='de'?x.fr:x.en)+': '+(names[x.color]||'—'));
+   const detail=bits.length?bits.join(' · '):earlyI18n('Aucun phénomène particulier signalé','No elevated phenomena listed','Keine erhöhten Einzelphänomene aufgeführt');
+   officialNode.append(earlyLine((period.period==='J1'?earlyI18n('Demain','Tomorrow','Morgen'):earlyI18n("Aujourd’hui",'Today','Heute'))+' · '+(names[period.color]||'—')+' · '+detail));
+  }
+ }else{
+  earlyText('earlyOfficialStatus',o?.status==='not_configured'
+   ?earlyI18n('Connexion à l’API officielle non activée. Consulter la source ci-dessous.','Official API access not yet activated. Use the official link below.','Amtliche API noch nicht freigeschaltet. Bitte den offiziellen Link verwenden.')
+   :earlyI18n('Bulletin officiel temporairement indisponible','Official bulletin temporarily unavailable','Amtlicher Bericht derzeit nicht verfügbar'));
+ }
+ const rain=(d.rain||[]),available=rain.filter(x=>x.status==='estimated');
+ earlyText('earlyRainStatus',available.length?earlyI18n('Dernières estimations du modèle, 3 h et 6 h','Recent model estimates, 3 h and 6 h','Letzte Modellschätzungen, 3 und 6 Stunden'):
+  earlyI18n('Estimation indisponible','Estimate unavailable','Schätzung nicht verfügbar'));
+ const areaLabels={central:earlyI18n('Argens central','Central Argens','Mittlerer Argens'),nartuby:'Nartuby',lower:'Roquebrune'};
+ for(const r of rain){
+  const fmt=n=>Number(n).toLocaleString(document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',{maximumFractionDigits:1});
+  const label=areaLabels[r.id]||r.name;
+  rainNode.append(earlyLine(label+' · '+(r.status==='estimated'?(fmt(r.last3hMm)+' mm / 3 h · '+fmt(r.last6hMm)+' mm / 6 h'):
+   earlyI18n('non disponible','unavailable','nicht verfügbar'))));
+ }
+ const upstream=d.upstream||[],active=upstream.filter(x=>x.status==='current');
+ earlyText('earlyUpstreamStatus',active.length?earlyI18n('Variations de hauteur observées','Observed local water-level trends','Gemessene lokale Pegeltrends'):
+  earlyI18n('Aucune mesure récente disponible','No recent observations available','Keine aktuellen Messungen'));
+ for(const u of upstream){
+  const delta=Number.isFinite(u.trendCmH)?((u.trendCmH>=0?'+':'')+u.trendCmH.toLocaleString(document.documentElement.lang==='de'?'de-DE':'fr-FR',{maximumFractionDigits:1})+' cm/h'):
+   earlyI18n('tendance inconnue','trend unknown','Trend unbekannt');
+  upstreamNode.append(earlyLine(u.name+' · '+(u.status==='current'?delta:
+   earlyI18n('mesure indisponible','reading unavailable','Messung nicht verfügbar'))));
+ }
+ const age=new Date(d.checkedAt);
+ earlyText('earlySignalsChecked',Number.isFinite(age.getTime())?
+  earlyI18n('Dernière mise à jour : ','Last updated: ','Letzte Aktualisierung: ')+age.toLocaleString(document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR'):'');
+}
+async function loadEarlySignalsPanel(){
+ const btn=document.getElementById('earlySignalsRefresh');if(!btn)return;
+ btn.disabled=true;
+ try{
+  const response=await fetch('https://argens-alerte-push.p-hammerschmidt.workers.dev/api/early-signals',{cache:'no-store',signal:AbortSignal.timeout(12000)});
+  earlySignalsSnapshot=response.ok?await response.json():null;
+ }catch(error){earlySignalsSnapshot=null}
+ finally{btn.disabled=false;renderEarlySignals()}
+}
+document.getElementById('earlySignalsRefresh')?.addEventListener('click',loadEarlySignalsPanel);
+document.addEventListener('argens-language-changed',renderEarlySignals);
+loadEarlySignalsPanel();
+setInterval(()=>{if(!document.hidden)loadEarlySignalsPanel()},300000);
 </script></body></html>
