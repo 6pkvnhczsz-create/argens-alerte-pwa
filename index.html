@@ -316,7 +316,12 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
   box-shadow:0 2px 7px #113b5266;font:800 13px system-ui,sans-serif;text-align:center}
 
 /* Compact gauge trends are part of the marker itself, not second Leaflet tooltips. */
-#forecastPage .upstream-gauge-marker-wrap,#forecastPage .upstream-home-pin-wrap{background:transparent;border:0;overflow:visible}
+#forecastPage .upstream-gauge-marker-wrap,#forecastPage .nearby-gauges-block{margin-top:12px;padding-top:12px;border-top:1px solid #d9e7ec}
+#forecastPage .nearby-gauges-block strong{font-size:13px}
+#forecastPage .nearby-gauges-block .note{font-size:11px;line-height:1.4}
+#forecastPage .upstream-nearby-pin{width:18px;height:18px;border-radius:50%;border:2px solid #f6fafb;background:#72818d;box-shadow:0 1px 5px #18384566;display:block}
+#forecastPage .upstream-nearby-marker{background:transparent;border:0;overflow:visible}
+#forecastPage .upstream-home-pin-wrap{background:transparent;border:0;overflow:visible}
 #forecastPage .upstream-gauge-marker{position:relative;display:block;width:30px;height:30px}
 /* Compact semi-transparent labels anchored to verified gauge pins. */
 #forecastPage .upstream-gauge-trend{position:absolute;left:33px;top:3px;display:block;box-sizing:border-box;
@@ -460,6 +465,11 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     </div>
     <div id="upstreamMap" class="upstream-map" role="region" aria-label="Stations de mesure de l’Argens sur la carte" hidden></div>
     <p id="upstreamMapMessage" class="note upstream-map-message" role="status"></p>
+    <div id="nearbyGaugesBlock" class="nearby-gauges-block" hidden>
+     <strong id="nearbyGaugesTitle">Stations voisines dans un rayon de 40 km</strong>
+     <p id="nearbyGaugesSubtitle" class="note">La connexion en amont n'est pas confirmée.</p>
+     <div id="nearbyGaugesRows" class="upstream-ranked-list"></div>
+    </div>
     <div id="earlyUpstreamRows" class="upstream-ranked-list" hidden></div>
     <p id="earlyUpstreamDisclaimer" class="note forecast-disclaimer">Tendances mesurées localement ; les hauteurs des stations ne sont pas comparables entre elles.</p>
    </article>
