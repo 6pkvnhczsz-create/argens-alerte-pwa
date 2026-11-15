@@ -66,4 +66,37 @@ assert.equal(status.clicked_Alertes.alertHidden,false,'Alerts tab not working');
 assert.equal(status.clicked_Prévisions.forecastHidden,false,'Forecast tab not working');
 assert.equal(status.clicked_Réglages.settingsHidden,false,'Settings tab not working');
 assert.equal(status.clicked_overview.overviewHidden,false,'Home tab not working');
-dom.window.close();
+
+// Simulate responsive element geometry and assert there is a single correct
+// orthogonal SVG path to each actually active tile, with its exact color.
+const hero=d.querySelector('#overview .hero');
+const connector=hero.querySelector('.level-connector');
+const glass=hero.querySelector('.level-glass');
+const thresholds=[...hero.querySelectorAll('.threshold')];
+const path=connector.querySelector('path');
+const rect=(left,width,height=42)=>({left,width,height,top:0,right:left+width,bottom:height});
+connector.getBoundingClientRect=()=>rect(0,340);
+glass.getBoundingClientRect=()=>rect(130,80);
+thresholds[0].getBoundingClientRect=()=>rect(10,70);
+thresholds[1].getBoundingClientRect=()=>rect(135,70);
+thresholds[2].getBoundingClientRect=()=>rect(275,70);
+const cases=[
+ ['green', 'M 170 0 V 23 H 45 V 42', '#50edb0'],
+ ['orange','M 170 0 V 42','#ff9000'],
+ ['red','M 170 0 V 23 H 310 V 42','#ff4558']
+];
+for(const [band,expected,color] of cases){
+ hero.dataset.alert=band;
+ for(const tile of thresholds)tile.classList.toggle('is-current',tile.dataset.threshold===band);
+ dom.window.updateLevelConnector();
+ assert.equal(path.getAttribute('d'),expected,'Connector path mismatch for '+band);
+ assert.equal(path.style.stroke,color,'Connector color mismatch for '+band);
+}
+assert.equal(scriptsWithConnector(),1,'Multiple connector renderers would overwrite each other');
+function scriptsWithConnector(){
+ return [...page.matchAll(/function updateLevelConnector\(\)/g)].length;
+}
+
+// The app intentionally keeps timers and pending fetches alive. Exit after all
+// assertions to avoid a jsdom teardown race with its unfinished navigation.
+process.exit(0);
