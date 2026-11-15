@@ -16,7 +16,6 @@
    const node=el(key);if(node)node.hidden=!argens;
   }
   const national=el('nationalUpstreamContainer');national.hidden=argens;
-  el('nearbyGaugesBlock').hidden=!(loaded?.ok&&Array.isArray(loaded.nearby)&&loaded.nearby.length);
   const updated=el('earlySignalsChecked')?.closest('.forecast-updated');
   if(updated)updated.hidden=!argens;
   text('forecastPageTitle',argens?
@@ -39,12 +38,12 @@
   const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
   const format=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
   if(data?.ok&&data.status==='verified'&&Array.isArray(data.stations)){
-   for(let i=0;i<data.stations.length;i++){
+   for(let i=0;i<Math.min(5,data.stations.length);i++){
     const st=data.stations[i],sign=st.trendCmH>0?'↑ +':st.trendCmH<0?'↓ ':'→ ';
     putLabel(list,(i+1)+'. '+st.name,
      format(st.levelM)+' m · '+sign+format(st.trendCmH)+' cm/h');
    }
-   text('nationalUpstreamStatus',lang('Stations reliées avec mesures récentes : ','Verified upstream gauges with recent measurements: ','Verifizierte Oberlieger mit aktuellen Messwerten: ')+data.stations.length);
+   text('nationalUpstreamStatus',lang('Stations reliées avec mesures récentes : ','Verified upstream gauges with recent measurements: ','Verifizierte Oberlieger mit aktuellen Messwerten: ')+Math.min(5,data.stations.length));
   }else if(data?.ok){
    text('nationalUpstreamStatus',lang('Aucune station en amont avec connexion et mesures récentes vérifiées dans ce secteur.',
     'No verified upstream station with fresh measurements in this local area.',
@@ -54,28 +53,11 @@
     'Upstream river connectivity currently cannot be verified.',
     'Flussaufwärts-Verbindungen derzeit nicht verlässlich prüfbar.'));
   }
-  const nearbyBlock=el('nearbyGaugesBlock'),nearbyList=el('nearbyGaugesRows');
-  nearbyList.replaceChildren();
-  const near=Array.isArray(data?.nearby)?data.nearby:[];
-  nearbyBlock.hidden=!data?.ok||!near.length;
-  text('nearbyGaugesTitle',lang('Stations voisines dans un rayon de 40 km',
-   'Nearby gauges within 40 km','Weitere Pegel im Umkreis von 40 km'));
-  text('nearbyGaugesSubtitle',lang(
-   'Stations géographiquement proches, sans connexion en amont vérifiée. Les distances sont à vol d’oiseau.',
-   'Geographically nearby gauges, not verified upstream. Distances are straight-line.',
-   'Geografisch nahe Pegel, keine bestätigten Oberlieger. Entfernungen sind Luftlinie.'));
-  for(const station of near){
-   const dist=Number(station.distanceKm),suffix=Number.isFinite(dist)?' · '+format(dist)+' km':'';
-   const recorded=Number.isFinite(station.levelM)&&Number.isFinite(station.trendCmH);
-   const change=station.trendCmH>0?'↑ +':station.trendCmH<0?'↓ ':'→ ';
-   putLabel(nearbyList,station.name+suffix,recorded?
-    format(station.levelM)+' m · '+change+format(station.trendCmH)+' cm/h':
-    lang('Mesure récente indisponible','No recent reading','Kein aktueller Messwert'));
-  }
   note.textContent=lang(
-   'Recherche des stations jusqu’à 40 km (distance à vol d’oiseau). L’analyse amont vérifie seulement certains corridors du réseau BD TOPAGE 2025 ; elle ne couvre pas tout le bassin. Aucun temps de crue calculé. Alertes inchangées.',
-   'Station search within 40 km (straight-line). Upstream verification checks only selected BD TOPAGE 2025 river corridors, not the entire catchment. No flood travel times. Alerts unchanged.',
-   'Stationssuche bis 40 km Luftlinie. Nur ausgewählte Flusskorridore werden hydrologisch über BD TOPAGE 2025 geprüft, nicht das gesamte Einzugsgebiet. Keine Fließzeiten berechnet. Warnungen unverändert.');
+   'Jusqu’à cinq stations réellement situées en amont, avec mesures récentes, classées selon la proximité dans le réseau fluvial vérifié. La couverture BD TOPAGE peut être incomplète. Aucune durée de propagation calculée ; alertes inchangées.',
+   'Up to five verified upstream gauges with recent readings, ordered by proximity in the verified river network. BD TOPAGE coverage can be incomplete. No flood travel times inferred; alerts unchanged.',
+   'Bis zu fünf verifizierte Oberlieger mit aktuellen Messwerten, geordnet nach Nähe im geprüften Flussnetz. Die BD-TOPAGE-Abdeckung kann unvollständig sein. Keine Hochwasser-Laufzeiten berechnet; Warnungen unverändert.');
+
  }
  async function drawMap(data,request){
   if(!isVisible()||code===DEFAULT)return;
@@ -99,7 +81,7 @@
    layer.addLayer(L.marker([home.lat,home.lon],{icon:marker,zIndexOffset:1000,title:home.name||home.code})
     .bindPopup(home.name||home.code));
    const all=[[home.lat,home.lon]];
-   for(const [i,st] of (data.stations||[]).entries()){
+   for(const [i,st] of (data.stations||[]).slice(0,5).entries()){
     if(!Number.isFinite(st.lat)||!Number.isFinite(st.lon))continue;
     const icon=L.divIcon({className:'upstream-gauge-marker-wrap',
      html:'<span class="upstream-gauge-marker"><span class="upstream-station-pin">'+String(i+1)+'</span></span>',
@@ -111,20 +93,6 @@
     heading.textContent=st.name;level.textContent=number(st.levelM)+' m · '+trend+number(st.trendCmH)+' cm/h';
     popup.append(heading,level);
     layer.addLayer(L.marker([st.lat,st.lon],{icon,title:st.name}).bindPopup(popup));
-    all.push([st.lat,st.lon]);
-   }
-   for(const st of data.nearby||[]){
-    if(!Number.isFinite(st.lat)||!Number.isFinite(st.lon))continue;
-    const nearbyIcon=L.divIcon({className:'upstream-nearby-marker',
-     html:'<span class="upstream-nearby-pin" aria-hidden="true"></span>',
-     iconSize:[20,20],iconAnchor:[10,10]});
-    const popup=document.createElement('div'),heading=document.createElement('strong'),info=document.createElement('p');
-    heading.textContent=st.name||st.code;
-    info.textContent=lang('Station voisine · connexion fluviale non vérifiée',
-     'Nearby gauge · upstream connection not verified',
-     'Pegel im Umkreis · Flussverbindung nicht geprüft');
-    popup.append(heading,info);
-    layer.addLayer(L.marker([st.lat,st.lon],{icon:nearbyIcon,title:st.name||st.code}).bindPopup(popup));
     all.push([st.lat,st.lon]);
    }
    map.fitBounds(all,{padding:[32,32],maxZoom:10,animate:false});
