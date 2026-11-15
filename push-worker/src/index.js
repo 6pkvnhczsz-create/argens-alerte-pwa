@@ -8,7 +8,7 @@ import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, a
 import { translateFeedbackRecord } from './feedback-translation.mjs';
 import { refreshEarlySignals, loadEarlySignals } from './early-signals.mjs';
 import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
-import { fetchPiafMetadata, fetchPiafFrame } from './piaf-map.mjs';
+import { fetchPiafMetadata, fetchPiafFrame, fetchPiafLegend } from './piaf-map.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
  async vigicruesHealthAdmin(){
@@ -682,6 +682,29 @@ export default {
    catch(error){
     console.warn('PIAF metadata unavailable',String(error?.message||'upstream'));
     return json(request,{ok:false,available:false,error:'PIAF forecast currently unavailable'},503);
+   }
+  }
+  // The legend follows the actual WMS style. A missing official legend must
+  // return 503, not a guessed numeric colour scale.
+  if(url.pathname==='/api/piaf/legend'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
+   try{
+    const info=await cachedPiafMetadata(env);
+    const cache=globalThis.caches?.default;
+    const cacheKey=new Request('https://riviere-alerte.fr/__piaf_cache/legend_v1?style='+encodeURIComponent(info.style));
+    let imageBytes;
+    if(cache){const hit=await cache.match(cacheKey);if(hit)imageBytes=await hit.arrayBuffer()}
+    if(!imageBytes){
+     imageBytes=await fetchPiafLegend(env,info);
+     if(cache)await cache.put(cacheKey,new Response(imageBytes,{headers:{
+      'Content-Type':'image/png','Cache-Control':'public, max-age=86400'}}));
+    }
+    return new Response(imageBytes,{status:200,headers:{...cors(request),'Content-Type':'image/png',
+     'Cache-Control':'public, max-age=86400','X-Content-Type-Options':'nosniff'}});
+   }catch(error){
+    console.warn('Official PIAF legend unavailable',String(error?.message||'upstream'));
+    return json(request,{error:'Official WMS legend currently unavailable'},503);
    }
   }
   if(url.pathname==='/api/piaf/frame'&&request.method==='GET'){
