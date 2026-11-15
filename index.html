@@ -168,7 +168,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <div class="card" style="padding:14px"><small>🟠 Seuil 3,00 m</small><strong id="forecastOrange" style="font-size:19px">—</strong></div>
 <div class="card" style="padding:14px"><small>🔴 Seuil 4,50 m</small><strong id="forecastRed" style="font-size:19px">—</strong></div>
 </div>
-<p id="forecastDisclaimer" class="note" style="margin:12px 0 0">Extrapolation linéaire du niveau mesuré, limitée à 3 heures. Ni prévision hydrologique ni alerte officielle. Le débit peut évoluer rapidement.</p>
+<p id="forecastDisclaimer" class="note" style="margin:12px 0 0">Estimation basée sur les dernières variations du niveau d’eau. Ce n’est ni une prévision officielle ni une alerte. Le niveau peut changer rapidement.</p>
 </div>
 <section id="weatherPanel" class="panel" style="margin-top:15px;text-align:center" aria-label="Météo et pluie">
 <strong id="weatherHeading" style="display:block;line-height:1.35"><span id="weatherHeadingTitle">🌦️ Pluie et météo ☀️</span><span id="weatherHeadingLocation" style="display:block;margin-top:4px">Roquebrune-sur-Argens</span></strong>
@@ -364,11 +364,11 @@ function renderForecast(items,code){
  const projectedEl=document.querySelector('#forecastProjected');projectedEl.classList.add('hidden');
  box.classList.remove('hidden');out.classList.add('hidden');renderThresholdLabels(code);
  document.querySelector('#forecastHeading').textContent=en?'🔎 6-hour water-level trend':'🔎 Tendance du niveau sur 6 h';
- document.querySelector('#forecastDisclaimer').textContent=en?'Indicative linear extrapolation over 6 hours, not a hydrological forecast or official warning. The trend may change suddenly; uncertainty increases with time.':'Extrapolation linéaire indicative sur 6 heures, ni prévision hydrologique ni alerte officielle. La tendance peut changer brutalement ; l’incertitude augmente avec le temps.';
+ document.querySelector('#forecastDisclaimer').textContent=en?'Estimate of the next 6 hours based on recent water-level changes. Not an official forecast or warning. Conditions can change quickly, and uncertainty increases over time.':'Estimation sur 6 heures basée sur les dernières variations du niveau d’eau. Ce n’est ni une prévision officielle ni une alerte. Le niveau peut changer rapidement et l’incertitude augmente avec le temps.';
  const unavailable=(msg)=>{statusEl.textContent=msg||(en?'Insufficient recent measurements for a trend.':'Mesures récentes insuffisantes pour établir une tendance.')};
  if(items.length<3){unavailable();return}
  const last=items[0],age=Date.now()-last.date.getTime();
- if(age< -15*60000||age>60*60000){unavailable(en?'Latest reading too old for extrapolation.':'Dernière mesure trop ancienne pour une extrapolation.');return}
+ if(age< -15*60000||age>60*60000){unavailable(en?'Latest reading too old to estimate the trend.':'Dernière mesure trop ancienne pour estimer la tendance.');return}
  const reference=target=>items.filter(x=>{const d=(last.date-x.date)/60000;return d>=target-10&&d<=target+10}).sort((a,b)=>Math.abs((last.date-a.date)/60000-target)-Math.abs((last.date-b.date)/60000-target))[0];
  const p60=reference(60),p120=reference(120);
  if(!p60||!p120){unavailable();return}
@@ -376,7 +376,7 @@ function renderForecast(items,code){
  const r2=(p60.value-p120.value)/10/((p60.date-p120.date)/3600000);
  if(!Number.isFinite(r1)||!Number.isFinite(r2)){unavailable();return}
  // Allow rising, falling and stable trends. A strongly changing slope is too unreliable to extrapolate.
- if(Math.abs(r1-r2)>Math.max(15,Math.max(Math.abs(r1),Math.abs(r2))*.75)){unavailable(en?'Trend changing too quickly for extrapolation.':'Tendance trop variable pour une extrapolation.');return}
+ if(Math.abs(r1-r2)>Math.max(15,Math.max(Math.abs(r1),Math.abs(r2))*.75)){unavailable(en?'Water level changing too unpredictably for an estimate.':'Évolution du niveau trop variable pour une estimation.');return}
  const rate=(r1+r2)/2,metres=last.value/1000,rateM=rate/100;
  const direction=rate>2?(en?'Rising':'En hausse'):rate< -2?(en?'Falling':'En baisse'):(en?'Stable':'Stable');
  const projected=metres+rateM*6;
@@ -392,11 +392,11 @@ function renderForecast(items,code){
  document.querySelector('#forecastRed').textContent=estimate(activeThresholds(code).red);
  const signed=rate>0?'+':'';
  statusEl.textContent=direction+' · '+signed+rate.toFixed(1).replace('.',',')+' cm/h';
- projectedEl.textContent=(en?'6 h extrapolation: ':'Projection à 6 h : ')+num(projected)+' m';
+ projectedEl.textContent=(en?'Estimated level in 6 h: ':'Niveau estimé dans 6 h : ')+num(projected)+' m';
  projectedEl.classList.remove('hidden');
  out.classList.remove('hidden');
 }
-function noReading(text){document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'No sufficiently reliable short-term projection available.':'Aucune extrapolation à court terme suffisamment fiable.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='status orange';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren()}
+function noReading(text){document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'Not enough reliable data to estimate the short-term trend.':'Données insuffisantes pour estimer l’évolution à court terme.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='status orange';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren()}
 function drawChart(items){
  const svg=document.querySelector('#chart'),axis=document.querySelector('#chartTimes'),info=document.querySelector('#rangeInfo');
  svg.replaceChildren();axis.replaceChildren();document.querySelector('#heightScaleLeft').replaceChildren();document.querySelector('#heightScaleRight').replaceChildren();
@@ -717,7 +717,7 @@ const translations={
 
 "🔎 Projection des seuils":"🔎 Threshold projection",
 "Calcul en attente de mesures récentes…":"Waiting for recent readings to calculate…",
-"Extrapolation linéaire du niveau mesuré, limitée à 3 heures. Ni prévision hydrologique ni alerte officielle. Le débit peut évoluer rapidement.":"Linear extrapolation of measured water level, limited to 3 hours. Not a hydrological forecast or official warning. River flow can change rapidly.",
+"Estimation basée sur les dernières variations du niveau d’eau. Ce n’est ni une prévision officielle ni une alerte. Le niveau peut changer rapidement.":"Estimate based on recent water-level changes. This is not an official forecast or warning. Water levels can change rapidly.",
 "🌦️ Pluie et météo ☀️":"🌦️ Rain and weather ☀️",
 "🟠 Seuil 3,00 m":"🟠 3.00 m threshold",
 "🔴 Seuil 4,50 m":"🔴 4.50 m threshold",
