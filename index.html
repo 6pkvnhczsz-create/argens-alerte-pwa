@@ -791,7 +791,7 @@ document.addEventListener('touchend',async()=>{
 },{passive:true});
 document.addEventListener('touchcancel',()=>{pullStart=null;pullDistance=0;pullIndicator.style.transform='translate(-50%,-130%)'},{passive:true});
 
-document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{const tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector('#overview').classList.toggle('hidden',tab!=='overview');document.querySelector('#forecastPage').classList.toggle('hidden',tab!=='Prévisions');document.querySelector('#mapPage').classList.toggle('hidden',tab!=='Carte');document.querySelector('#pushSettings').classList.toggle('hidden',tab!=='Alertes');document.querySelector('#settingsPage').classList.toggle('hidden',tab!=='Réglages');document.querySelector('#swarmPage').classList.add('hidden');if(tab==='Prévisions')requestAnimationFrame(()=>loadOfficialRadarMap());if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;document.querySelector('#place').value='Roquebrune-sur-Argens';searchPlace()}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{const tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector('#overview').classList.toggle('hidden',tab!=='overview');document.querySelector('#forecastPage').classList.toggle('hidden',tab!=='Prévisions');document.querySelector('#mapPage').classList.toggle('hidden',tab!=='Carte');document.querySelector('#pushSettings').classList.toggle('hidden',tab!=='Alertes');document.querySelector('#settingsPage').classList.toggle('hidden',tab!=='Réglages');document.querySelector('#swarmPage').classList.add('hidden');if(tab==='Prévisions')requestAnimationFrame(()=>{updateUpstreamMap();loadOfficialRadarMap()});if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;document.querySelector('#place').value='Roquebrune-sur-Argens';searchPlace()}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
 
 // Web Push requires a deployed backend and a public VAPID key. Never request permission until configured.
 const PUSH_API_URL='https://argens-alerte-push.p-hammerschmidt.workers.dev';const PUSH_VAPID_PUBLIC_KEY='BNmAS3Gm-VN8T9-_TsA4viBni7q-TwNk0dMEcWR6QYdb0T-fHEQ0Nz8s2sIlCrIBPW_A9LdqI8paKvVqCStUOrA';
@@ -1564,24 +1564,36 @@ function renderEarlySignals(){
  const officialNode=document.getElementById('earlyOfficialPeriods');
  for(const node of [forecastNode,rainNode,upstreamNode,officialNode])node.replaceChildren();
 
- function addDatum(parent,title,icon,values){
-  const tile=document.createElement('div');
-  tile.className='forecast-datum';
-  const symbol=document.createElement('span');symbol.className='datum-icon';symbol.textContent=icon;symbol.setAttribute('aria-hidden','true');
-  const label=document.createElement('strong');label.textContent=title;
-  const slots=document.createElement('div');slots.className='datum-values';
-  for(const [period,value] of values){
-   const item=document.createElement('span');
-   const amount=document.createElement('b');amount.textContent=value;
-   const duration=document.createElement('span');duration.textContent=period;
-   item.append(amount,duration);slots.append(item);
+ function initRainList(parent,periods){
+  const header=document.createElement('div');header.className='rain-list-header';
+  for(let i=0;i<3;i++){
+   const cell=document.createElement('span');cell.textContent=i===0?earlyI18n('Secteur','Area','Gebiet'):periods[i-1];cell.style.textAlign=i===0?'left':'center';header.append(cell);
   }
-  tile.append(symbol,label,slots);parent.append(tile);
+  parent.append(header);
  }
+ function addRainRow(parent,title,icon,values){
+  const row=document.createElement('div');row.className='rain-list-row';
+  const place=document.createElement('span');place.className='rain-list-location';
+  const symbol=document.createElement('span');symbol.className='rain-list-icon';symbol.textContent=icon;symbol.setAttribute('aria-hidden','true');
+  const name=document.createElement('span');name.textContent=title;place.append(symbol,name);row.append(place);
+  for(const value of values){const amount=document.createElement('span');amount.className='rain-list-value';amount.textContent=value;row.append(amount)}
+  parent.append(row);
+ }
+ function emptyRainList(parent){
+  const empty=document.createElement('div');empty.className='rain-list-empty';
+  empty.textContent=earlyI18n('Aucune donnée actuellement disponible','No current data available','Derzeit keine Daten verfügbar');
+  parent.append(empty);
+ }
+ initRainList(forecastNode,['6 h','24 h']);
+ initRainList(rainNode,['3 h','6 h']);
  if(!d||d.ok!==true){
   const unavailable=earlyI18n('Données temporairement indisponibles','Data temporarily unavailable','Daten vorübergehend nicht verfügbar');
   for(const id of ['earlyOfficialStatus','earlyForecastStatus','earlyRainStatus','earlyUpstreamStatus','earlyRadarStatus'])earlyText(id,unavailable);
   earlyText('earlySignalsChecked','');
+  upstreamDisplayedGauges=[];
+  document.getElementById('upstreamMap').hidden=true;
+  document.getElementById('earlyUpstreamRows').hidden=true;
+  earlyText('upstreamMapMessage',unavailable);
   healthState.weather='bad';renderSystemHealth();
   return;
  }
@@ -1610,14 +1622,16 @@ function renderEarlySignals(){
  earlyText('earlyForecastStatus',forecasts.length?
   earlyI18n('Cumuls prévus pour les 6 et 24 prochaines heures','Predicted totals for the next 6 and 24 hours','Vorhergesagter Regen für die nächsten 6 und 24 Stunden'):
   earlyI18n('Prévisions indisponibles','Forecasts unavailable','Prognosen derzeit nicht verfügbar'));
- for(const f of forecasts)addDatum(forecastNode,titles[f.id]||f.name,icons[f.id]||'🌦️',
-  [['6 h',fmt(f.next6hMm)+' mm'],['24 h',fmt(f.next24hMm)+' mm']]);
+ for(const f of forecasts)addRainRow(forecastNode,titles[f.id]||f.name,icons[f.id]||'🌦️',
+  [fmt(f.next6hMm)+' mm',fmt(f.next24hMm)+' mm']);
+ if(!forecasts.length)emptyRainList(forecastNode);
  const rain=(d.rain||[]).filter(x=>x.status==='estimated'&&Number.isFinite(x.last3hMm)&&Number.isFinite(x.last6hMm));
  earlyText('earlyRainStatus',rain.length?
   earlyI18n('Estimations des dernières 3 et 6 heures','Estimated totals from the last 3 and 6 hours','Geschätzter Regen der letzten 3 und 6 Stunden'):
   earlyI18n('Estimations indisponibles','Rainfall estimates unavailable','Regenabschätzungen derzeit nicht verfügbar'));
- for(const x of rain)addDatum(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
-  [['3 h',fmt(x.last3hMm)+' mm'],['6 h',fmt(x.last6hMm)+' mm']]);
+ for(const x of rain)addRainRow(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
+  [fmt(x.last3hMm)+' mm',fmt(x.last6hMm)+' mm']);
+ if(!rain.length)emptyRainList(rainNode);
  const gauges=(d.upstream||[]).filter(x=>{
   const timestamp=Date.parse(x.observedAt);
   return x.status==='current'&&Number.isFinite(x.levelM)&&Number.isFinite(x.trendCmH)
@@ -1626,19 +1640,13 @@ function renderEarlySignals(){
  earlyText('earlyUpstreamStatus',gauges.length?
   earlyI18n('Stations avec mesures actuelles : ','Gauges with current readings: ','Pegel mit aktuellen Messwerten: ')+gauges.length:
   earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Oberlieger-Messwerte verfügbar'));
- for(const g of gauges){
-  const card=document.createElement('div');card.className='upstream-datum';
-  const arrow=document.createElement('span');arrow.className='datum-icon';arrow.textContent=g.trendCmH>0?'↗':g.trendCmH<0?'↘':'→';
-  arrow.classList.add(g.trendCmH>0?'trend-up':'trend-down');
-  const name=document.createElement('strong');name.textContent=g.name;
-  const reading=document.createElement('div');reading.textContent=fmt(g.levelM)+' m';
-  reading.style.fontWeight='750';reading.style.fontSize='18px';reading.style.color='#164d62';
-  const change=document.createElement('div');
-  change.textContent=(g.trendCmH>0?'+':'')+fmt(g.trendCmH)+' cm/h';
-  change.className=g.trendCmH>0?'trend-up':'trend-down';
-  const measured=document.createElement('small');
-  measured.textContent=earlyI18n('Mesure : ','Measured: ','Messung: ')+new Date(g.observedAt).toLocaleTimeString(locale,{timeZone:'Europe/Paris',hour:'2-digit',minute:'2-digit'});
-  card.append(arrow,name,reading,change,measured);upstreamNode.append(card);
+ upstreamDisplayedGauges=gauges;
+ if(!gauges.length){
+  document.getElementById('upstreamMap').hidden=true;
+  document.getElementById('earlyUpstreamRows').hidden=true;
+  earlyText('upstreamMapMessage',earlyI18n('Aucune station avec des mesures récentes','No upstream stations currently reporting','Keine flussaufwärts gelegene Station mit aktuellen Messungen'));
+ }else if(!document.getElementById('forecastPage').classList.contains('hidden')){
+  requestAnimationFrame(()=>updateUpstreamMap());
  }
  const radar=d.radar;
  earlyText('earlyRadarStatus',radar?.status==='catalogue_only'?
