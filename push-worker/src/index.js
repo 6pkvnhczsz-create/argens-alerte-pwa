@@ -663,7 +663,8 @@ export default {
    if(!bearer.startsWith('Bearer '))return json(request,{ok:false,error:'Workflow authentication required'},401);
    try{await verifyRadarWorkflowToken(bearer.slice(7))}
    catch{return json(request,{ok:false,error:'Workflow identity rejected'},401)}
-   if(!env.METEO_FRANCE_API_KEY)return json(request,{ok:false,error:'API key not configured'},503);
+   const piafApiKey=env.METEO_FRANCE_PIAF_API_KEY||env.METEO_FRANCE_API_KEY;
+   if(!piafApiKey)return json(request,{ok:false,error:'PIAF API key not configured'},503);
    // The canonical server URL comes from Météo-France PIAF's Swagger
    // documentation. Keep the API key inside Cloudflare.
    const candidates=[
@@ -673,7 +674,7 @@ export default {
    for(let i=0;i<candidates.length;i++){
     try{
      const result=await fetch(candidates[i],{
-      headers:{apikey:env.METEO_FRANCE_API_KEY,Accept:'application/xml'},
+      headers:{apikey:piafApiKey,Accept:'application/xml'},
       redirect:'manual',signal:AbortSignal.timeout(14000),cf:{cacheTtl:0}
      });
      const type=String(result.headers.get('content-type')||'').slice(0,100).replace(/[^a-zA-Z0-9/;= .-]/g,'');
