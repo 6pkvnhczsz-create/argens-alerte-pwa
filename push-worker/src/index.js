@@ -10,7 +10,7 @@ export class AdminPushService extends WorkerEntrypoint {
   try{
    const {points}=await readVigicruesObservations(STATION,{limit:10});
    return {status:'good',observedAt:new Date(points[0].time).toISOString()};
-  }catch(e){return {status:'bad',error:String(e.message||e).slice(0,180)}}
+  }catch(e){return {status:'bad',error:String(e.message||e).slice(0,480)}}
  }
  async broadcastAdmin(data){
   if(!['test','maintenance','incident','custom'].includes(data?.kind)||typeof data.title!=='string'||typeof data.body!=='string'||!data.title.trim()||!data.body.trim()||data.title.length>90||data.body.length>400)throw Error('Invalid admin message');
