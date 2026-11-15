@@ -1,0 +1,40 @@
+name: Check official upstream station locations
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/check-hubeau-upstream-positions.yml'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Retrieve five exact official station coordinates
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,urllib.request,urllib.parse,time
+          codes=['Y511201001','Y530501501','Y520201001','Y523501002','Y521502002']
+          base='https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations'
+          for code in codes:
+            url=base+'?'+urllib.parse.urlencode({'code_station':code,'size':'5','format':'json'})
+            last=None
+            for attempt in range(3):
+              try:
+                request=urllib.request.Request(url,headers={'Accept':'application/json','User-Agent':'Riviere-Alerte-Station-Check/1.0'})
+                with urllib.request.urlopen(request,timeout=16) as r:data=json.load(r)
+                break
+              except Exception as e:
+                last=e
+                time.sleep(2)
+            else:raise RuntimeError('Cannot fetch official station '+code+' '+str(last))
+            station=next((x for x in data.get('data',[]) if str(x.get('code_station','')).lstrip('#')==code),None)
+            assert station, 'No exact station match for '+code
+            lat=float(station['latitude_station']);lon=float(station['longitude_station'])
+            assert 42.9<lat<44.2 and 5.4<lon<7.3, 'Unexpected station coordinates for '+code
+            print(code,station.get('libelle_station'),round(lat,7),round(lon,7),flush=True)
+          print('PASS: all five official station codes have plausible verified coordinates')
+          PY
