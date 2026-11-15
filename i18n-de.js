@@ -461,3 +461,36 @@ window.argensGermanDictionary={
   "Déconnecté": "Abgemeldet",
   "Signed out": "Abgemeldet"
 };
+
+/* Resolve both the original French and existing English strings to German.
+   Dynamic messages are recognized without changing measurement or alert logic. */
+window.argensGermanText = function(text, englishText) {
+ const de=window.argensGermanDictionary || {};
+ const value=String(text == null ? '' : text);
+ if(Object.prototype.hasOwnProperty.call(de,value))return de[value];
+ if(englishText != null && Object.prototype.hasOwnProperty.call(de,String(englishText)))return de[String(englishText)];
+ const trimmed=value.trim();
+ if(trimmed && Object.prototype.hasOwnProperty.call(de,trimmed)) {
+  const start=value.indexOf(trimmed);
+  return value.slice(0,start)+de[trimmed]+value.slice(start+trimmed.length);
+ }
+ const trend=value.match(/^([↗↘→]) Niveau (en hausse|en baisse|stable) sur (\d+) h(.*)$/);
+ if(trend) {
+  const state=trend[2]==='en hausse'?'Wasserstand steigt':trend[2]==='en baisse'?'Wasserstand fällt':'Wasserstand unverändert';
+  return trend[1]+' '+state+' seit '+trend[3]+' Std.'+trend[4].replace(' · données potentiellement anciennes',' · möglicherweise veraltete Messwerte');
+ }
+ const patterns=[
+  [/^Dernière mesure : (.*) · Hub’Eau$/,'Letzte Messung: $1 · Hub’Eau'],
+  [/^Aperçu : (vert|orange|rouge) · (.*)$/,(match,color,measurement)=>'Vorschau: '+({vert:'Grün',orange:'Orange',rouge:'Rot'}[color])+' · '+measurement],
+  [/^Station sélectionnée : (.*)\. Chargement des mesures officielles…$/,'Ausgewählte Station: $1. Amtliche Messwerte werden geladen …'],
+  [/^Activation impossible : (.*)$/,'Aktivierung fehlgeschlagen: $1'],
+  [/^Test impossible : (.*)$/,'Test fehlgeschlagen: $1'],
+  [/^([+-]?\d+(?:[,.]\d+)?) cm\/h \(estimation\)$/,'$1 cm/Std. (geschätzt)'],
+  [/^ · données potentiellement anciennes$/,' · möglicherweise veraltete Messwerte']
+ ];
+ for(const [pattern,result] of patterns) {
+  if(pattern.test(value))return value.replace(pattern,result);
+ }
+ return value.replace(' · données potentiellement anciennes',' · möglicherweise veraltete Messwerte')
+             .replace(' cm/h (estimation)',' cm/Std. (geschätzt)');
+};
