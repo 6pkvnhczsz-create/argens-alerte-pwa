@@ -155,7 +155,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .hero .level{margin-bottom:0}
 .hero-source-footer{margin-top:18px;text-align:center;color:#ffffffb8;font-size:10px;font-weight:650;letter-spacing:.09em}\n.hero .level-connector{height:42px;width:100%;margin:0 auto;pointer-events:none}
 .hero .level-connector svg{display:block;width:100%;height:100%;overflow:visible}
-.hero .level-connector path{fill:none;stroke:#a4ffe0;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.hero .level-connector path{fill:none;stroke:#86e6b2;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .hero .threshold-row{margin-top:0}
 
 /* Forecast-only threshold emphasis: indicative estimate, never an official alert. */
@@ -304,8 +304,16 @@ function updateLevelConnector(){
  const rect=connector.getBoundingClientRect(),from=glass.getBoundingClientRect(),to=active.getBoundingClientRect();
  if(!rect.width||!rect.height)return;
  const x1=from.left+from.width/2-rect.left,x2=to.left+to.width/2-rect.left;
+ const midY=Math.round(rect.height*.55);
+ const colors={green:'#86e6b2',orange:'#ffba63',red:'#ff8f9b'};
+ path.style.stroke=colors[active.dataset.threshold]||colors.green;
  svg.setAttribute('viewBox','0 0 '+rect.width+' '+rect.height);
- path.setAttribute('d','M '+x1+' 0 V '+(rect.height*.55)+' H '+x2+' V '+rect.height);
+ // A single orthogonal route, aligned to the centres of the two tiles.
+ // For the middle tile, draw one uninterrupted vertical segment.
+ const xStart=Math.round(x1*10)/10,xEnd=Math.round(x2*10)/10;
+ path.setAttribute('d',Math.abs(xStart-xEnd)<2
+  ?'M '+xStart+' 0 V '+rect.height
+  :'M '+xStart+' 0 V '+midY+' H '+xEnd+' V '+rect.height);
 }
 function scheduleLevelConnector(){requestAnimationFrame(updateLevelConnector)}
 window.addEventListener('resize',scheduleLevelConnector);
