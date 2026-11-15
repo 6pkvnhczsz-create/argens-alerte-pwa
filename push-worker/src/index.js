@@ -384,6 +384,29 @@ async function accountRoute(request,env,url){
  if(url.pathname==='/auth/me'&&request.method==='GET'){
   const user=await authUser(request,db);return user?json(request,{user}):json(request,{error:'Unauthorized'},401);
  }
+ if(url.pathname==='/auth/delete'&&request.method==='POST'){
+  const user=await authUser(request,db);
+  if(!user)return json(request,{error:'Unauthorized'},401);
+  // Delete all account-linked data in one D1 transaction; never accept a user ID
+  // or email from the request body as the deletion target.
+  try{
+   await db.prepare('CREATE TABLE IF NOT EXISTS push_user_devices (endpoint TEXT PRIMARY KEY,user_id TEXT NOT NULL,linked_at INTEGER NOT NULL)').run();
+   const endpoints=await db.prepare('SELECT endpoint FROM push_user_devices WHERE user_id=?').bind(user.id).all();
+   const batch=[
+    ...((endpoints.results||[]).flatMap(row=>[
+      db.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(row.endpoint)
+    ])),
+    db.prepare('DELETE FROM push_user_devices WHERE user_id=?').bind(user.id),
+    db.prepare('DELETE FROM user_station_alert_state WHERE user_id=?').bind(user.id),
+    db.prepare('DELETE FROM user_station_settings WHERE user_id=?').bind(user.id),
+    db.prepare('DELETE FROM auth_sessions WHERE user_id=?').bind(user.id),
+    db.prepare('DELETE FROM auth_codes WHERE email=?').bind(user.email),
+    db.prepare('DELETE FROM app_users WHERE id=?').bind(user.id)
+   ];
+   await db.batch(batch);
+   return json(request,{ok:true});
+  }catch(e){console.error('Account deletion failed',String(e));return json(request,{error:'Account deletion unavailable'},500)}
+ }
  if(url.pathname==='/auth/logout'&&request.method==='POST'){
   const token=(request.headers.get('Authorization')||'').replace(/^Bearer /,'');
   if(token)await db.prepare('DELETE FROM auth_sessions WHERE token_hash=?').bind(await authHash(token)).run();
