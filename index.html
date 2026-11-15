@@ -728,6 +728,20 @@ async function syncPushLanguage(language){
 /* English translation layer for the public PWA, including live updates. French remains the source language. */
 (()=>{
 const translations={
+"🌊 Argens Alerte":"🌊 Argens Alerte",
+"Roquebrune-sur-Argens":"Roquebrune-sur-Argens",
+"Pluie estimée · 24 h passées":"Estimated rain · past 24 h",
+"Source: HUB’EAU":"Source: HUB’EAU",
+"1 h":"1 h",
+"6 h":"6 h",
+"12 h":"12 h",
+"24 h":"24 h",
+"48 h":"48 h",
+"Niveau d’eau":"Water level",
+"Seuils personnels non officiels. Les alertes sont envoyées lors d’un changement de niveau, après enregistrement.":"Unofficial personal thresholds. Alerts are sent when the alert level changes after saving.",
+"Choisissez votre station":"Choose your station",
+", puis définissez vos seuils personnels. Connexion requise.":", then set your personal thresholds. Sign-in required.",
+
 "Rouge":"Red","Violet":"Purple","Vert":"Green",
 "Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez":"Unofficial indicative thresholds. A rapid rise (≥ 30 cm/h) can trigger orange even below 3 m. In case of danger, consult",
 "et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.":"and official safety instructions. Do not rely on this application as your only warning source.",
@@ -774,6 +788,7 @@ function walk(root){if(root.nodeType===3){applyNode(root);return}if(root.nodeTyp
 function setLanguage(next){lang=next;localStorage.setItem('argens-language',lang);syncPushLanguage(lang);document.documentElement.lang=lang;document.dispatchEvent(new Event('argens-language-changed'));document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===lang)));walk(document);document.querySelector('#accountFirstName').placeholder=lang==='en'?'First name':'Prénom';document.querySelector('#accountLastName').placeholder=lang==='en'?'Last name':'Nom'}
 document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>setLanguage(b.dataset.lang)));
 document.addEventListener('argens-language-changed',()=>renderAlertRules(activeStation));
+document.addEventListener('argens-language-changed',()=>{renderThresholdLabels(activeStation);if(chartReadings.length)renderForecast(chartReadings,activeStation)});
 let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;walk(document)})});observer.observe(document.body,{subtree:true,childList:true,characterData:true});
 
 /* Optional email-code sign-in. Never claim sync until server-side group storage exists. */
