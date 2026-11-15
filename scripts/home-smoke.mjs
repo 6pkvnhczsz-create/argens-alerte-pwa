@@ -67,6 +67,15 @@ assert.equal(status.clicked_Prévisions.forecastHidden,false,'Forecast tab not w
 assert.equal(status.clicked_Réglages.settingsHidden,false,'Settings tab not working');
 assert.equal(status.clicked_overview.overviewHidden,false,'Home tab not working');
 
+// All three public languages must remain usable after switching between them.
+for(const code of ['en','de','fr']){
+ d.querySelector('[data-lang="'+code+'"]').click();
+ await new Promise(resolve=>setTimeout(resolve,20));
+ assert.equal(d.documentElement.lang,code,'Language switch failed: '+code);
+ assert.deepEqual(errors,[],'Language change caused browser errors: '+code);
+}
+assert.match(d.querySelector('#level').textContent,/1[,.]35/);
+
 // Simulate responsive element geometry and assert there is a single correct
 // orthogonal SVG path to each actually active tile, with its exact color.
 const hero=d.querySelector('#overview .hero');
