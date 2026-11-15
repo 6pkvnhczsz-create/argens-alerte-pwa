@@ -46,12 +46,12 @@
   }
   return {changed,unknown};
  }
- function recolorImage(image,doc=document){
+ function recolorImage(image,doc){
   if(!image)throw Error('Missing PIAF image');
   const width=image.naturalWidth||image.width,height=image.naturalHeight||image.height;
   if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||width>2048||height>2048)
    throw Error('Invalid PIAF image dimensions');
-  const canvas=doc.createElement('canvas');canvas.width=width;canvas.height=height;
+  const canvas=(doc||root.document).createElement('canvas');canvas.width=width;canvas.height=height;
   const ctx=canvas.getContext('2d',{willReadFrequently:true});
   if(!ctx)throw Error('Browser cannot recolor forecast');
   ctx.drawImage(image,0,0,width,height);
