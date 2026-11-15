@@ -6,6 +6,8 @@ on:
       - 'scripts/home-smoke.mjs'
       - 'scripts/forecast-map-smoke.mjs'
       - 'piaf-player.js'
+      - 'piaf-palette.js'
+      - 'scripts/piaf-palette-test.mjs'
       - '.github/workflows/home-smoke.yml'
   workflow_dispatch:
 permissions:
@@ -23,5 +25,7 @@ jobs:
         run: npm install --no-save --ignore-scripts --no-audit --no-fund jsdom@26
       - name: Load homepage, load water level, and click all five tabs
         run: node scripts/home-smoke.mjs
+      - name: Validate safe six-colour PIAF RGBA remapping
+        run: node scripts/piaf-palette-test.mjs
       - name: Open forecast lists and show five officially positioned upstream pins
         run: node scripts/forecast-map-smoke.mjs
