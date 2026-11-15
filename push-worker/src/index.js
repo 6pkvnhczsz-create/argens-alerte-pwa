@@ -682,8 +682,12 @@ export default {
    const origin=request.headers.get('Origin');
    if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
    const code=url.searchParams.get('station')||DEFAULT_STATION;
-   if(!validStationCode(code)||[...url.searchParams].length>1)
+   const params=[...url.searchParams];
+   if(!validStationCode(code)||params.length>2||new Set(params.map(([key])=>key)).size!==params.length||
+      params.some(([key,value])=>(key==='station'&&value!==code)||
+       (key==='nearby'&&value!=='1')||!['station','nearby'].includes(key)))
     return json(request,{error:'Invalid station'},400);
+   const includeNearby=url.searchParams.get('nearby')==='1';
    try{
     const cache=globalThis.caches?.default;
     const key=new Request('https://riviere-alerte.fr/__hydro_cache/upstream_v3?station='+code);
@@ -706,8 +710,20 @@ export default {
     // Never fill gaps with geographically nearby but unconnected gauges.
     const verified=await measureBatch((result.candidates||[]).slice(0,10));
     const stations=verified.filter(Boolean).slice(0,5);
+    // Surrounding gauges are fetched only when the visitor opens the optional list.
+    // These stations are never part of the verified upstream warning or prediction.
+    const argensKnown=new Set(['Y530501501','Y523501002','Y521502002','Y520201001','Y511201001']);
+    const nearSource=includeNearby?(result.nearby||[]).filter(st=>
+     code!==DEFAULT_STATION||!argensKnown.has(st.code)).slice(0,12):[];
+    const nearbyMeasured=includeNearby?await measureBatch(nearSource):[];
+    const nearby=nearSource.map((station,i)=>({
+     ...station,...(nearbyMeasured[i]||{}),
+     classification:'nearby_not_verified',
+     status:nearbyMeasured[i]?'current':'no_recent_measurement'
+    }));
     return json(request,{ok:true,status:stations.length?'verified':'no_current_verified',
-     home:result.home,stations,checkedAt:new Date().toISOString(),
+     home:result.home,stations,...(includeNearby?{nearby,nearbyRadiusKm:40}:{}),
+     checkedAt:new Date().toISOString(),
      source:result.evidence,extent:result.extent,connectivityCoverage:result.connectivityCoverage,
      directoryTruncated:result.directoryTruncated===true,
      hydrologicalConnectivity:'directed_verified_local_only',
