@@ -157,6 +157,12 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .hero .level-connector svg{display:block;width:100%;height:100%;overflow:visible}
 .hero .level-connector path{fill:none;stroke:#a4ffe0;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .hero .threshold-row{margin-top:0}
+
+/* Forecast-only threshold emphasis: indicative estimate, never an official alert. */
+#forecastResults .card.forecast-threshold-orange{background:#fff0d9;border:2px solid #e68a18;box-shadow:0 5px 16px #b66b171c}
+#forecastResults .card.forecast-threshold-red{background:#ffe2e5;border:2px solid #d63d4c;box-shadow:0 5px 16px #a522321b}
+#forecastResults .card.forecast-threshold-orange small,#forecastResults .card.forecast-threshold-orange strong{color:#873e04!important}
+#forecastResults .card.forecast-threshold-red small,#forecastResults .card.forecast-threshold-red strong{color:#971f30!important}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button></div></div>
@@ -362,6 +368,11 @@ function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
  const en=document.documentElement.lang==='en';
  const projectedEl=document.querySelector('#forecastProjected');projectedEl.classList.add('hidden');
+ // Clear forecast-only colors before every recalculation, including stale or missing data.
+ const orangeCard=document.querySelector('#forecastOrange').closest('.card');
+ const redCard=document.querySelector('#forecastRed').closest('.card');
+ orangeCard.classList.remove('forecast-threshold-orange');
+ redCard.classList.remove('forecast-threshold-red');
  box.classList.remove('hidden');out.classList.add('hidden');renderThresholdLabels(code);
  document.querySelector('#forecastHeading').textContent=en?'🔎 6-hour water-level trend':'🔎 Tendance du niveau sur 6 h';
  document.querySelector('#forecastDisclaimer').textContent=en?'Estimate of the next 6 hours based on recent water-level changes. Not an official forecast or warning. Conditions can change quickly, and uncertainty increases over time.':'Estimation sur 6 heures basée sur les dernières variations du niveau d’eau. Ce n’est ni une prévision officielle ni une alerte. Le niveau peut changer rapidement et l’incertitude augmente avec le temps.';
@@ -388,15 +399,22 @@ function renderForecast(items,code){
    const hours=(threshold-metres)/rateM;
    return hours>0&&hours<=6?fmt(hours):en?'Not within 6 h':'Pas dans les 6 h';
  }
- document.querySelector('#forecastOrange').textContent=estimate(activeThresholds(code).orange);
- document.querySelector('#forecastRed').textContent=estimate(activeThresholds(code).red);
+ const thresholds=activeThresholds(code);
+ // Highlight each card independently only when the current level is already at
+ // its threshold or the valid rising 6-hour estimate reaches that threshold.
+ // This does not change live alert status or trigger a notification.
+ const reaches=threshold=>metres>=threshold||(rateM>.02&&projected>=threshold);
+ orangeCard.classList.toggle('forecast-threshold-orange',reaches(thresholds.orange));
+ redCard.classList.toggle('forecast-threshold-red',reaches(thresholds.red));
+ document.querySelector('#forecastOrange').textContent=estimate(thresholds.orange);
+ document.querySelector('#forecastRed').textContent=estimate(thresholds.red);
  const signed=rate>0?'+':'';
  statusEl.textContent=direction+' · '+signed+rate.toFixed(1).replace('.',',')+' cm/h';
  projectedEl.textContent=(en?'Estimated level in 6 h: ':'Niveau estimé dans 6 h : ')+num(projected)+' m';
  projectedEl.classList.remove('hidden');
  out.classList.remove('hidden');
 }
-function noReading(text){document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'Not enough reliable data to estimate the short-term trend.':'Données insuffisantes pour estimer l’évolution à court terme.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='status orange';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren()}
+function noReading(text){document.querySelectorAll('#forecastResults .card').forEach(card=>card.classList.remove('forecast-threshold-orange','forecast-threshold-red'));document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'Not enough reliable data to estimate the short-term trend.':'Données insuffisantes pour estimer l’évolution à court terme.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='status orange';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren()}
 function drawChart(items){
  const svg=document.querySelector('#chart'),axis=document.querySelector('#chartTimes'),info=document.querySelector('#rangeInfo');
  svg.replaceChildren();axis.replaceChildren();document.querySelector('#heightScaleLeft').replaceChildren();document.querySelector('#heightScaleRight').replaceChildren();
