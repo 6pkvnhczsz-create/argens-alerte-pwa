@@ -103,21 +103,24 @@ test('radar OIDC allows only signed main-branch radar workflow, never Vigicrues 
  await assert.rejects(async()=>verifyRadarWorkflowToken(await issue({...claims,workflow_ref:'unexpected'}),{now:NOW,fetchImpl}),/workflow/);
  await assert.rejects(async()=>verifyRadarWorkflowToken(await issue({...claims,ref:'refs/heads/dev'}),{now:NOW,fetchImpl}),/branch/);
 });
-test('the website retains Windy fallback and never exposes an API key',()=>{
+test('forecast UI uses buffered PIAF while observed radar remains available separately and secrets never leak',()=>{
  const page=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
+ const player=readFileSync(new URL('../../piaf-player.js',import.meta.url),'utf8');
  const worker=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
- assert.match(page,/id="officialRadarMap"/);
- assert.match(page,/id="officialRadarLegend"/);
- assert.match(page,/id="windyRadarFrame"/);
- assert.match(page,/id="radarNote"/);
- assert.match(page,/RADAR_MAP_API\+'\/info'/);
- assert.match(page,/RADAR_MAP_API\+'\/image\?t='/);
- assert.match(page,/function showWindyRadarFallback/);
+ assert.match(page,/id="piafForecastMap"/);
+ assert.match(page,/id="piafLegendBlock"/);
+ assert.doesNotMatch(page,/id="weatherPanel"/);
+ assert.doesNotMatch(page,/id="officialRadarMap"/);
+ assert.match(player,/api\/piaf/);
+ assert.match(player,/\/legend/);
  assert.doesNotMatch(page,/apikey\s*:/);
+ assert.doesNotMatch(player,/apikey\s*:/);
  assert.match(worker,/api\/radar-map\/raw/);
  assert.match(worker,/verifyRadarWorkflowToken/);
  assert.match(worker,/api\/radar-map\/image/);
  assert.match(worker,/api\/radar-map\/ingest/);
+ assert.match(worker,/api\/piaf\/legend/);
  const scripts=[...page.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).filter(Boolean);
  for(const script of scripts)assert.doesNotThrow(()=>new Script(script));
+ assert.doesNotThrow(()=>new Script(player));
 });

@@ -95,3 +95,31 @@ export async function fetchPiafFrame(env,meta,time,{fetchImpl=fetch}={}){
  if(uint32(16)!==720||uint32(20)!==500)throw Error('PIAF PNG dimensions do not match');
  return data;
 }
+
+// The legend is obtained from the SAME official PIAF WMS style as the map.
+// Do not invent palette breakpoints: WMS style definitions may change.
+export function buildPiafLegendUrl(meta){
+ if(meta.layer!==PIAF_LAYER||!/^[A-Z0-9_]{3,100}$/.test(meta.style))
+  throw Error('Invalid PIAF legend style');
+ const query=new URLSearchParams({
+  service:'WMS',version:'1.3.0',request:'GetLegendGraphic',
+  layer:meta.layer,style:meta.style,format:'image/png'
+ });
+ return BASE+'GetLegendGraphic?'+query;
+}
+export async function fetchPiafLegend(env,meta,{fetchImpl=fetch}={}){
+ const key=apiKey(env);if(!key)throw Error('PIAF key unavailable');
+ const response=await fetchImpl(buildPiafLegendUrl(meta),{
+  headers:{apikey:key,Accept:'image/png'},redirect:'manual',
+  signal:AbortSignal.timeout(20000),cf:{cacheTtl:0}
+ });
+ if(!response.ok||response.redirected)throw Error('PIAF legend HTTP '+response.status);
+ if(!String(response.headers.get('content-type')||'').toLowerCase().startsWith('image/png'))
+  throw Error('PIAF legend is not PNG');
+ if(Number(response.headers.get('content-length'))>MAX_PNG)throw Error('PIAF legend too large');
+ const data=new Uint8Array(await response.arrayBuffer());
+ if(data.length<70||data.length>MAX_PNG||
+  ![137,80,78,71,13,10,26,10].every((x,i)=>x===data[i]))
+  throw Error('PIAF legend format invalid');
+ return data;
+}

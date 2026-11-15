@@ -36,7 +36,7 @@ const leaflet={
  tileLayer(){return {addTo(){return this}}},
  layerGroup(){return {addTo(){return this},clearLayers(){pins.length=0},addLayer(pin){pins.push(pin);return this}}},
  divIcon(opts){return opts},
- imageOverlay(url,bounds,opts){return {url,bounds,opts,handlers:{},once(name,fn){this.handlers[name]=fn;return this},addTo(){piafOverlays.push(this);queueMicrotask(()=>this.handlers.load?.());return this}}},
+ imageOverlay(url,bounds,opts){return {url,bounds,opts,handlers:{},once(name,fn){this.handlers[name]=fn;return this},setOpacity(v){this.opacity=v;return this},addTo(){piafOverlays.push(this);queueMicrotask(()=>this.handlers.load?.());return this}}},
  marker(position,opts){return {position,opts,bindTooltip(node,config){this.tooltip=node;this.tooltipOptions=config;return this},bindPopup(node){this.popup=node;return this},openPopup(){this.opened=true;return this}}},
  latLngBounds(points){return points},
  circleMarker(){return {bindTooltip(){return {addTo(){}}}}}
@@ -48,6 +48,7 @@ const dom=new JSDOM(page,{url:'https://riviere-alerte.fr/',runScripts:'dangerous
   w.scrollTo=()=>{};
   w.matchMedia=()=>({matches:false,addListener(){},removeListener(){}});
   w.AbortSignal.timeout=()=>new w.AbortController().signal;
+  w.Image=class {set src(url){this._src=url;setTimeout(()=>this.onload?.(),3)}get src(){return this._src}decode(){return Promise.resolve()}};
   w.fetch=async url=>{
    const str=String(url);
    let data={data:[]};
@@ -83,10 +84,14 @@ assert.equal(d.getElementById('piafForecastMap').hidden,false,'Official forecast
 assert.equal(d.getElementById('piafForecastControls').hidden,false,'Forecast time controls must appear');
 assert.equal(d.getElementById('piafSlider').max,'2');
 assert.equal(piafOverlays.length>=1,true,'A valid PIAF forecast image should be requested');
+assert.equal(d.getElementById('weatherPanel'),null,'Redundant still radar map is removed');
+assert.ok(d.getElementById('piafLegendBlock'),'PIAF legend block must be displayed');
+assert.match(d.getElementById('piafLegendImage').src,/\/api\/piaf\/legend$/,'Only official WMS legend can label exact rainfall intensity');
+assert.equal(piafOverlays[0].opacity,0.82,'Loaded forecast image becomes visible only after decoding');
 assert.match(piafOverlays[0].url,/\/api\/piaf\/frame\?time=/);
 d.getElementById('piafSlider').value='1';
 d.getElementById('piafSlider').dispatchEvent(new w.Event('input',{bubbles:true}));
-await new Promise(resolve=>setTimeout(resolve,30));
+await new Promise(resolve=>setTimeout(resolve,210));
 assert.match(d.getElementById('piafFrameTime').textContent,/\d\d[:.]\d\d/);
 assert.equal(piafOverlays.length>=2,true,'Moving the slider requests a different official forecast time');
 assert.equal(d.getElementById('upstreamMap').hidden,false,'Map must become visible');
@@ -142,7 +147,7 @@ assert.equal(d.getElementById('earlySignalsIntro'),null,'Redundant model-value i
 const html=d.documentElement.outerHTML;
 assert.ok(html.indexOf('id="rainForecastCard"')<html.indexOf('id="recentRainCard"'));
 assert.ok(html.indexOf('id="recentRainCard"')<html.indexOf('id="upstreamForecastCard"'));
-assert.ok(html.indexOf('id="upstreamForecastCard"')<html.indexOf('id="weatherPanel"'),'Radar belongs at bottom');
+assert.equal(html.includes('id="weatherPanel"'),false,'No redundant measured radar image on Forecast page');
 // Simulate an old station; it must disappear from the map even if still cached.
 model.upstream[0].observedAt=new Date(Date.now()-120*60000).toISOString();
 w.renderEarlySignals();
@@ -163,5 +168,5 @@ for(const lang of ['de','en','fr']){
 d.querySelector('[data-tab="Alertes"]').click();
 assert.equal(d.querySelector('#pushSettings').classList.contains('hidden'),false,'Alerts still clickable');
 assert.deepEqual(errors,[],'No runtime errors after map/list or language changes');
-console.log('PASS: PIAF 5-min forecast frames, scrubber, FR/EN/DE labels and home-station hints, upstream trends, radar');
+console.log('PASS: buffered PIAF frame player, official legend source, one less radar still, multilingual labels, upstream trends');
 process.exit(0);
