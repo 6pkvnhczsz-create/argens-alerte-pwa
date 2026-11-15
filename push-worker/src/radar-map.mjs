@@ -27,7 +27,7 @@ export async function verifyRadarWorkflowToken(token,{now=Date.now(),fetchImpl=f
  if(String(claims.repository_id)!=='1457670420'||String(claims.repository_owner_id)!=='355805597')throw Error('Wrong repository identity');
  if(claims.repository!==REPO||claims.ref!=='refs/heads/main')throw Error('Untrusted branch');
  if(claims.workflow_ref!==WORKFLOW_REF||!['schedule','workflow_dispatch','push'].includes(claims.event_name))throw Error('Untrusted workflow');
- if(typeof claims.sub!=='string'||claims.sub!==('repo:'+REPO+':ref:refs/heads/main'))throw Error('Untrusted subject');
+ if(typeof claims.sub!=='string'||!claims.sub.endsWith(':ref:refs/heads/main'))throw Error('Untrusted subject');
  const keysRes=await fetchImpl(JWKS,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(9000),cf:{cacheTtl:1800}});
  if(!keysRes.ok)throw Error('Signing keys unavailable');
  const jwk=(await keysRes.json())?.keys?.find(k=>k.kid===head.kid&&k.kty==='RSA'&&(!k.use||k.use==='sig'));
