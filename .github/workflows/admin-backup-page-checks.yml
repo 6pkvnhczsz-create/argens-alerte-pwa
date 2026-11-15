@@ -1,0 +1,21 @@
+name: Admin Backup Stations page checks
+
+on:
+  pull_request:
+    paths:
+      - 'admin-worker/src/index.js'
+      - 'admin-worker/test/backup-stations-page.test.mjs'
+      - '.github/workflows/admin-backup-page-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admin-navigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify separate backup stations page and server API
+        run: node --test admin-worker/test/backup-stations-page.test.mjs
