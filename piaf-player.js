@@ -48,12 +48,19 @@
  legend.onload=()=>{
   legend.hidden=false;legendFallback.hidden=true;
  };
+ function fallbackLegendLabels(){
+  text('piafLegendFallbackIntro',lang(
+   'Repères indicatifs de l’échelle radar générale de Météo-France (et non une calibration vérifiée du style PIAF) :',
+   'Indicative ranges from Météo-France’s general radar scale (not a verified calibration of the PIAF style):',
+   'Orientierungswerte der allgemeinen Météo-France-Radarskala (keine bestätigte PIAF-Modell-Farbskala):'));
+  text('piafLegendFallbackNote',lang(
+   'mm/h · les valeurs des couleurs sont indicatives. La légende exacte du style PIAF n’est pas disponible.',
+   'mm/h · indicative values only. The exact PIAF style legend is not available.',
+   'mm/h · nur Richtwerte. Die exakte Farbzuordnung des PIAF-Kartenstils ist derzeit nicht verfügbar.'));
+ }
  legend.onerror=()=>{
   legend.hidden=true;legendFallback.hidden=false;
-  legendFallback.textContent=lang(
-   'Échelle chiffrée officielle indisponible. Les zones bleu-vert signalent généralement moins de pluie que les zones jaune-orange-rouge ; aucune valeur précise n’est attribuée sans légende du modèle.',
-   'Exact official scale unavailable. Blue/green generally means less rain than yellow/orange/red; no numerical values are asserted without the model legend.',
-   'Exakte Modell-Farbskala derzeit nicht verfügbar. Blau/Grün deutet meist auf schwächeren, Gelb/Orange/Rot auf stärkeren Regen hin. Ohne offizielle Legende werden keine mm/h-Grenzen behauptet.');
+  fallbackLegendLabels();
  };
  legend.src=API+'/legend';
  // Preload a limited window: 3 parallel requests max, ~8 images ahead.
@@ -176,7 +183,7 @@
  mapLabels();labels();
  document.addEventListener('argens-language-changed',()=>{
   mapLabels();labels();
-  if(legend.hidden&&legendFallback.textContent)legend.onerror();
+  if(legend.hidden&&!legendFallback.hidden)fallbackLegendLabels();
  });
  document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
  async function load(){
