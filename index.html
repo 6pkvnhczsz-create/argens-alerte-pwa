@@ -747,23 +747,32 @@ async function findStations(lat,lon){
   message.textContent=matches.length?mapText('Touchez une station sur la carte ou dans la liste.','Tap a station on the map or in the list.'):mapText('Aucune station trouvée à proximité.','No nearby stations found.');
   let L=null;
   try{L=await ensureStationMap(lat,lon);stationMarkers.clearLayers()}catch(e){message.textContent+=' '+mapText('Carte indisponible : utilisez la liste.','Map unavailable: use the list.')}
-  const availabilityFilter=document.createElement('label');
-  availabilityFilter.style.cssText='display:flex;align-items:center;gap:9px;margin:12px 0;padding:10px;border-radius:10px;background:#eaf4f6;font-size:14px;font-weight:600';
-  const availabilityCheckbox=document.createElement('input');availabilityCheckbox.type='checkbox';availabilityCheckbox.checked=true;
-  const availabilityFilterText=document.createElement('span');
-  const syncFilterText=()=>{availabilityFilterText.textContent=mapText('Stations avec données récentes uniquement','Stations with recent data only')};
-  syncFilterText();document.addEventListener('argens-language-changed',syncFilterText,{once:true});
-  availabilityFilter.append(availabilityCheckbox,availabilityFilterText);
-  stationsEl.append(availabilityFilter);
   const stationEntries=[];
-  const applyAvailabilityFilter=()=>{
+  const recentGroup=document.createElement('section');
+  const otherGroup=document.createElement('section');
+  recentGroup.style.cssText='margin:12px 0 20px';
+  otherGroup.style.cssText='margin:12px 0 20px';
+  const recentHeading=document.createElement('h3'),otherHeading=document.createElement('h3');
+  recentHeading.style.cssText=otherHeading.style.cssText='font-size:15px;margin:10px 0;color:#173b4c';
+  const recentList=document.createElement('div'),otherList=document.createElement('div');
+  recentGroup.append(recentHeading,recentList);
+  otherGroup.append(otherHeading,otherList);
+  stationsEl.append(recentGroup,otherGroup);
+  function arrangeStations(){
+   const recent=stationEntries.filter(x=>x.info.status==='recent').sort((a,b)=>a.station.distance-b.station.distance);
+   const other=stationEntries.filter(x=>x.info.status!=='recent').sort((a,b)=>a.station.distance-b.station.distance);
+   recentHeading.textContent=mapText('🟢 Stations avec mesures récentes','🟢 Stations with recent readings')+' ('+recent.length+')';
+   otherHeading.textContent=mapText('🔴 Stations sans mesures récentes','🔴 Stations without recent readings')+' ('+other.length+')';
+   recentList.replaceChildren(...recent.map(x=>x.button));
+   otherList.replaceChildren(...other.map(x=>x.button));
    for(const entry of stationEntries){
-    const hidden=availabilityCheckbox.checked&&(entry.info.status!=='recent'||stationEntries.filter(x=>x.info.status==='recent'&&x.station.distance<entry.station.distance).length>=12);
-    entry.button.hidden=hidden;
-    if(entry.marker&&stationMap){if(hidden)stationMarkers.removeLayer(entry.marker);else stationMarkers.addLayer(entry.marker)}
+    if(entry.marker&&stationMap){
+     const color=entry.info.status==='recent'?'#15976c':entry.info.status==='old'?'#d48a20':entry.info.status==='checking'?'#71818c':'#c63e4c';
+     entry.marker.setIcon(L.divIcon({className:'',html:'<span style="display:block;width:17px;height:17px;border:2px solid white;border-radius:50%;background:'+color+';box-shadow:0 1px 6px #173b4c99"></span>',iconSize:[17,17],iconAnchor:[8,8]}));
+    }
    }
-  };
-  availabilityCheckbox.addEventListener('change',applyAvailabilityFilter);
+  }
+  document.addEventListener('argens-language-changed',arrangeStations,{once:true});
   const bounds=[];
   for(const station of matches){
    const name=station.libelle_station||station.libelle_site||station.code_station;
@@ -783,11 +792,11 @@ async function findStations(lat,lon){
     marker.on('click',()=>{document.querySelectorAll('#stations button').forEach(b=>b.classList.toggle('selected',b===btn))});
    }
    const add=document.createElement('button');add.type='button';add.className='map-add-swarm';add.textContent=mapText('+ Ajouter à un groupe','+ Add to group');add.addEventListener('click',e=>{e.stopPropagation();addStationToSwarm(station)});btn.append(add);
-   btn.addEventListener('click',()=>selectMapStation(station,btn,marker));stationsEl.append(btn);
+   btn.addEventListener('click',()=>selectMapStation(station,btn,marker));
    stationEntries.push({station,button:btn,marker,availability,info:{status:'checking'}});
   
   }
-  applyAvailabilityFilter(); // Hide unchecked stations until their recent measurements are confirmed.
+  arrangeStations();
   // Check at most four stations concurrently to avoid overwhelming the public API.
   const pending=[...stationEntries];
   await Promise.all(Array.from({length:Math.min(4,pending.length)},async()=>{
@@ -797,13 +806,13 @@ async function findStations(lat,lon){
     if(searchId!==stationSearchSequence)return;
     entry.info=info;entry.availability.textContent=availabilityLabel(info);
     entry.availability.style.color=info.status==='recent'?'#08765e':info.status==='old'?'#9a6500':'#9b3440';
-    applyAvailabilityFilter();
+    arrangeStations();
    }
   }));
   if(searchId!==stationSearchSequence)return;
   const recentCount=stationEntries.filter(x=>x.info.status==='recent').length;
-  message.textContent=recentCount?mapText('Stations avec mesures récentes : ','Stations with recent readings: ')+recentCount:mapText('Aucune station avec mesures récentes trouvée dans cette zone. Désactivez le filtre pour consulter les autres stations.','No stations with recent readings found in this area. Turn off the filter to see other stations.');
-  if(stationMap){const visible=stationEntries.filter(x=>!x.button.hidden&&x.marker).map(x=>x.marker.getLatLng());if(visible.length)stationMap.fitBounds(visible,{padding:[24,24],maxZoom:12});else stationMap.setView([lat,lon],10);setTimeout(()=>stationMap.invalidateSize(),100)}
+  message.textContent=recentCount?mapText('Stations avec mesures récentes : ','Stations with recent readings: ')+recentCount:mapText('Aucune station avec mesures récentes trouvée dans cette zone. Les autres stations restent consultables ci-dessous.','No stations with recent readings found in this area. Other stations are listed below.');
+  if(stationMap){const visible=stationEntries.filter(x=>x.marker).map(x=>x.marker.getLatLng());if(visible.length)stationMap.fitBounds(visible,{padding:[24,24],maxZoom:12});else stationMap.setView([lat,lon],10);setTimeout(()=>stationMap.invalidateSize(),100)}
  }catch(e){message.textContent=mapText('Recherche indisponible pour le moment. Réessayez plus tard.','Search temporarily unavailable. Please try again.')}
 }
 async function searchPlace(){const q=document.querySelector('#place').value.trim();if(!q)return;message.textContent='Recherche de la commune…';try{const res=await fetch('https://api-adresse.data.gouv.fr/search/?limit=1&q='+encodeURIComponent(q));if(!res.ok)throw Error();const j=await res.json();const point=j.features?.[0]?.geometry?.coordinates;if(!point){message.textContent='Lieu introuvable en France.';return}await findStations(point[1],point[0])}catch(e){message.textContent='Recherche de commune indisponible.'}}
