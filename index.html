@@ -445,12 +445,11 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 </div>
 <section id="homeOfficialPanel" class="panel home-official" aria-labelledby="earlyOfficialTitle">
  <div class="forecast-card-icon" aria-hidden="true">⚠️</div>
- <strong id="earlyOfficialTitle">Vigilance officielle · Var (83)</strong>
+ <strong id="earlyOfficialTitle">Vigilance officielle · station sélectionnée</strong>
  <p id="earlyOfficialStatus" class="note" role="status">Chargement…</p>
  <div id="earlyOfficialPeriods" class="official-period-grid"></div>
- <a id="earlyOfficialLink" href="https://vigilance.meteofrance.fr/fr/var" target="_blank" rel="noopener noreferrer">Voir la vigilance sur Météo-France</a>
+ <a id="earlyOfficialLink" href="https://vigilance.meteofrance.fr/fr" target="_blank" rel="noopener noreferrer">Voir la vigilance sur Météo-France</a>
 </section>
-<p id="homeNationalOfficialNote" class="note safety-note" hidden>La vigilance officielle du Var ne concerne pas votre station sélectionnée. Voir <a href="https://vigilance.meteofrance.fr/fr" target="_blank" rel="noopener noreferrer">Météo-France</a>.</p>
 <p class="note safety-note">Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez <a href="https://www.vigicrues.gouv.fr/" target="_blank" rel="noopener noreferrer">Vigicrues</a> et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.</p></div>
 <div id="forecastPage" class="hidden">
  <div class="section-title" id="forecastPageTitle">Prévisions · bassin de l’Argens</div>
@@ -1986,8 +1985,6 @@ function renderEarlySignals(){
   'Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.',
   'Forecasts, recent rainfall estimates and upstream gauges. Informational only: your alerts remain unchanged.',
   'Regenvorhersagen, bisherige Regenmengen und Oberlieger-Pegel. Zusätzliche Informationen ohne Änderung deiner Warnungen.'));
- earlyText('earlyOfficialTitle',earlyI18n('Vigilance officielle · Var (83)','Official weather warnings · Var (83)','Amtliche Wetterwarnungen · Var (83)'));
- earlyText('earlyOfficialLink',earlyI18n('Consulter Météo-France','View official Météo-France warnings','Amtliche Warnungen bei Météo-France'));
  earlyText('earlyForecastTitle',earlyI18n('Pluie prévue · Météo-France','Forecast rain · Météo-France','Regenprognose · Météo-France'));
  earlyText('earlyRainTitle',earlyI18n('Pluie récente estimée','Estimated recent rainfall','Regen der letzten Stunden (geschätzt)'));
  earlyText('earlyUpstreamTitle',earlyI18n('Stations en amont','Upstream gauges','Flussaufwärts gelegene Pegel'));
@@ -2007,8 +2004,7 @@ function renderEarlySignals(){
  const forecastNode=document.getElementById('earlyForecastRows');
  const rainNode=document.getElementById('earlyRainRows');
  const upstreamNode=document.getElementById('earlyUpstreamRows');
- const officialNode=document.getElementById('earlyOfficialPeriods');
- for(const node of [forecastNode,rainNode,upstreamNode,officialNode])node.replaceChildren();
+ for(const node of [forecastNode,rainNode,upstreamNode])node.replaceChildren();
 
  function initRainList(parent,periods){
   const header=document.createElement('div');header.className='rain-list-header';
@@ -2034,7 +2030,7 @@ function renderEarlySignals(){
  initRainList(rainNode,['3 h','6 h']);
  if(!d||d.ok!==true){
   const unavailable=earlyI18n('Données temporairement indisponibles','Data temporarily unavailable','Daten vorübergehend nicht verfügbar');
-  for(const id of ['earlyOfficialStatus','earlyForecastStatus','earlyRainStatus','earlyUpstreamStatus','earlyRadarStatus'])earlyText(id,unavailable);
+  for(const id of ['earlyForecastStatus','earlyRainStatus','earlyUpstreamStatus','earlyRadarStatus'])earlyText(id,unavailable);
   earlyText('earlySignalsChecked','');
   upstreamDisplayedGauges=[];
   document.getElementById('upstreamMap').hidden=true;
@@ -2043,27 +2039,8 @@ function renderEarlySignals(){
   healthState.weather='bad';renderSystemHealth();
   return;
  }
- const official=d.official;
- if(official?.status==='official'){
-  earlyText('earlyOfficialStatus',earlyI18n('Bulletin officiel de Météo-France','Official Météo-France bulletin','Amtlicher Bericht von Météo-France'));
-  const colors={green:earlyI18n('Vert','Green','Grün'),yellow:earlyI18n('Jaune','Yellow','Gelb'),orange:'Orange',red:earlyI18n('Rouge','Red','Rot')};
-  const symbols={green:'🟢',yellow:'🟡',orange:'🟠',red:'🔴'};
-  const deNames={'1':'Wind','2':'Starkregen/Überschwemmung','3':'Gewitter','4':'Flusshochwasser','5':'Schnee/Glatteis','6':'Hitze','7':'Kälte','8':'Lawinen','9':'Küstenüberschwemmung'};
-  for(const p of official.periods||[]){
-   const tile=document.createElement('div');tile.className='official-period';
-   const label=document.createElement('span');label.textContent=p.period==='J1'?earlyI18n('Demain','Tomorrow','Morgen'):earlyI18n('Aujourd’hui','Today','Heute');
-   const severity=document.createElement('strong');severity.className='risk-'+(colors[p.color]?p.color:'green');
-   severity.textContent=(symbols[p.color]||'⚠️')+' '+(colors[p.color]||'—');
-   const notable=(p.phenomena||[]).filter(x=>x.color!=='green').map(x=>
-    (document.documentElement.lang==='de'?(deNames[x.id]||x.fr):document.documentElement.lang==='en'?x.en:x.fr)+': '+(colors[x.color]||'—'));
-   const note=document.createElement('div');note.textContent=notable.length?notable.join(' · '):earlyI18n('Aucun phénomène élevé indiqué','No elevated phenomena listed','Keine erhöhte Gefahrenstufe angegeben');
-   tile.append(label,severity,note);officialNode.append(tile);
-  }
- }else{
-  earlyText('earlyOfficialStatus',official?.status==='not_configured'?
-   earlyI18n('API non configurée','Official API not configured','Amtliche API nicht eingerichtet'):
-   earlyI18n('Bulletin temporairement indisponible','Official bulletin temporarily unavailable','Amtlicher Bericht vorübergehend nicht verfügbar'));
- }
+ // Official departmental vigilance is rendered independently by home-vigilance.js.
+ // The Argens-only snapshot must never overwrite another department's warnings.
  const forecasts=(d.forecast||[]).filter(x=>x.status==='forecast'&&Number.isFinite(x.next6hMm)&&Number.isFinite(x.next24hMm));
  earlyText('earlyForecastStatus',forecasts.length?
   earlyI18n('Cumuls prévus pour les 6 et 24 prochaines heures','Predicted totals for the next 6 and 24 hours','Vorhergesagter Regen für die nächsten 6 und 24 Stunden'):
@@ -2121,4 +2098,4 @@ document.getElementById('earlySignalsRefresh')?.addEventListener('click',loadEar
 document.addEventListener('argens-language-changed',renderEarlySignals);
 loadEarlySignalsPanel();
 setInterval(()=>{if(!document.hidden)loadEarlySignalsPanel()},300000);
-</script><script src="./piaf-palette.js"></script><script src="./piaf-player.js"></script><script src="./national-upstream.js"></script></body></html>
+</script><script src="./piaf-palette.js"></script><script src="./piaf-player.js"></script><script src="./national-upstream.js"></script><script src="./home-vigilance.js"></script></body></html>
