@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'push-worker/src/vigicrues-snapshot.mjs'
+      - 'push-worker/src/index.js'
+      - 'scripts/tests/**'
+      - '.github/workflows/vigicrues-backup-sync.yml'
       - 'push-worker/src/water-sources.mjs'
       - 'push-worker/test/vigicrues-snapshot.test.mjs'
       - 'scripts/sync_vigicrues_backup.py'
@@ -22,5 +25,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Check Python sync script syntax
         run: python3 -m py_compile scripts/sync_vigicrues_backup.py
+      - name: Test dynamic station selection and per-station payloads
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
       - name: Test backup verification, data freshness, and primary-fallback routing
         run: node --test push-worker/test/vigicrues-snapshot.test.mjs push-worker/test/water-sources.test.mjs
