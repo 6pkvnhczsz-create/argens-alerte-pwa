@@ -99,13 +99,8 @@ await new Promise(resolve=>setTimeout(resolve,210));
 assert.match(d.getElementById('piafFrameTime').textContent,/\d\d[:.]\d\d/);
 assert.equal(piafOverlays.length>=2,true,'Moving the slider requests a different official forecast time');
 assert.equal(d.getElementById('upstreamMap').hidden,false,'Map must become visible');
-assert.equal(d.getElementById('upstreamMapShell').hidden,false,'Map wrapper becomes visible');
-const getChips=()=>[...d.querySelectorAll('#upstreamTrendLegend .upstream-legend-chip')];
-assert.equal(getChips().length,5,'Five separated trend badges in translucent overlay');
-assert.match(getChips()[0].className,/trend-down/);
-assert.match(getChips()[0].textContent,/1.*cm\/h/);
-assert.match(getChips()[0].getAttribute('aria-label'),/Endre/);
-assert.equal(getChips().every(chip=>chip.tagName==='BUTTON'),true,'Badges are tappable');
+assert.equal(d.getElementById('upstreamMapShell'),null,'Old legend wrapper removed');
+assert.equal(d.getElementById('upstreamTrendLegend'),null,'Old detached trend legend removed');
 assert.equal(d.querySelectorAll('#upstreamMap .upstream-map-tooltip').length,0,'No permanent tooltip boxes');
 const flowIndex=[1,3,4,2,0]; // Endre, Nartuby, Aille, Argens Les Arcs, Argens Carcès
 for(let i=0;i<5;i++){
@@ -114,9 +109,9 @@ for(let i=0;i<5;i++){
  assert.equal(p.position[1],point[1]);
  assert.match(p.opts.title,new RegExp('^'+(i+1)+'\.'),'Map pins must be numbered by tributary junction order');
  assert.equal(p.tooltipOptions,undefined,'A second Leaflet tooltip must not open on mobile tap');
- assert.doesNotMatch(p.opts.icon.html,/upstream-gauge-trend|cm\/h/,'Gauge pins show only numbers and never overlapping trend labels');
- assert.match(getChips()[i].textContent,/cm\/h/,'Trend chip is readable in the legend');
- assert.match(getChips()[i].textContent,/[↑↓→]/,'Trend chip shows direction');
+ assert.match(p.opts.icon.html,/upstream-gauge-trend/,'Compact semi-transparent trend chip must be attached to pin');
+ assert.match(p.opts.icon.html,/cm\/h/,'Each pin shows its own rate');
+ assert.match(p.opts.icon.html,/[↑↓→]/,'Each pin shows a direction arrow');
  assert.match(p.popup.textContent,/m.*cm\/h/,'Compact popup shows level and trend');
  assert.equal(p.popup.querySelectorAll('details.upstream-popup-extra').length,1,'More details must be expandable inside the same popup');
  assert.equal(p.popup.querySelector('details.upstream-popup-extra').open,false,'Extra details start collapsed');
@@ -140,8 +135,8 @@ for(const row of rows){
 assert.match(rows[0].textContent,/Endre/);
 assert.match(rows[1].textContent,/Nartuby/);
 assert.match(rows[2].textContent,/Aille/);
-getChips()[1].click();
-assert.equal(pins[1].opened,true,'Tapping a transparent badge opens the linked station');
+pins[1].openPopup();
+assert.equal(pins[1].opened,true,'Tapping station opens its existing popup');
 rows[0].click();
 assert.equal(pins[0].opened,true,'Selecting a list entry should open the corresponding pin');
 assert.match(d.getElementById('upstreamMapMessage').textContent,/Ordre des confluences|Junction order|Einmündungen/);
@@ -157,7 +152,7 @@ model.upstream[0].observedAt=new Date(Date.now()-120*60000).toISOString();
 w.renderEarlySignals();
 await new Promise(resolve=>setTimeout(resolve,200));
 assert.equal(pins.length,5,'Outdated gauge must disappear while the reference pin remains');
-assert.equal(getChips().length,4,'Old gauge trend badge must disappear');
+assert.equal(pins.filter(p=>/upstream-gauge-trend/.test(p.opts.icon.html)).length,4,'Only current station rates remain');
 for(const lang of ['de','en','fr']){
  d.querySelector('[data-lang="'+lang+'"]').click();
  await new Promise(resolve=>setTimeout(resolve,80));
