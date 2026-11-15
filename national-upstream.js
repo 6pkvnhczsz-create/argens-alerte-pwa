@@ -7,8 +7,10 @@
  const el=id=>document.getElementById(id);
  const lang=(fr,en,de)=>document.documentElement.lang==='de'?de:document.documentElement.lang==='en'?en:fr;
  const text=(id,value)=>{const node=el(id);if(node)node.textContent=value};
- let code=window.argensHomeStationCode||DEFAULT,name='Roquebrune-sur-Argens';
+ let code=window.argensHomeStationCode||DEFAULT,name=window.argensHomeStationName||'Roquebrune-sur-Argens';
  let map=null,layer=null,seq=0,lastRun=0,lastCode='',loaded=null;
+ const nearPanel=el('nearbyGaugesBlock');
+ let nearbyRequest=0,nearbyCode='',nearbyAt=0,nearbyItems=null;
  const isVisible=()=>!el('forecastPage').classList.contains('hidden');
  function scope(){
   const argens=code===DEFAULT;
@@ -17,6 +19,12 @@
   }
   const national=el('nationalUpstreamContainer');national.hidden=argens;
   el('earlyUpstreamStatus').hidden=!argens; // Argens-only status must not describe another home gauge.
+  text('nearbyGaugesToggle',lang('Autres stations dans un rayon de 40 km','Other nearby gauges within 40 km','Weitere Pegel im Umkreis von 40 km'));
+  text('nearbyGaugesSubtitle',lang(
+   'Stations géographiquement proches, sans liaison en amont confirmée. Distance à vol d’oiseau ; elles ne servent pas aux alertes.',
+   'Geographically nearby gauges without a verified upstream link. Straight-line distance; not used for alerts.',
+   'Geografisch nahe Stationen ohne bestätigte Flussverbindung flussaufwärts. Luftlinie; nicht für Warnungen verwendet.'));
+  if(nearPanel.open&&nearbyItems)drawNearby(nearbyItems);
   const updated=el('earlySignalsChecked')?.closest('.forecast-updated');
   if(updated)updated.hidden=!argens;
   text('forecastPageTitle',argens?
@@ -60,6 +68,57 @@
    'Bis zu fünf verifizierte Oberlieger mit aktuellen Messwerten, geordnet nach Nähe im geprüften Flussnetz. Die BD-TOPAGE-Abdeckung kann unvollständig sein. Keine Hochwasser-Laufzeiten berechnet; Warnungen unverändert.');
 
  }
+ // These optional neighbours are not verified upstream stations. Load only after
+ // the visitor expands the details, so normal forecast viewing stays lightweight.
+ function drawNearby(stations){
+  const list=el('nearbyGaugesRows');list.replaceChildren();
+  const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
+  const format=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
+  if(!stations?.length){
+   putLabel(list,lang('Aucune autre station disponible','No additional gauges available','Keine weiteren Stationen verfügbar'),'');
+   return;
+  }
+  for(const st of stations){
+   const distance=Number(st.distanceKm);
+   const d=Number.isFinite(distance)?' · '+format(distance)+' km':'';
+   const ok=st.status==='current'&&Number.isFinite(st.levelM)&&Number.isFinite(st.trendCmH);
+   const sign=st.trendCmH>0?'↑ +':st.trendCmH<0?'↓ ':'→ ';
+   putLabel(list,String(st.name||st.code)+d,ok?
+    format(st.levelM)+' m · '+sign+format(st.trendCmH)+' cm/h':
+    lang('Mesure récente indisponible','No recent reading','Kein aktueller Messwert'));
+  }
+ }
+ async function loadNearby(){
+  if(!nearPanel.open||!isVisible())return;
+  const current=code,request=++nearbyRequest;
+  if(nearbyItems&&nearbyCode===current&&Date.now()-nearbyAt<120000){
+   drawNearby(nearbyItems);return;
+  }
+  const list=el('nearbyGaugesRows');list.replaceChildren();
+  putLabel(list,lang('Chargement des stations…','Loading nearby gauges…','Lade weitere Pegel…'),'');
+  try{
+   const res=await fetch(ROOT+'/api/upstream/stations?station='+encodeURIComponent(current)+'&nearby=1',
+    {cache:'no-store',signal:AbortSignal.timeout(30000)});
+   if(!res.ok)throw Error('Nearby stations unavailable');
+   const data=await res.json();
+   if(request!==nearbyRequest||current!==code||!nearPanel.open)return;
+   if(!data.ok||data.home?.code!==current||!Array.isArray(data.nearby)||
+      data.hydrologicalConnectivity!=='directed_verified_local_only')throw Error('Invalid nearby data');
+   const upstreamCodes=new Set((data.stations||[]).map(x=>x.code));
+   nearbyItems=data.nearby.filter(x=>x.classification==='nearby_not_verified'&&
+    !upstreamCodes.has(x.code)).slice(0,12);
+   nearbyCode=current;nearbyAt=Date.now();drawNearby(nearbyItems);
+  }catch(err){
+   if(request!==nearbyRequest||current!==code||!nearPanel.open)return;
+   list.replaceChildren();
+   putLabel(list,lang('Stations indisponibles pour le moment','Nearby gauges temporarily unavailable',
+    'Weitere Pegel derzeit nicht verfügbar'),'');
+  }
+ }
+ nearPanel.addEventListener('toggle',()=>{
+  if(nearPanel.open)loadNearby();
+  else nearbyRequest++;
+ });
  async function drawMap(data,request){
   if(!isVisible()||code===DEFAULT)return;
   try{
@@ -135,7 +194,10 @@
  function selected(event){
   const next=event.detail?.code;
   if(typeof next!=='string'||!/^[A-Z][A-Z0-9]{7,13}$/.test(next))return;
-  if(next!==code){seq++;lastRun=0;loaded=null;code=next}
+  if(next!==code){
+   seq++;lastRun=0;loaded=null;code=next;nearbyRequest++;nearbyCode='';nearbyItems=null;
+   nearPanel.open=false;el('nearbyGaugesRows').replaceChildren();
+  }
   name=event.detail?.name||next;scope();
   if(isVisible())load();
   if(code===DEFAULT&&isVisible()&&typeof window.renderEarlySignals==='function')window.renderEarlySignals();
@@ -143,6 +205,7 @@
  document.addEventListener('argens-station-selected',selected);
  document.addEventListener('argens-home-station-restored',selected);
  document.addEventListener('argens-language-changed',scope);
+ document.addEventListener('argens-language-changed',()=>{if(nearPanel.open&&!nearbyItems)loadNearby()});
  window.loadNationwideUpstream=load;
  scope();
 })();
