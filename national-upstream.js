@@ -12,12 +12,11 @@
  const isVisible=()=>!el('forecastPage').classList.contains('hidden');
  function scope(){
   const argens=code===DEFAULT;
-  for(const key of ['rainForecastCard','recentRainCard','homeOfficialPanel','earlyUpstreamStatus','upstreamMap','upstreamMapMessage','earlyUpstreamRows']){
+  for(const key of ['rainForecastCard','recentRainCard','earlyUpstreamStatus','upstreamMap','upstreamMapMessage','earlyUpstreamRows']){
    const node=el(key);if(node)node.hidden=!argens;
   }
   const national=el('nationalUpstreamContainer');national.hidden=argens;
   el('nearbyGaugesBlock').hidden=!(loaded?.ok&&Array.isArray(loaded.nearby)&&loaded.nearby.length);
-  el('homeNationalOfficialNote').hidden=argens;
   const updated=el('earlySignalsChecked')?.closest('.forecast-updated');
   if(updated)updated.hidden=!argens;
   text('forecastPageTitle',argens?
@@ -26,17 +25,6 @@
   text('earlyUpstreamTitle',argens?
    lang('Stations en amont','Upstream gauges','Oberlieger-Pegel'):
    lang('Stations en amont · réseau vérifié','Upstream gauges · verified river network','Oberlieger · geprüftes Flussnetz'));
-  const notice=el('homeNationalOfficialNote');
-  if(!argens){
-   notice.replaceChildren(document.createTextNode(lang(
-    'La vigilance officielle du Var ne concerne pas votre station. Voir la vigilance nationale : ',
-    'The current Var official warning does not apply to your station. See national vigilance: ',
-    'Die amtliche Var-Warnung gilt nicht für Ihre Station. Nationale Warnungen: ')));
-   const link=document.createElement('a');
-   link.href='https://vigilance.meteofrance.fr/fr';
-   link.target='_blank';link.rel='noopener noreferrer';link.textContent='Météo-France';
-   notice.append(link);
-  }
   if(loaded)draw(loaded);
  }
  function putLabel(node,label,value){
