@@ -58,11 +58,11 @@ jobs:
               print('PIAF subscription probe:',json.dumps(data,ensure_ascii=False))
               assert data.get('ok') is True
               results=data.get('answers',[])
-              if len(results)>2 or any(item.get('catalogue') for item in results):
-                print('Enhanced PIAF diagnostic response received.')
+              if 'connected' in data:
+                print('PIAF GetCapabilities connected:',data['connected'])
                 break
               if attempt==5:
-                print('PIAF diagnostic Worker has not updated yet; no forecast connection is claimed.')
+                print('PIAF probe deployment is not yet visible; no forecast connection is claimed.')
                 break
               print('Waiting for the read-only PIAF probe deployment before retesting.')
               time.sleep(12)
