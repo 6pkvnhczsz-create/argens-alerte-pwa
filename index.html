@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102c40"><title>Argens Alerte · Live River Conditions</title><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="./icon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Argens Alerte">
 <style>
-*{box-sizing:border-box}body{margin:0;background:#e8eff3;font:16px system-ui,-apple-system,sans-serif;color:#163447}.phone{max-width:460px;min-height:100dvh;margin:auto;background:#f5f8fa;padding:24px 20px 90px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.brand{font-weight:800;font-size:23px}.muted{color:#718593;font-size:13px}.pill{border-radius:30px;padding:7px 12px;background:#e4eef3;font-size:13px}.hero{background:#102c40;color:white;padding:24px;border-radius:26px;box-shadow:0 16px 30px #123f5722}.hero small{color:#b6cbd5}.level{font-size:64px;letter-spacing:-3px;font-weight:750;margin:12px 0 2px}.status{display:inline-flex;padding:9px 14px;border-radius:30px;font-size:13px;font-weight:750}.green{background:#167e60}.orange{background:#c98015}.red{background:#cb3944}.chart{width:100%;height:110px;margin:15px 0 0}.section-title{font-size:18px;font-weight:750;margin:27px 0 13px}.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{background:white;padding:18px;border-radius:19px;box-shadow:0 4px 15px #123f570b}.card strong{display:block;font-size:23px;margin-top:8px}.card small{color:#6c8291}.panel{background:white;padding:18px;border-radius:19px;margin-top:13px}.panel input{width:100%;accent-color:#157c94}.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);max-width:460px;width:100%;display:flex;justify-content:space-around;background:#fff;padding:15px 6px 20px;border-top:1px solid #e4edf1}.bottom button{background:none;border:0;font:inherit;font-size:12px;color:#5c7888;cursor:pointer}.bottom button.active{color:#087f91;font-weight:800}button{cursor:pointer}.sub{margin-top:8px;color:#bfd1d9;font-size:13px}.note{font-size:12px;color:#718593;line-height:1.5}.push-success{background:#e2f5eb;color:#126342;border:1px solid #9dd7b7;border-radius:14px;padding:16px;font-size:16px;font-weight:750;line-height:1.4;display:flex;gap:10px;align-items:center}.push-success::before{content:'✓';display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:50%;background:#16845c;color:white;font-size:20px}.hidden{display:none}@media(min-width:650px){.phone{margin:25px auto;border-radius:30px;min-height:850px;box-shadow:0 20px 80px #123f5725}.bottom{bottom:10px;border-radius:0 0 20px 20px}}.lang-switch{display:flex;gap:3px;background:#e4eef3;padding:4px;border-radius:25px}.lang-switch button{border:0;background:transparent;border-radius:20px;padding:7px 10px;font-weight:700;color:#567180}.lang-switch button[aria-pressed="true"]{background:#102c40;color:white}
+*{box-sizing:border-box}*[hidden]{display:none!important}body{margin:0;background:#e8eff3;font:16px system-ui,-apple-system,sans-serif;color:#163447}.phone{max-width:460px;min-height:100dvh;margin:auto;background:#f5f8fa;padding:24px 20px 90px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.brand{font-weight:800;font-size:23px}.muted{color:#718593;font-size:13px}.pill{border-radius:30px;padding:7px 12px;background:#e4eef3;font-size:13px}.hero{background:#102c40;color:white;padding:24px;border-radius:26px;box-shadow:0 16px 30px #123f5722}.hero small{color:#b6cbd5}.level{font-size:64px;letter-spacing:-3px;font-weight:750;margin:12px 0 2px}.status{display:inline-flex;padding:9px 14px;border-radius:30px;font-size:13px;font-weight:750}.green{background:#167e60}.orange{background:#c98015}.red{background:#cb3944}.chart{width:100%;height:110px;margin:15px 0 0}.section-title{font-size:18px;font-weight:750;margin:27px 0 13px}.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{background:white;padding:18px;border-radius:19px;box-shadow:0 4px 15px #123f570b}.card strong{display:block;font-size:23px;margin-top:8px}.card small{color:#6c8291}.panel{background:white;padding:18px;border-radius:19px;margin-top:13px}.panel input{width:100%;accent-color:#157c94}.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);max-width:460px;width:100%;display:flex;justify-content:space-around;background:#fff;padding:15px 6px 20px;border-top:1px solid #e4edf1}.bottom button{background:none;border:0;font:inherit;font-size:12px;color:#5c7888;cursor:pointer}.bottom button.active{color:#087f91;font-weight:800}button{cursor:pointer}.sub{margin-top:8px;color:#bfd1d9;font-size:13px}.note{font-size:12px;color:#718593;line-height:1.5}.push-success{background:#e2f5eb;color:#126342;border:1px solid #9dd7b7;border-radius:14px;padding:16px;font-size:16px;font-weight:750;line-height:1.4;display:flex;gap:10px;align-items:center}.push-success::before{content:'✓';display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:50%;background:#16845c;color:white;font-size:20px}.hidden{display:none}@media(min-width:650px){.phone{margin:25px auto;border-radius:30px;min-height:850px;box-shadow:0 20px 80px #123f5725}.bottom{bottom:10px;border-radius:0 0 20px 20px}}.lang-switch{display:flex;gap:3px;background:#e4eef3;padding:4px;border-radius:25px}.lang-switch button{border:0;background:transparent;border-radius:20px;padding:7px 10px;font-weight:700;color:#567180}.lang-switch button[aria-pressed="true"]{background:#102c40;color:white}
 /* Weather-inspired design refresh; all original data and push flows are preserved. */
 :root{color-scheme:light;--ink:#122d40;--teal:#008d9b;--soft:#eef6f8}
 body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0f4 100%);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -402,6 +402,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
  <div id="earlyOfficialPeriods" class="official-period-grid"></div>
  <a id="earlyOfficialLink" href="https://vigilance.meteofrance.fr/fr/var" target="_blank" rel="noopener noreferrer">Voir la vigilance sur Météo-France</a>
 </section>
+<p id="homeNationalOfficialNote" class="note safety-note" hidden>La vigilance officielle du Var ne concerne pas votre station sélectionnée. Voir <a href="https://vigilance.meteofrance.fr/fr" target="_blank" rel="noopener noreferrer">Météo-France</a>.</p>
 <p class="note safety-note">Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez <a href="https://www.vigicrues.gouv.fr/" target="_blank" rel="noopener noreferrer">Vigicrues</a> et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.</p></div>
 <div id="forecastPage" class="hidden">
  <div class="section-title" id="forecastPageTitle">Prévisions · bassin de l’Argens</div>
@@ -451,6 +452,12 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <span class="forecast-card-icon" aria-hidden="true">🌊</span>
     <strong id="earlyUpstreamTitle">Stations en amont</strong>
     <p id="earlyUpstreamStatus" class="note" role="status">Chargement…</p>
+    <div id="nationalUpstreamContainer" hidden>
+     <p id="nationalUpstreamStatus" class="note" role="status"></p>
+     <div id="nationalUpstreamMap" class="upstream-map" role="region" aria-label="Carte des stations hydrologiquement connectées" hidden></div>
+     <div id="nationalUpstreamRows" class="upstream-ranked-list"></div>
+     <p id="nationalUpstreamNote" class="note forecast-disclaimer"></p>
+    </div>
     <div id="upstreamMap" class="upstream-map" role="region" aria-label="Stations de mesure de l’Argens sur la carte" hidden></div>
     <p id="upstreamMapMessage" class="note upstream-map-message" role="status"></p>
     <div id="earlyUpstreamRows" class="upstream-ranked-list" hidden></div>
@@ -683,7 +690,7 @@ checkPushHealth();
 setInterval(()=>{if(!document.hidden){checkPushHealth();renderSystemHealth()}},5*60*1000);
 // Weather follows the station selected on the map; this does not change server-side alerts.
 let weatherLocation={lat:43.44,lon:6.64,name:'Roquebrune-sur-Argens'};
-// The rainfall view is always Argens, regardless of the selected French gauge.
+// Historical rain summaries remain Argens-only; PIAF follows the selected gauge.
 function setWeatherStation(_station){loadLocalWeather()}
 
 // Informational weather widget; intentionally independent of flood alerts and push subscriptions.
@@ -895,7 +902,11 @@ document.addEventListener('touchend',async()=>{
 },{passive:true});
 document.addEventListener('touchcancel',()=>{pullStart=null;pullDistance=0;pullIndicator.style.transform='translate(-50%,-130%)'},{passive:true});
 
-document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{const tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector('#overview').classList.toggle('hidden',tab!=='overview');document.querySelector('#forecastPage').classList.toggle('hidden',tab!=='Prévisions');document.querySelector('#mapPage').classList.toggle('hidden',tab!=='Carte');document.querySelector('#pushSettings').classList.toggle('hidden',tab!=='Alertes');document.querySelector('#settingsPage').classList.toggle('hidden',tab!=='Réglages');document.querySelector('#swarmPage').classList.add('hidden');if(tab==='Prévisions')requestAnimationFrame(()=>{updateUpstreamMap();if(typeof window.loadPiafForecastMap==='function')window.loadPiafForecastMap()});if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;document.querySelector('#place').value='Roquebrune-sur-Argens';searchPlace()}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{const tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector('#overview').classList.toggle('hidden',tab!=='overview');document.querySelector('#forecastPage').classList.toggle('hidden',tab!=='Prévisions');document.querySelector('#mapPage').classList.toggle('hidden',tab!=='Carte');document.querySelector('#pushSettings').classList.toggle('hidden',tab!=='Alertes');document.querySelector('#settingsPage').classList.toggle('hidden',tab!=='Réglages');document.querySelector('#swarmPage').classList.add('hidden');if(tab==='Prévisions')requestAnimationFrame(()=>{
+ if((window.argensHomeStationCode||'Y531201001')==='Y531201001')updateUpstreamMap();
+ else if(typeof window.loadNationwideUpstream==='function')window.loadNationwideUpstream();
+ if(typeof window.loadPiafForecastMap==='function')window.loadPiafForecastMap();
+ });if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;document.querySelector('#place').value='Roquebrune-sur-Argens';searchPlace()}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
 
 // Web Push requires a deployed backend and a public VAPID key. Never request permission until configured.
 const PUSH_API_URL='https://argens-alerte-push.p-hammerschmidt.workers.dev';const PUSH_VAPID_PUBLIC_KEY='BNmAS3Gm-VN8T9-_TsA4viBni7q-TwNk0dMEcWR6QYdb0T-fHEQ0Nz8s2sIlCrIBPW_A9LdqI8paKvVqCStUOrA';
@@ -1098,6 +1109,7 @@ function selectMapStation(station,button,marker){
  renderAlertRules(code);
  message.textContent=mapText('Station sélectionnée : ','Selected station: ')+code+'. '+mapText('Chargement des mesures officielles…','Loading official readings…');
  loadMeasurements(code);
+ window.argensHomeStationCode=code;
  document.dispatchEvent(new CustomEvent('argens-station-selected',{detail:{code,name:station.libelle_station||station.libelle_site||code}}));
  setWeatherStation(station);
  document.querySelectorAll('#stations button').forEach(b=>b.classList.toggle('selected',b===button));
@@ -1399,10 +1411,15 @@ async function accountCall(path,body,token){
  const data=await res.json().catch(()=>({}));if(!res.ok)throw Error(data.error||'Service unavailable');return data;
 }
 const personalStation={code:'Y531201001',name:'Roquebrune-sur-Argens'};
+window.argensHomeStationCode='Y531201001';
 function personalStationText(fr,en){return document.documentElement.lang==='de'?(window.argensGermanText?window.argensGermanText(fr,en):fr):document.documentElement.lang==='en'?en:fr}
 function renderPersonalStation(){document.querySelector('#personalStationName').textContent=personalStation.name+' · '+personalStation.code;document.querySelector('#personalStationTitle').textContent=personalStationText('🌊 Ma station et mes seuils','🌊 My station and thresholds');document.querySelector('#personalStationIntro').innerHTML='<a href="#mapPage" id="personalStationMapLink" style="color:#087f91;font-weight:700;text-decoration:underline">'+personalStationText('Choisissez votre station','Choose your station')+'</a>'+personalStationText(', puis définissez vos seuils personnels. Connexion requise.',', then set your personal thresholds. Sign-in required.');document.querySelector('#personalOrangeLabel').lastElementChild.textContent=personalStationText('Orange dès (m)','Orange from (m)');document.querySelector('#personalRedLabel').lastElementChild.textContent=personalStationText('Rouge dès (m)','Red from (m)');document.querySelector('#savePersonalStation').textContent=personalStationText('Enregistrer les seuils','Save thresholds');document.querySelector('#personalStationDisclaimer').textContent=personalStationText('Seuils personnels non officiels. Les notifications sont envoyées sur les appareils inscrits lorsque vos seuils sont atteints ou que le niveau d’alerte change.','Unofficial personal thresholds. Notifications are sent to subscribed devices when your thresholds are reached or the alert level changes.')}
-async function restorePersonalStation(){const token=localStorage.getItem(accountTokenKey);if(!token)return;try{const r=await fetch(PUSH_API_URL+'/user/station',{headers:{Authorization:'Bearer '+token}});if(!r.ok)return;const d=await r.json();if(d.settings){personalStation.code=d.settings.station_code;personalStation.name=d.settings.station_name;document.querySelector('#personalOrange').value=d.settings.orange_m;document.querySelector('#personalRed').value=d.settings.red_m;personalThresholds={code:d.settings.station_code,orange:Number(d.settings.orange_m),red:Number(d.settings.red_m)};renderPersonalStation();if(activeStation!==d.settings.station_code){stationTitle.textContent=d.settings.station_name;loadMeasurements(d.settings.station_code).catch(console.warn)}else applyPersonalThresholds()}}catch(e){console.warn('Station settings unavailable',e)}}
-document.querySelector('#savePersonalStation').addEventListener('click',async()=>{const el=document.querySelector('#personalStationMessage'),btn=document.querySelector('#savePersonalStation'),token=localStorage.getItem(accountTokenKey);if(!token){el.textContent=personalStationText('Veuillez vous connecter.','Please sign in.');return}const orange=Number(document.querySelector('#personalOrange').value),red=Number(document.querySelector('#personalRed').value);if(!Number.isFinite(orange)||!Number.isFinite(red)||orange<0||red>100||orange>=red){el.textContent=personalStationText('Les seuils doivent être valides et Orange inférieur à Rouge.','Enter valid thresholds with Orange below Red.');return}btn.disabled=true;try{const r=await fetch(PUSH_API_URL+'/user/station',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({station_code:personalStation.code,station_name:personalStation.name,orange_m:orange,red_m:red})});const d=await r.json();if(!r.ok)throw Error(d.error||'HTTP '+r.status);personalThresholds={code:personalStation.code,orange,red};stationTitle.textContent=d.settings.station_name;if(activeStation!==personalStation.code){loadMeasurements(personalStation.code).catch(console.warn)}else applyPersonalThresholds();el.textContent=personalStationText('Préférences enregistrées. Les alertes personnelles suivent désormais ces seuils.','Preferences saved. Personal alerts now follow these thresholds.');const homeTab=document.querySelector('[data-tab="overview"]');if(homeTab)homeTab.click()}catch(e){el.textContent=e.message}finally{btn.disabled=false}});
+async function restorePersonalStation(){const token=localStorage.getItem(accountTokenKey);if(!token)return;try{const r=await fetch(PUSH_API_URL+'/user/station',{headers:{Authorization:'Bearer '+token}});if(!r.ok)return;const d=await r.json();if(d.settings){personalStation.code=d.settings.station_code;personalStation.name=d.settings.station_name;document.querySelector('#personalOrange').value=d.settings.orange_m;document.querySelector('#personalRed').value=d.settings.red_m;personalThresholds={code:d.settings.station_code,orange:Number(d.settings.orange_m),red:Number(d.settings.red_m)};
+window.argensHomeStationCode=d.settings.station_code;renderPersonalStation();
+document.dispatchEvent(new CustomEvent('argens-home-station-restored',{detail:{code:d.settings.station_code,name:d.settings.station_name}}));if(activeStation!==d.settings.station_code){stationTitle.textContent=d.settings.station_name;loadMeasurements(d.settings.station_code).catch(console.warn)}else applyPersonalThresholds()}}catch(e){console.warn('Station settings unavailable',e)}}
+document.querySelector('#savePersonalStation').addEventListener('click',async()=>{const el=document.querySelector('#personalStationMessage'),btn=document.querySelector('#savePersonalStation'),token=localStorage.getItem(accountTokenKey);if(!token){el.textContent=personalStationText('Veuillez vous connecter.','Please sign in.');return}const orange=Number(document.querySelector('#personalOrange').value),red=Number(document.querySelector('#personalRed').value);if(!Number.isFinite(orange)||!Number.isFinite(red)||orange<0||red>100||orange>=red){el.textContent=personalStationText('Les seuils doivent être valides et Orange inférieur à Rouge.','Enter valid thresholds with Orange below Red.');return}btn.disabled=true;try{const r=await fetch(PUSH_API_URL+'/user/station',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({station_code:personalStation.code,station_name:personalStation.name,orange_m:orange,red_m:red})});const d=await r.json();if(!r.ok)throw Error(d.error||'HTTP '+r.status);personalThresholds={code:personalStation.code,orange,red};window.argensHomeStationCode=personalStation.code;
+document.dispatchEvent(new CustomEvent('argens-home-station-restored',{detail:{code:personalStation.code,name:personalStation.name}}));
+stationTitle.textContent=d.settings.station_name;if(activeStation!==personalStation.code){loadMeasurements(personalStation.code).catch(console.warn)}else applyPersonalThresholds();el.textContent=personalStationText('Préférences enregistrées. Les alertes personnelles suivent désormais ces seuils.','Preferences saved. Personal alerts now follow these thresholds.');const homeTab=document.querySelector('[data-tab="overview"]');if(homeTab)homeTab.click()}catch(e){el.textContent=e.message}finally{btn.disabled=false}});
 renderPersonalStation();
 document.querySelector('#personalStationIntro').addEventListener('click',event=>{if(!event.target.closest('#personalStationMapLink'))return;event.preventDefault();const mapTab=document.querySelector('[data-tab="Carte"]');if(mapTab)mapTab.click()});
 document.addEventListener('argens-station-selected',event=>{personalStation.code=event.detail.code;personalStation.name=event.detail.name;renderPersonalStation();document.querySelector('#personalStationMessage').textContent=personalStationText('Station sélectionnée. Enregistrez vos seuils pour la conserver.','Station selected. Save your thresholds to keep it.')});
@@ -1806,6 +1823,7 @@ async function updateUpstreamMap(){
  const mapNode=document.getElementById('upstreamMap');
  const forecastPage=document.getElementById('forecastPage');
  if(!mapNode||!forecastPage||forecastPage.classList.contains('hidden'))return;
+ if(window.argensHomeStationCode!=='Y531201001'){mapNode.hidden=true;return}
  const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
  const fmt=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
  const gauges=upstreamDisplayedGauges.filter(x=>{
@@ -1828,7 +1846,7 @@ async function updateUpstreamMap(){
   Promise.all(gauges.map(async g=>({g,point:await officialUpstreamPosition(g.code)}))),
   officialUpstreamPosition('Y531201001')
  ]);
- if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden'))return;
+ if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden')||window.argensHomeStationCode!=='Y531201001')return;
  const reference=referencePosition||ROQUEBRUNE_STATION_FALLBACK;
  const ordered=positions.map(({g,point})=>({g,point,rank:UPSTREAM_CONFLUENCE_ORDER.indexOf(g.code)+1}))
   .sort((a,b)=>a.rank-b.rank||String(a.g.code).localeCompare(String(b.g.code)));
@@ -1844,7 +1862,7 @@ async function updateUpstreamMap(){
  }
  try{
   const L=await loadMapLibrary();
-  if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden'))return;
+  if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden')||window.argensHomeStationCode!=='Y531201001')return;
   mapNode.hidden=false;
   if(!upstreamMapInstance){
    upstreamMapInstance=L.map(mapNode,{scrollWheelZoom:false,zoomControl:true});
@@ -2017,7 +2035,10 @@ function renderEarlySignals(){
   earlyI18n('Stations avec mesures actuelles : ','Gauges with current readings: ','Pegel mit aktuellen Messwerten: ')+gauges.length:
   earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Oberlieger-Messwerte verfügbar'));
  upstreamDisplayedGauges=gauges;
- if(!gauges.length){
+ if(window.argensHomeStationCode!=='Y531201001'){
+  document.getElementById('upstreamMap').hidden=true;
+  document.getElementById('earlyUpstreamRows').hidden=true;
+ }else if(!gauges.length){
   document.getElementById('upstreamMap').hidden=true;
   document.getElementById('earlyUpstreamRows').hidden=true;
   earlyText('upstreamMapMessage',earlyI18n('Aucune station avec des mesures récentes','No upstream stations currently reporting','Keine flussaufwärts gelegene Station mit aktuellen Messungen'));
@@ -2048,4 +2069,4 @@ document.getElementById('earlySignalsRefresh')?.addEventListener('click',loadEar
 document.addEventListener('argens-language-changed',renderEarlySignals);
 loadEarlySignalsPanel();
 setInterval(()=>{if(!document.hidden)loadEarlySignalsPanel()},300000);
-</script><script src="./piaf-palette.js"></script><script src="./piaf-player.js"></script></body></html>
+</script><script src="./piaf-palette.js"></script><script src="./piaf-player.js"></script><script src="./national-upstream.js"></script></body></html>

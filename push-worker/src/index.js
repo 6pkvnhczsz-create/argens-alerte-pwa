@@ -9,6 +9,8 @@ import { translateFeedbackRecord } from './feedback-translation.mjs';
 import { refreshEarlySignals, loadEarlySignals } from './early-signals.mjs';
 import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
 import { fetchPiafMetadata, fetchPiafFrame, fetchPiafLegend } from './piaf-map.mjs';
+import { DEFAULT_STATION, validStationCode, cachedStation } from './piaf-station.mjs';
+import { findLocalUpstream, recentUpstreamReading } from './upstream-topage.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
  async vigicruesHealthAdmin(){
@@ -673,12 +675,51 @@ export default {
     return json(request,{error:'Radar product unavailable',stage:'download',code},502);
    }
   }
+  // Local upstream discovery for mainland France. Only confirmed directed
+  // TOPAGE graph connections are ever called "upstream". This is read-only
+  // information, not a new alarm criterion, flow-time model or full basin map.
+  if(url.pathname==='/api/upstream/stations'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
+   const code=url.searchParams.get('station')||DEFAULT_STATION;
+   if(!validStationCode(code)||[...url.searchParams].length>1)
+    return json(request,{error:'Invalid station'},400);
+   try{
+    const cache=globalThis.caches?.default;
+    const key=new Request('https://riviere-alerte.fr/__hydro_cache/upstream_v1?station='+code);
+    let result=null;
+    if(cache){const hit=await cache.match(key);if(hit)result=await hit.json().catch(()=>null)}
+    if(!result||result.home?.code!==code){
+     result=await findLocalUpstream(code);
+     if(cache)await cache.put(key,new Response(JSON.stringify(result),{headers:{
+      'Content-Type':'application/json','Cache-Control':'public, max-age=900'}}));
+    }
+    const observations=await Promise.all(result.candidates.map(x=>recentUpstreamReading(x)));
+    const stations=observations.filter(Boolean);
+    return json(request,{ok:true,status:stations.length?'verified':'no_current_verified',
+     home:result.home,stations,checkedAt:new Date().toISOString(),
+     source:result.evidence,extent:result.extent,hydrologicalConnectivity:'directed_verified_local_only',
+     excludedUnverified:true,notForAlerts:true});
+   }catch(error){
+    console.warn('Official directed upstream graph unavailable',String(error?.message||error));
+    return json(request,{ok:false,status:'unavailable',stations:[],
+     source:'BD TOPAGE / Hub Eau',notForAlerts:true,
+     error:'Upstream connectivity cannot be confirmed for this station'},503);
+   }
+  }
   // PIAF 3-hour nowcast: public validated metadata and PNG forecast frames.
   // API credentials never enter browser responses or cache keys.
   if(url.pathname==='/api/piaf/metadata'&&request.method==='GET'){
    const origin=request.headers.get('Origin');
    if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
-   try{return json(request,{ok:true,available:true,...await cachedPiafMetadata(env)})}
+   const code=url.searchParams.get('station')||DEFAULT_STATION;
+   if(!validStationCode(code)||[...url.searchParams].length>1)
+    return json(request,{error:'Invalid hydrometric station'},400);
+   try{
+    const [info,station]=await Promise.all([cachedPiafMetadata(env),cachedStation(code)]);
+    return json(request,{ok:true,available:true,...info,bounds:station.bounds,
+     station:{code:station.code,name:station.name,lat:station.lat,lon:station.lon,river:station.river}});
+   }
    catch(error){
     console.warn('PIAF metadata unavailable',String(error?.message||'upstream'));
     return json(request,{ok:false,available:false,error:'PIAF forecast currently unavailable'},503);
@@ -711,20 +752,22 @@ export default {
    const origin=request.headers.get('Origin');
    if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
    const time=url.searchParams.get('time'),run=url.searchParams.get('run');
+   const code=url.searchParams.get('station')||DEFAULT_STATION;
    const args=[...url.searchParams],names=args.map(([name])=>name);
-   if(!time||time.length>32||(run&&run.length>32)||args.length>2||
-      names.some(name=>name!=='time'&&name!=='run')||new Set(names).size!==names.length)
-    return json(request,{error:'Invalid PIAF time'},400);
+   if(!time||time.length>32||(run&&run.length>32)||!validStationCode(code)||args.length>3||
+      names.some(name=>!['time','run','station'].includes(name))||new Set(names).size!==names.length)
+    return json(request,{error:'Invalid PIAF time or station'},400);
    try{
-    const info=await cachedPiafMetadata(env);
+    const [info,station]=await Promise.all([cachedPiafMetadata(env),cachedStation(code)]);
     if(run&&run!==info.referenceTime)return json(request,{error:'PIAF model run changed'},409);
     if(!info.frames.includes(time))return json(request,{error:'PIAF frame not listed in current model'},404);
     const cache=globalThis.caches?.default;
-    const key=new Request('https://riviere-alerte.fr/__piaf_cache/frame_v1?reference='+encodeURIComponent(info.referenceTime)+'&time='+encodeURIComponent(time));
+    const key=new Request('https://riviere-alerte.fr/__piaf_cache/frame_v2?station='+code+
+     '&reference='+encodeURIComponent(info.referenceTime)+'&time='+encodeURIComponent(time));
     let imageBytes;
     if(cache){const hit=await cache.match(key);if(hit)imageBytes=await hit.arrayBuffer()}
     if(!imageBytes){
-     imageBytes=await fetchPiafFrame(env,info,time);
+     imageBytes=await fetchPiafFrame(env,info,time,{bounds:station.bounds});
      if(cache)await cache.put(key,new Response(imageBytes,{headers:{
       'Content-Type':'image/png','Cache-Control':'public, max-age=3600'}}));
     }

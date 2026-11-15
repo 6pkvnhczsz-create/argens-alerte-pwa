@@ -6,10 +6,12 @@ import {readFileSync} from 'node:fs';
 import {JSDOM,VirtualConsole} from 'jsdom';
 const piafScript=readFileSync(new URL('../piaf-player.js',import.meta.url),'utf8');
 const paletteScript=readFileSync(new URL('../piaf-palette.js',import.meta.url),'utf8');
+const nationalScript=readFileSync(new URL('../national-upstream.js',import.meta.url),'utf8');
 const page=readFileSync(new URL('../index.html',import.meta.url),'utf8')
  .replace(/<script src="\.\/i18n-de\.js"><\/script>/,'')
  .replace('<script src="./piaf-palette.js"></script>','<script>'+paletteScript+'</script>')
- .replace('<script src="./piaf-player.js"></script>','<script>'+piafScript+'</script>');
+ .replace('<script src="./piaf-player.js"></script>','<script>'+piafScript+'</script>')
+ .replace('<script src="./national-upstream.js"></script>','<script>'+nationalScript+'</script>');
 const codes=['Y511201001','Y530501501','Y520201001','Y523501002','Y521502002'];
 const names=['Carcès · Argens','Le Muy · Endre','Les Arcs · Argens','Trans-en-Provence · Nartuby','Vidauban · Aille'];
 const coords=[[43.4777864,6.1964135],[43.5033105,6.5896057],[43.4466067,6.471459],[43.5045146,6.4839904],[43.3971748,6.45585]];
@@ -25,7 +27,9 @@ const model={
 const errors=[],coordRequests=[],pins=[],piafOverlays=[],mappedPixels=[];
 const forecastBase=Math.ceil(Date.now()/300000)*300000;
 const forecastFrames=[0,1,2].map(i=>new Date(forecastBase+i*300000).toISOString().replace('.000Z','Z'));
-const piafMock={ok:true,available:true,source:'Météo-France PIAF',kind:'forecast_5min',bounds:[5.85,43.18,6.91,43.85],referenceTime:new Date(forecastBase-300000).toISOString().replace('.000Z','Z'),frames:forecastFrames};
+const piafMock={ok:true,available:true,source:'Météo-France PIAF',kind:'forecast_5min',bounds:[5.85,43.18,6.91,43.85],station:{code:'Y531201001',name:'Roquebrune-sur-Argens',lat:43.4497,lon:6.6331},referenceTime:new Date(forecastBase-300000).toISOString().replace('.000Z','Z'),frames:forecastFrames};
+const parisMock={...piafMock,bounds:[1.81,48.525,2.87,49.195],station:{code:'H123456789',name:'Paris',lat:48.86,lon:2.34}};
+const parisUpstream={ok:true,status:'verified',home:{code:'H123456789',name:'Paris',lat:48.86,lon:2.34},stations:[{code:'H123456788',name:'Seine upstream',lat:48.81,lon:2.31,levelM:2.3,trendCmH:1.1,observedAt:current}],hydrologicalConnectivity:'directed_verified_local_only'};
 const vc=new VirtualConsole();
 vc.on('jsdomError',e=>errors.push(String(e?.message||e)));
 vc.on('error',e=>errors.push(String(e)));
@@ -74,7 +78,8 @@ const dom=new JSDOM(page,{url:'https://riviere-alerte.fr/',runScripts:'dangerous
     data={data:[{date_obs:current,resultat_obs:1340},{date_obs:new Date(Date.now()-65*60000).toISOString(),resultat_obs:1320},{date_obs:new Date(Date.now()-125*60000).toISOString(),resultat_obs:1300}]};
    }else if(str.includes('/api/early-signals'))data=model;
    else if(str.includes('/api/radar-map/info'))data={available:false};
-   else if(str.includes('/api/piaf/metadata'))data=piafMock;
+   else if(str.includes('/api/piaf/metadata'))data=new URL(str).searchParams.get('station')==='H123456789'?parisMock:piafMock;
+   else if(str.includes('/api/upstream/stations'))data=parisUpstream;
    else if(str.includes('/health'))data={ok:true,pushConfigured:true};
    return {ok:true,status:200,json:async()=>data,text:async()=>JSON.stringify(data),headers:{get:()=>null}};
   };
@@ -181,6 +186,19 @@ for(const lang of ['de','en','fr']){
  }
  assert.equal(d.querySelectorAll('#earlyForecastRows .rain-list-row').length,3);
 }
+// A saved home station in another French area must move BOTH maps.
+w.argensHomeStationCode='H123456789';
+d.dispatchEvent(new w.CustomEvent('argens-station-selected',{detail:{code:'H123456789',name:'Paris'}}));
+await new Promise(resolve=>setTimeout(resolve,490));
+assert.equal(d.getElementById('rainForecastCard').hidden,true,'Argens rain totals must not masquerade as Paris data');
+assert.equal(d.getElementById('recentRainCard').hidden,true,'Argens rain estimates must be hidden outside Argens');
+assert.equal(d.getElementById('homeOfficialPanel').hidden,true,'Var warning must not appear for a Paris home');
+assert.equal(d.getElementById('nationalUpstreamContainer').hidden,false,'Station-specific TOPAGE card is now visible');
+assert.equal(d.getElementById('upstreamMap').hidden,true,'Legacy Argens upstream map is hidden');
+assert.match(d.getElementById('nationalUpstreamRows').textContent,/Seine upstream/,'Only supplied directed-connected readings appear');
+assert.match(d.getElementById('forecastPageTitle').textContent,/Paris/);
+assert.equal(piafOverlays[piafOverlays.length-1].bounds[0][0],48.525,'Forecast now covers Paris latitude, not Argens');
+assert.equal(piafOverlays[piafOverlays.length-1].bounds[0][1],1.81,'Forecast now covers Paris longitude, not Argens');
 d.querySelector('[data-tab="Alertes"]').click();
 assert.equal(d.querySelector('#pushSettings').classList.contains('hidden'),false,'Alerts still clickable');
 assert.deepEqual(errors,[],'No runtime errors after map/list or language changes');

@@ -5,6 +5,10 @@ on:
     paths:
       - 'push-worker/src/radar-map.mjs'
       - 'push-worker/src/piaf-map.mjs'
+      - 'push-worker/src/piaf-station.mjs'
+      - 'push-worker/src/upstream-topage.mjs'
+      - 'push-worker/test/france-station-map.test.mjs'
+      - 'national-upstream.js'
       - 'push-worker/test/piaf-map.test.mjs'
       - 'piaf-player.js'
       - 'push-worker/src/index.js'
@@ -26,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate Worker identity, PNG checks and browser fallback
-        run: node --test push-worker/test/radar-map.test.mjs push-worker/test/early-signals.test.mjs push-worker/test/piaf-map.test.mjs
+        run: node --test push-worker/test/radar-map.test.mjs push-worker/test/early-signals.test.mjs push-worker/test/piaf-map.test.mjs push-worker/test/france-station-map.test.mjs
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

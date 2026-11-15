@@ -1,6 +1,7 @@
 // Official Météo-France PIAF WMS forecast. Informational only:
 // NEVER use this module to change water-level thresholds, warning colours or push.
-export const PIAF_BOUNDS=[5.85,43.18,6.91,43.85]; // west,south,east,north; Argens catchment
+import { validateBounds } from './piaf-station.mjs';
+export const PIAF_BOUNDS=[5.85,43.18,6.91,43.85]; // west,south,east,north; Argens default
 export const PIAF_LAYER='TOTAL_PRECIPITATION_RATE__GROUND_OR_WATER_SURFACE';
 const BASE='https://api.meteofrance.fr/pro/piaf/1.0/wms/MF-NWP-HIGHRES-PIAF-001-FRANCE-WMS/';
 const FIVE_MIN=300000;
@@ -72,18 +73,19 @@ export async function fetchPiafMetadata(env,{fetchImpl=fetch,now=Date.now()}={})
  if(size>MAX_XML)throw Error('PIAF catalogue too large');
  const xml=await res.text();return parsePiafCapabilities(xml,{now});
 }
-export function buildPiafMapUrl(meta,time){
+export function buildPiafMapUrl(meta,time,bounds=PIAF_BOUNDS){
+ validateBounds(bounds);
  if(!meta.frames.includes(time)||!validTime(time)||!validTime(meta.referenceTime))throw Error('Unlisted PIAF frame');
  if(meta.layer!==PIAF_LAYER||!/^[A-Z0-9_]{3,100}$/.test(meta.style))throw Error('Invalid PIAF style');
  const params=new URLSearchParams({service:'WMS',version:'1.3.0',crs:'EPSG:4326',
   layers:meta.layer,reference_time:meta.referenceTime,time,
-  bbox:'43.18,5.85,43.85,6.91',format:'image/png',height:'500',width:'720',
+  bbox:[bounds[1],bounds[0],bounds[3],bounds[2]].join(','),format:'image/png',height:'500',width:'720',
   transparent:'true',styles:meta.style});
  return BASE+'GetMap?'+params.toString();
 }
-export async function fetchPiafFrame(env,meta,time,{fetchImpl=fetch}={}){
+export async function fetchPiafFrame(env,meta,time,{fetchImpl=fetch,bounds=PIAF_BOUNDS}={}){
  const key=apiKey(env);if(!key)throw Error('PIAF key unavailable');
- const url=buildPiafMapUrl(meta,time);
+ const url=buildPiafMapUrl(meta,time,bounds);
  const response=await fetchImpl(url,{headers:{apikey:key,Accept:'image/png'},redirect:'manual',
   signal:AbortSignal.timeout(24000),cf:{cacheTtl:0}});
  if(!response.ok||response.redirected)throw Error('PIAF map HTTP '+response.status);
