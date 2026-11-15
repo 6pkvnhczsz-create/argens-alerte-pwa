@@ -96,3 +96,27 @@ test('Cloudflare hydrometry requests use only one compatible cache directive',as
  assert.equal(called[0].options.cf.cacheTtl,0);
  assert.equal(called[0].options.cache,undefined,'Do not combine cache: no-store with cf.cacheTtl: 0 in Cloudflare Workers');
 });
+
+test('tries canonical Vigicrues route before legacy index.php',async()=>{
+ const called=[];
+ const fetchImpl=async(url)=>{
+  called.push(url);
+  if(url.includes('/index.php'))return {ok:true,status:200,json:async()=>vig};
+  return {ok:false,status:404};
+ };
+ const data=await readVigicruesObservations(station,{fetchImpl});
+ assert.equal(data.source,'vigicrues');
+ assert.equal(data.points[0].mm,5400);
+ assert.ok(called[0].includes('/services/observations.json?'));
+ assert.ok(called[1].includes('/services/observations.json/index.php?'));
+});
+
+test('reports endpoint-specific Vigicrues failures for admin diagnostics',async()=>{
+ const fetchImpl=async()=>({ok:false,status:403});
+ await assert.rejects(
+  ()=>readVigicruesObservations(station,{fetchImpl}),
+  error=>error.message.includes('observations.json: HTTP 403')
+    &&error.message.includes('index.php: HTTP 403')
+    &&error.message.includes('trailing-slash: HTTP 403')
+ );
+});

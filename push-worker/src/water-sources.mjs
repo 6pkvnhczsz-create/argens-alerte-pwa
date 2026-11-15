@@ -62,12 +62,15 @@ export async function readHubObservations(code,{limit=100,fetchImpl=fetch}={}) {
 export async function readVigicruesObservations(code,{limit=700,fetchImpl=fetch}={}) {
  if(!validHydroStation(code))throw Error('Invalid station code');
  const params='?CdStationHydro='+encodeURIComponent(code)+'&GrdSerie=H&FormatDate=iso';
+ // The canonical observations.json route is documented by Vigicrues.
+ // index.php is retained as a fallback because legacy clients still use it.
  const endpoints=[
-  'https://www.vigicrues.gouv.fr/services/observations.json/index.php'+params,
-  'https://www.vigicrues.gouv.fr/services/observations.json/'+params
+  ['observations.json','https://www.vigicrues.gouv.fr/services/observations.json'+params],
+  ['index.php','https://www.vigicrues.gouv.fr/services/observations.json/index.php'+params],
+  ['trailing-slash','https://www.vigicrues.gouv.fr/services/observations.json/'+params]
  ];
- let error;
- for(const url of endpoints){
+ const failures=[];
+ for(const [name,url] of endpoints){
   try{
    const data=await readJson(url,fetchImpl);
    const points=assertFresh(parseVigicruesObservations(data,code));
@@ -75,9 +78,9 @@ export async function readVigicruesObservations(code,{limit=700,fetchImpl=fetch}
    // spurious "back to green" notifications when no trend can be established.
    if(points.length < 2)throw Error('Insufficient backup observations');
    return {source:'vigicrues',points:points.slice(0,Math.min(limit,700))};
-  }catch(e){error=e}
+  }catch(e){failures.push(name+': '+String(e?.message||e||'unknown').slice(0,125))}
  }
- throw Error('Vigicrues unavailable: '+String(error?.message||error||'unknown'));
+ throw Error('Vigicrues unavailable: '+failures.join(' | '));
 }
 export async function getHydroObservations(code,{limit=100,fetchImpl=fetch}={}) {
  try{
