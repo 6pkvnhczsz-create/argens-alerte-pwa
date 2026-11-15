@@ -21,7 +21,7 @@
   if(overlay&&map)map.removeLayer(overlay);
   overlay=null;model=null;frameIndex=0;loading=false;
   mapNode.hidden=true;controls.hidden=true;slider.disabled=true;play.disabled=true;
-  if(mapVisible())load();
+  labels();if(mapVisible())load();
  }
  document.addEventListener('argens-station-selected',e=>setStation(e.detail?.code));
  document.addEventListener('argens-home-station-restored',e=>setStation(e.detail?.code));
@@ -40,7 +40,9 @@
   play.textContent='▶';
  }
  function labels(){
-  text('piafForecastTitle',lang('Animation des pluies prévues · jusqu’à 3 h','Forecast rain animation · up to 3 h','Regenprognose als Animation · bis 3 Std.'));
+  const until=model&&model.frames.length?time(model.frames[model.frames.length-1]):null;
+  text('piafForecastTitle',until?lang('Prévision de pluie jusqu’à ','Rain forecast until ','Regenprognose bis ')+until:
+    lang('Prévision de pluie','Rain forecast','Regenprognose'));
   text('piafForecastDisclaimer',lang(
    'Prévision Météo-France PIAF, par pas de 5 min. Ni radar mesuré, ni prévision de crue. Sans effet sur les alertes.',
    'Météo-France PIAF forecast in 5-minute steps. Not measured radar or a flood forecast. Does not affect alerts.',
@@ -66,7 +68,7 @@
   if(model){
    text('piafFrameTime',time(model.frames[frameIndex]));
    text('piafRunTime',lang('Modèle actualisé : ','Model run: ','Modelllauf: ')+time(model.referenceTime)+' · Météo-France');
-   text('piafForecastStatus',lang('Pluie prévue à ','Forecast rain at ','Regenvorhersage für ')+time(model.frames[frameIndex])+' · PIAF');
+   text('piafForecastStatus','');id('piafForecastStatus').hidden=true;
   }
  }
  // Preload a limited window: 3 parallel requests max, ~8 images ahead.
@@ -151,7 +153,8 @@
      // Reveal the buffered image only once Leaflet confirms it has loaded.
      layer.setOpacity(0.82);
      if(previous)map.removeLayer(previous);
-     text('piafForecastStatus',lang('Pluie prévue à ','Forecast rain at ','Regenvorhersage für ')+time(model.frames[frameIndex])+' · Météo-France PIAF');
+     // The selected time is already next to the slider. No duplicate subtitle.
+     text('piafForecastStatus','');id('piafForecastStatus').hidden=true;
      status('');
      prefetchAhead(frameIndex);resolve(true);
     };
@@ -210,6 +213,7 @@
  async function load(){
   if(!mapVisible()||loading)return;
   if(!palette){
+   id('piafForecastStatus').hidden=false;
    text('piafForecastStatus',lang('La palette des couleurs ne peut pas être chargée.',
     'The custom colour palette could not be loaded.',
     'Die eigene Farbskala konnte nicht geladen werden.'));
@@ -217,6 +221,7 @@
   }
   if(model&&model.station?.code===selectedCode&&Date.now()-lastCheck<110000){map?.invalidateSize();return}
   loading=true;pause();const request=++requestSerial,requestedCode=selectedCode;
+  id('piafForecastStatus').hidden=false;
   text('piafForecastStatus',lang('Chargement de la prévision PIAF…','Loading PIAF forecast…','PIAF-Regenprognose wird geladen…'));
   try{
    const response=await fetch(API+'/metadata?station='+encodeURIComponent(requestedCode),
@@ -229,7 +234,7 @@
       !Number.isFinite(d.station.lat)||!Number.isFinite(d.station.lon)||
       !Array.isArray(d.bounds)||d.bounds.length!==4||d.bounds.some(v=>!Number.isFinite(v))||
       d.bounds[0]< -5.9||d.bounds[2]>10.2||d.bounds[1]<41||d.bounds[3]>51.7||
-      d.bounds[2]-d.bounds[0]>.001+1.06||d.bounds[3]-d.bounds[1]>.001+.67||
+      d.bounds[2]-d.bounds[0]>.001+2.0||d.bounds[3]-d.bounds[1]>.001+1.28||
       d.station.lat<41.2||d.station.lat>51.4||d.station.lon< -5.3||d.station.lon>9.8||
       !Number.isFinite(Date.parse(d.referenceTime))||Date.now()-Date.parse(d.referenceTime)>75*60000||
       !frames.every((t,i)=>/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(t)&&
@@ -259,6 +264,7 @@
    if(request!==requestSerial)return;
    model=null;pause();cancelPrefetch();slider.disabled=true;play.disabled=true;
    controls.hidden=true;mapNode.hidden=true;
+   labels();id('piafForecastStatus').hidden=false;
    text('piafForecastStatus',lang('Prévision PIAF momentanément indisponible.',
     'PIAF forecast temporarily unavailable.','PIAF-Regenprognose derzeit nicht verfügbar.'));
    status('');
