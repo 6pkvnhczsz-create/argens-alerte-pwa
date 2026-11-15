@@ -73,7 +73,7 @@ test('official Météo-France raw download never leaks key or follows redirects'
  assert.equal(options.length,1);
  await assert.rejects(()=>fetchOfficialRadarH5({METEO_FRANCE_API_KEY:key},{
   fetchImpl:async()=>({ok:false,status:403,headers:{get:()=>null}})
- }),/download failed/);
+ }),/radar_http_403/);
  await assert.rejects(()=>fetchOfficialRadarH5({}, {fetchImpl}),/key not configured/);
 });
 test('radar OIDC allows only signed main-branch radar workflow, never Vigicrues tokens',async()=>{

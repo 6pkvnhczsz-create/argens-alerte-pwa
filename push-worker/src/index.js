@@ -635,14 +635,24 @@ export default {
   // a validated geo-referenced preview; public browsers see only PNG + status.
   if(url.pathname==='/api/radar-map/raw'&&request.method==='GET'){
    const bearer=request.headers.get('Authorization')||'';
-   if(!bearer.startsWith('Bearer '))return json(request,{error:'Signed radar workflow required'},401);
+   if(!bearer.startsWith('Bearer '))return json(request,{error:'Signed radar workflow required',stage:'auth'},401);
+   try{await verifyRadarWorkflowToken(bearer.slice(7))}
+   catch(e){
+    const reason=String(e?.message||'unknown');
+    const code=['Invalid token','Invalid JWT','Signing key rejected','Wrong radar audience','Identity not current','Identity not yet active','Wrong repository identity','Untrusted branch','Untrusted workflow','Untrusted subject','Signing keys unavailable','Unrecognized signing key','Invalid identity signature'].includes(reason)?reason:'auth_unknown';
+    console.warn('Radar OIDC failed',code);
+    return json(request,{error:'Radar workflow identity rejected',stage:'auth',code},401);
+   }
    try{
-    await verifyRadarWorkflowToken(bearer.slice(7));
     const r=await fetchOfficialRadarH5(env);
     return new Response(r.body,{status:200,headers:{'Content-Type':'application/x-hdf','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
    }catch(e){
-    console.error('Radar raw download failed',String(e?.message||'Unavailable').slice(0,80));
-    return json(request,{error:'Radar product unavailable'},503);
+    const reason=String(e?.message||'unknown');
+    const code=/^radar_http_(?:[345]\d{2}|other)$/.test(reason)?reason:
+     reason==='Météo-France radar key not configured'?'key_not_configured':
+     reason==='Radar file exceeds safety limit'?'radar_too_large':'radar_fetch_error';
+    console.warn('Radar raw download unavailable',code);
+    return json(request,{error:'Radar product unavailable',stage:'download',code},502);
    }
   }
   if(url.pathname==='/api/radar-map/ingest'&&request.method==='POST'){

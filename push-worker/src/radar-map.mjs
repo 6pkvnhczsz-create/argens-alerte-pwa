@@ -72,7 +72,10 @@ export async function fetchOfficialRadarH5(env,{fetchImpl=fetch}={}){
  if(!env.METEO_FRANCE_API_KEY)throw Error('Météo-France radar key not configured');
  const api='https://public-api.meteofrance.fr/public/DPRadar/v1/mosaiques/METROPOLE/observations/LAME_D_EAU/produit?maille=500';
  const response=await fetchImpl(api,{headers:{apikey:env.METEO_FRANCE_API_KEY,Accept:'application/x-hdf'},redirect:'manual',signal:AbortSignal.timeout(40000),cf:{cacheTtl:0}});
- if(!response.ok||response.status>=300||response.redirected)throw Error('Radar HDF5 download failed');
+ if(!response.ok||response.status>=300||response.redirected){
+  const status=Number(response.status);
+  throw Error(Number.isInteger(status)&&status>=300&&status<=599?'radar_http_'+status:'radar_http_other');
+ }
  const len=Number(response.headers.get('content-length'));
  if(Number.isFinite(len)&&len>40000000)throw Error('Radar file exceeds safety limit');
  return response;
