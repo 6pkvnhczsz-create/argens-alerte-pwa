@@ -3,7 +3,11 @@
   "main": "src/index.js",
   "compatibility_date": "2026-11-14",
   "workers_dev": true,
-  "triggers": { "crons": ["*/5 * * * *"] },
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
+  },
   "d1_databases": [
     {
       "binding": "DB",
@@ -15,5 +19,8 @@
     "AUTH_EMAIL_FROM": "Rivière Alerte <login@riviere-alerte.fr>",
     "VAPID_PUBLIC_KEY": "BNmAS3Gm-VN8T9-_TsA4viBni7q-TwNk0dMEcWR6QYdb0T-fHEQ0Nz8s2sIlCrIBPW_A9LdqI8paKvVqCStUOrA",
     "VAPID_SUBJECT": "mailto:login@riviere-alerte.fr"
+  },
+  "ai": {
+    "binding": "AI"
   }
 }
