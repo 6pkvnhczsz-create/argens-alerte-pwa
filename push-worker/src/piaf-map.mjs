@@ -1,7 +1,8 @@
 // Official Météo-France PIAF WMS forecast. Informational only:
 // NEVER use this module to change water-level thresholds, warning colours or push.
 import { validateBounds } from './piaf-station.mjs';
-export const PIAF_BOUNDS=[5.85,43.18,6.91,43.85]; // west,south,east,north; Argens default
+import {DEFAULT_BOUNDS} from './piaf-station.mjs';
+export const PIAF_BOUNDS=DEFAULT_BOUNDS; // west,south,east,north; enlarged Argens default
 export const PIAF_LAYER='TOTAL_PRECIPITATION_RATE__GROUND_OR_WATER_SURFACE';
 const BASE='https://api.meteofrance.fr/pro/piaf/1.0/wms/MF-NWP-HIGHRES-PIAF-001-FRANCE-WMS/';
 const FIVE_MIN=300000;
