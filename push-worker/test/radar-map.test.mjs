@@ -110,8 +110,8 @@ test('the website retains Windy fallback and never exposes an API key',()=>{
  assert.match(page,/id="officialRadarLegend"/);
  assert.match(page,/id="windyRadarFrame"/);
  assert.match(page,/id="radarNote"/);
- assert.match(page,/api\/radar-map\/info/);
- assert.match(page,/api\/radar-map\/image/);
+ assert.match(page,/RADAR_MAP_API\+'\/info'/);
+ assert.match(page,/RADAR_MAP_API\+'\/image'/);
  assert.match(page,/function showWindyRadarFallback/);
  assert.doesNotMatch(page,/apikey\s*:/);
  assert.match(worker,/api\/radar-map\/raw/);
