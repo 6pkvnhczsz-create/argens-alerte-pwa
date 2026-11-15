@@ -27,9 +27,17 @@ const model={
 const errors=[],coordRequests=[],pins=[],piafOverlays=[],mappedPixels=[];
 const forecastBase=Math.ceil(Date.now()/300000)*300000;
 const forecastFrames=[0,1,2].map(i=>new Date(forecastBase+i*300000).toISOString().replace('.000Z','Z'));
-const piafMock={ok:true,available:true,source:'Météo-France PIAF',kind:'forecast_5min',bounds:[5.85,43.18,6.91,43.85],station:{code:'Y531201001',name:'Roquebrune-sur-Argens',lat:43.4497,lon:6.6331},referenceTime:new Date(forecastBase-300000).toISOString().replace('.000Z','Z'),frames:forecastFrames};
-const parisMock={...piafMock,bounds:[1.81,48.525,2.87,49.195],station:{code:'H123456789',name:'Paris',lat:48.86,lon:2.34}};
-const parisUpstream={ok:true,status:'verified',home:{code:'H123456789',name:'Paris',lat:48.86,lon:2.34},stations:[{code:'H123456788',name:'Seine upstream',lat:48.81,lon:2.31,levelM:2.3,trendCmH:1.1,observedAt:current}],hydrologicalConnectivity:'directed_verified_local_only'};
+const piafMock={ok:true,available:true,source:'Météo-France PIAF',kind:'forecast_5min',bounds:[5.6331,42.8097,7.6331,44.0897],station:{code:'Y531201001',name:'Roquebrune-sur-Argens',lat:43.4497,lon:6.6331},referenceTime:new Date(forecastBase-300000).toISOString().replace('.000Z','Z'),frames:forecastFrames};
+const parisMock={...piafMock,bounds:[1.34,48.22,3.34,49.5],station:{code:'H123456789',name:'Paris',lat:48.86,lon:2.34}};
+const parisUpstream={ok:true,status:'verified',home:{code:'H123456789',name:'Paris',lat:48.86,lon:2.34},
+stations:[{code:'H123456788',name:'Seine upstream',lat:48.81,lon:2.31,levelM:2.3,trendCmH:1.1,observedAt:current}],
+nearby:[{code:'H123456787',name:'Nearby unrelated river',lat:48.7,lon:2.3,distanceKm:19.2,
+classification:'nearby_not_verified',status:'current',levelM:1.5,trendCmH:-2.1}],
+nearbyRadiusKm:40,hydrologicalConnectivity:'directed_verified_local_only'};
+const argensUpstream={ok:true,status:'no_current_verified',home:{code:'Y531201001',name:'Roquebrune',lat:43.4497,lon:6.6331},
+stations:[],nearby:[{code:'Y999999999',name:'Nearby Var river',lat:43.6,lon:6.5,distanceKm:25,
+classification:'nearby_not_verified',status:'no_recent_measurement'}],
+nearbyRadiusKm:40,hydrologicalConnectivity:'directed_verified_local_only'};
 const vc=new VirtualConsole();
 vc.on('jsdomError',e=>errors.push(String(e?.message||e)));
 vc.on('error',e=>errors.push(String(e)));
@@ -79,7 +87,7 @@ const dom=new JSDOM(page,{url:'https://riviere-alerte.fr/',runScripts:'dangerous
    }else if(str.includes('/api/early-signals'))data=model;
    else if(str.includes('/api/radar-map/info'))data={available:false};
    else if(str.includes('/api/piaf/metadata'))data=new URL(str).searchParams.get('station')==='H123456789'?parisMock:piafMock;
-   else if(str.includes('/api/upstream/stations'))data=parisUpstream;
+   else if(str.includes('/api/upstream/stations'))data=new URL(str).searchParams.get('station')==='H123456789'?parisUpstream:argensUpstream;
    else if(str.includes('/health'))data={ok:true,pushConfigured:true};
    return {ok:true,status:200,json:async()=>data,text:async()=>JSON.stringify(data),headers:{get:()=>null}};
   };
@@ -98,6 +106,11 @@ assert.match(blocks[0].textContent,/mm/);
 assert.deepEqual(new Set(coordRequests),new Set([...codes,'Y531201001']),'Distances must reference official downstream station');
 assert.equal(pins.length,6,'Five current gauges plus the Roquebrune reference pin');
 assert.equal(d.getElementById('piafForecastMap').hidden,false,'Official forecast map must become visible');
+assert.match(d.getElementById('piafForecastPanel').textContent,/🗺️/,'Map icon must replace film icon');
+assert.match(d.getElementById('piafForecastTitle').textContent,/jusqu’à|until|bis/,'Forecast heading includes last available model frame');
+assert.equal(d.getElementById('piafForecastStatus').hidden,true,'No redundant forecast-for time line after loading');
+assert.equal(d.getElementById('nearbyGaugesBlock').hidden,false,'Argens also shows surrounding gauges out to 40 km');
+assert.match(d.getElementById('nearbyGaugesRows').textContent,/Nearby Var river/);
 assert.equal(d.getElementById('piafForecastControls').hidden,false,'Forecast time controls must appear');
 assert.equal(d.getElementById('piafSlider').max,'2');
 assert.equal(piafOverlays.length>=1,true,'A valid PIAF forecast image should be requested');
@@ -178,7 +191,7 @@ for(const lang of ['de','en','fr']){
  await new Promise(resolve=>setTimeout(resolve,80));
  assert.equal(d.documentElement.lang,lang);
  if(lang==='de'){
-  assert.match(d.getElementById('piafForecastTitle').textContent,/Regenprognose/);
+  assert.match(d.getElementById('piafForecastTitle').textContent,/Regenprognose bis \d\d:\d\d/);
   assert.match(d.getElementById('stationSearchTitle').textContent,/Station in meiner Nähe finden/);
   assert.match(d.getElementById('stationSearchIntro').textContent,/Heimatstation auswählen/);
   assert.match(d.getElementById('piafLegendTitle').textContent,/Relative Intensität/);
@@ -195,10 +208,13 @@ assert.equal(d.getElementById('recentRainCard').hidden,true,'Argens rain estimat
 assert.equal(d.getElementById('homeOfficialPanel').hidden,true,'Var warning must not appear for a Paris home');
 assert.equal(d.getElementById('nationalUpstreamContainer').hidden,false,'Station-specific TOPAGE card is now visible');
 assert.equal(d.getElementById('upstreamMap').hidden,true,'Legacy Argens upstream map is hidden');
-assert.match(d.getElementById('nationalUpstreamRows').textContent,/Seine upstream/,'Only supplied directed-connected readings appear');
+assert.match(d.getElementById('nationalUpstreamRows').textContent,/Seine upstream/,'Only genuinely connected readings are upstream');
+assert.doesNotMatch(d.getElementById('nationalUpstreamRows').textContent,/Nearby unrelated river/,'Nearby unrelated station is not called upstream');
+assert.match(d.getElementById('nearbyGaugesRows').textContent,/Nearby unrelated river/,'Up to 40km nearby gauge displayed separately');
+assert.match(d.getElementById('nearbyGaugesSubtitle').textContent,/connexion|not verified|keine bestätigten/);
 assert.match(d.getElementById('forecastPageTitle').textContent,/Paris/);
-assert.equal(piafOverlays[piafOverlays.length-1].bounds[0][0],48.525,'Forecast now covers Paris latitude, not Argens');
-assert.equal(piafOverlays[piafOverlays.length-1].bounds[0][1],1.81,'Forecast now covers Paris longitude, not Argens');
+assert.equal(piafOverlays[piafOverlays.length-1].bounds[0][0],48.22,'Forecast now covers Paris latitude, not Argens');
+assert.equal(piafOverlays[piafOverlays.length-1].bounds[0][1],1.34,'Forecast now covers Paris longitude, not Argens');
 d.querySelector('[data-tab="Alertes"]').click();
 assert.equal(d.querySelector('#pushSettings').classList.contains('hidden'),false,'Alerts still clickable');
 assert.deepEqual(errors,[],'No runtime errors after map/list or language changes');
