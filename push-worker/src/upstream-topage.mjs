@@ -161,8 +161,10 @@ export async function findLocalUpstream(code,{fetchImpl=fetch}={}){
  const reg=new URL(REG);
  for(const [k,v] of Object.entries({bbox:nearbyBbox(home.lat,home.lon),
   format:'json',size:String(MAX_STATIONS),en_service:'true'}))reg.searchParams.set(k,v);
+ // Nearby station discovery must still work when the directed WFS graph is
+ // temporarily unavailable. Never turn failed topology into false upstream pins.
  const [network,nearby]=await Promise.all([
-  publicJson(wfsUrl(bboxes.topage),{fetchImpl,maxBytes:MAX_BYTES}),
+  publicJson(wfsUrl(bboxes.topage),{fetchImpl,maxBytes:MAX_BYTES}).catch(()=>null),
   publicJson(reg.toString(),{fetchImpl,maxBytes:1200000})
  ]);
  if(!Array.isArray(nearby.data))throw Error('Official station listing unavailable');
@@ -178,7 +180,7 @@ export async function findLocalUpstream(code,{fetchImpl=fetch}={}){
  const unique=[...new Map(stations.map(x=>[x.code,x])).values()];
  // The 40-km station directory is not proof of an upstream connection.
  // Explicitly keep unverified stations separate and named "nearby".
- let graph=[],networkVerified=false,coverage='partial';
+ let graph=[],networkVerified=false;
  try{graph=verifiedGraph(network);networkVerified=true}catch{}
  if(networkVerified&&unique.length){
   const probes=corridorProbes(home,unique.filter(x=>x.distanceKm>5));
