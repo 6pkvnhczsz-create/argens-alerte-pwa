@@ -708,7 +708,28 @@ if(typeof MutationObserver!=='undefined'&&connectorHero){
  observer.observe(connectorHero,{attributes:true,attributeFilter:['data-alert']});
 }
 const RAPID_RISE_CM_PER_HOUR=30; // Seuil indicatif à valider localement.
-let activeStation='Y531201001',loadSequence=0;let chartHours=1,chartReadings=[];document.querySelectorAll('[data-hours]').forEach(b=>b.addEventListener('click',()=>{chartHours=Number(b.dataset.hours);document.querySelectorAll('[data-hours]').forEach(x=>x.setAttribute('aria-pressed',String(Number(x.dataset.hours)===chartHours)));drawChart(chartReadings)}));
+// The chosen home gauge is local device preference independent of account alerts.
+const HOME_STATION_KEY='riviere-alerte-home-station-v1';
+const HOME_DEFAULT={code:'Y531201001',name:'Roquebrune-sur-Argens'};
+function readStoredHomeStation(){
+ try{
+  const x=JSON.parse(localStorage.getItem(HOME_STATION_KEY)||'null');
+  return x&&typeof x.code==='string'&&/^[A-Z][A-Z0-9]{7,13}$/.test(x.code)&&
+   typeof x.name==='string'&&x.name.trim()?
+   {code:x.code,name:x.name.trim().slice(0,100)}:null;
+ }catch{return null}
+}
+let storedHomeStation=readStoredHomeStation();
+function rememberHomeStation(code,name){
+ if(typeof code!=='string'||!/^[A-Z][A-Z0-9]{7,13}$/.test(code))return;
+ storedHomeStation={code,name:String(name||code).trim().slice(0,100)};
+ try{localStorage.setItem(HOME_STATION_KEY,JSON.stringify(storedHomeStation))}catch(e){
+  console.warn('Home station cannot be stored on this device',e);
+ }
+}
+let activeStation=storedHomeStation?.code||HOME_DEFAULT.code,loadSequence=0;
+window.argensHomeStationCode=activeStation;
+if(storedHomeStation)stationTitle.textContent=storedHomeStation.name;let chartHours=1,chartReadings=[];document.querySelectorAll('[data-hours]').forEach(b=>b.addEventListener('click',()=>{chartHours=Number(b.dataset.hours);document.querySelectorAll('[data-hours]').forEach(x=>x.setAttribute('aria-pressed',String(Number(x.dataset.hours)===chartHours)));drawChart(chartReadings)}));
 // Client-side service checks: reachability is not proof of scheduled push delivery.
 const healthState={river:'pending',riverAt:null,weather:'pending',push:'pending'};
 function renderSystemHealth(){
@@ -1163,6 +1184,7 @@ function selectMapStation(station,button,marker){
  message.textContent=mapText('Station sélectionnée : ','Selected station: ')+code+'. '+mapText('Chargement des mesures officielles…','Loading official readings…');
  loadMeasurements(code);
  window.argensHomeStationCode=code;
+ rememberHomeStation(code,station.libelle_station||station.libelle_site||code);
  document.dispatchEvent(new CustomEvent('argens-station-selected',{detail:{code,name:station.libelle_station||station.libelle_site||code}}));
  setWeatherStation(station);
  document.querySelectorAll('#stations button').forEach(b=>b.classList.toggle('selected',b===button));
@@ -1463,8 +1485,7 @@ async function accountCall(path,body,token){
  const res=await fetch(PUSH_API_URL+'/auth/'+path,{method:path==='me'?'GET':'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{})});
  const data=await res.json().catch(()=>({}));if(!res.ok)throw Error(data.error||'Service unavailable');return data;
 }
-const personalStation={code:'Y531201001',name:'Roquebrune-sur-Argens'};
-window.argensHomeStationCode='Y531201001';
+const personalStation={...(storedHomeStation||HOME_DEFAULT)};
 function personalStationText(fr,en){return document.documentElement.lang==='de'?(window.argensGermanText?window.argensGermanText(fr,en):fr):document.documentElement.lang==='en'?en:fr}
 function renderPersonalStation(){document.querySelector('#personalStationName').textContent=personalStation.name+' · '+personalStation.code;document.querySelector('#personalStationTitle').textContent=personalStationText('🌊 Ma station et mes seuils','🌊 My station and thresholds');document.querySelector('#personalStationIntro').innerHTML='<a href="#mapPage" id="personalStationMapLink" style="color:#087f91;font-weight:700;text-decoration:underline">'+personalStationText('Choisissez votre station','Choose your station')+'</a>'+personalStationText(', puis définissez vos seuils personnels. Connexion requise.',', then set your personal thresholds. Sign-in required.');document.querySelector('#personalOrangeLabel').lastElementChild.textContent=personalStationText('Orange dès (m)','Orange from (m)');document.querySelector('#personalRedLabel').lastElementChild.textContent=personalStationText('Rouge dès (m)','Red from (m)');document.querySelector('#savePersonalStation').textContent=personalStationText('Enregistrer les seuils','Save thresholds');document.querySelector('#personalStationDisclaimer').textContent=personalStationText('Seuils personnels non officiels. Les notifications sont envoyées sur les appareils inscrits lorsque vos seuils sont atteints ou que le niveau d’alerte change.','Unofficial personal thresholds. Notifications are sent to subscribed devices when your thresholds are reached or the alert level changes.')}
 async function restorePersonalStation(){const token=localStorage.getItem(accountTokenKey);if(!token)return;try{const r=await fetch(PUSH_API_URL+'/user/station',{headers:{Authorization:'Bearer '+token}});if(!r.ok)return;const d=await r.json();if(d.settings){personalStation.code=d.settings.station_code;personalStation.name=d.settings.station_name;document.querySelector('#personalOrange').value=d.settings.orange_m;document.querySelector('#personalRed').value=d.settings.red_m;personalThresholds={code:d.settings.station_code,orange:Number(d.settings.orange_m),red:Number(d.settings.red_m)};
