@@ -16,6 +16,7 @@
    const node=el(key);if(node)node.hidden=!argens;
   }
   const national=el('nationalUpstreamContainer');national.hidden=argens;
+  el('earlyUpstreamStatus').hidden=!argens; // Argens-only status must not describe another home gauge.
   const updated=el('earlySignalsChecked')?.closest('.forecast-updated');
   if(updated)updated.hidden=!argens;
   text('forecastPageTitle',argens?
@@ -102,7 +103,7 @@
   }
  }
  async function load(){
-  if(!isVisible())return;
+  if(!isVisible()||code===DEFAULT)return; // Roquebrune uses its curated five live Argens gauges.
   if(loaded&&lastCode===code&&Date.now()-lastRun<3*60000){
    scope();drawMap(loaded,seq);return;
   }
