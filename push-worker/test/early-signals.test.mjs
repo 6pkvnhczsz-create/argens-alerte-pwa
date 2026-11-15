@@ -282,7 +282,7 @@ test('worker surface is information only, does not rewrite warning functions',()
  assert.match(page,/id="forecastPage" class="hidden"/);
  assert.ok(page.indexOf('id="overview"')<page.indexOf('id="forecastPage"'));
  assert.ok(page.indexOf('id="forecastPage"')<page.indexOf('id="earlySignalsPanel"'));
- assert.ok(page.indexOf('id="forecastPage"')<page.indexOf('id="weatherPanel"'));
+ assert.ok(page.indexOf('id="forecastPage"')<page.indexOf('id="piafForecastPanel"'));
  // Essential live risk information remains on the home page.
  const home=page.slice(page.indexOf('id="overview"'),page.indexOf('id="forecastPage"'));
  const forecastPage=page.slice(page.indexOf('id="forecastPage"'),page.indexOf('id="pushSettings"'));
@@ -295,10 +295,12 @@ test('worker surface is information only, does not rewrite warning functions',()
  assert.match(forecastPage,/id="rainForecastCard"/);
  assert.match(forecastPage,/id="recentRainCard"/);
  assert.match(forecastPage,/id="upstreamForecastCard"/);
- assert.match(forecastPage,/id="weatherPanel"/);
+ assert.match(forecastPage,/id="piafForecastPanel"/);
+ assert.match(forecastPage,/id="piafLegendBlock"/);
+ assert.doesNotMatch(forecastPage,/id="weatherPanel"/);
  assert.ok(forecastPage.indexOf('id="rainForecastCard"')<forecastPage.indexOf('id="recentRainCard"'));
  assert.ok(forecastPage.indexOf('id="recentRainCard"')<forecastPage.indexOf('id="upstreamForecastCard"'));
- assert.ok(forecastPage.indexOf('id="upstreamForecastCard"')<forecastPage.indexOf('id="weatherPanel"'),'Radar belongs at the very bottom');
+ assert.ok(forecastPage.indexOf('id="piafForecastPanel"')<forecastPage.indexOf('id="upstreamForecastCard"'),'Animated forecast precedes upstream map');
  assert.match(forecastPage,/id="earlyForecastRows" class="forecast-compact-list"/);
  assert.match(forecastPage,/id="earlyRainRows" class="forecast-compact-list"/);
  assert.match(forecastPage,/id="upstreamMap" class="upstream-map"/);
@@ -309,13 +311,13 @@ test('worker surface is information only, does not rewrite warning functions',()
  assert.match(page,/function updateUpstreamMap\(\)/);
  assert.doesNotMatch(forecastPage,/id="weatherSixLabel"/);
  assert.doesNotMatch(forecastPage,/id="weatherDayLabel"/);
- assert.match(forecastPage,/id="officialRadarSource"/);
- assert.match(forecastPage,/id="radarNote"/);
- assert.match(forecastPage,/id="radarDetails"/);
+ assert.doesNotMatch(forecastPage,/id="officialRadarSource"/);
+ assert.doesNotMatch(forecastPage,/id="radarNote"/);
+ assert.doesNotMatch(forecastPage,/id="radarDetails"/);
  assert.match(page,/healthState\.weather=forecasts\.length\?'good':'bad'/);
  assert.doesNotMatch(page,/class="map-add-swarm"/);
  assert.match(page,/id="earlyForecastRows"/);
- assert.match(page,/id="earlyRadarStatus"/);
+ assert.match(page,/id="piafLegendImage"/);
  assert.match(page,/keine Radarmessung/i);
  assert.match(page,/Windy \(externer Anbieter\)/i);
  const inline=[...page.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).filter(Boolean);
