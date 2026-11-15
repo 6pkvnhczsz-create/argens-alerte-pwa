@@ -376,6 +376,49 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
  #forecastPage .upstream-distance-info strong{font-size:11px}
  #forecastPage .upstream-distance-values strong{font-size:13px}
 }
+/* Forecast readability: natural line breaks, clear hierarchy, small-screen rows. */
+#forecastPage>.section-title{margin:17px 0 16px;line-height:1.35;text-wrap:balance;overflow-wrap:break-word}
+#forecastPage .forecast-stack{min-width:0}
+#forecastPage .forecast-card{min-width:0;overflow-wrap:break-word}
+#forecastPage .forecast-card>strong{max-width:32ch;margin-inline:auto;text-wrap:balance;hyphens:auto}
+#forecastPage .forecast-card .forecast-disclaimer,
+#forecastPage #nationalUpstreamNote,
+#forecastPage #piafLegendNote,
+#forecastPage #nearbyGaugesSubtitle{
+ text-align:left;line-height:1.65;max-width:50ch;margin-left:auto;margin-right:auto;
+ overflow-wrap:break-word;hyphens:auto;text-wrap:pretty
+}
+#forecastPage #nationalUpstreamStatus{max-width:50ch;margin:10px auto;line-height:1.6;text-wrap:pretty}
+#forecastPage .forecast-compact-list,#forecastPage .upstream-ranked-list{min-width:0}
+#forecastPage .forecast-stack .note{overflow-wrap:break-word;hyphens:auto}
+#forecastPage .forecast-compact-list .rain-list-location{line-height:1.4}
+#forecastPage .forecast-stack a{overflow-wrap:anywhere}
+#forecastPage .forecast-stack [id$="Disclaimer"]{padding-inline:2px}
+#forecastPage .forecast-stack .forecast-disclaimer{font-size:12px}
+#forecastPage #nationalUpstreamRows .upstream-distance-row,
+#forecastPage #nearbyGaugesRows .upstream-distance-row{
+ grid-template-columns:minmax(0,1.2fr) minmax(0,.85fr);gap:10px;
+ padding:11px 12px;align-items:start
+}
+#forecastPage #nationalUpstreamRows .upstream-distance-row>strong,
+#forecastPage #nearbyGaugesRows .upstream-distance-row>strong{
+ min-width:0;font-size:12px;line-height:1.5;overflow-wrap:break-word;hyphens:auto
+}
+#forecastPage #nationalUpstreamRows .upstream-distance-row>span,
+#forecastPage #nearbyGaugesRows .upstream-distance-row>span{
+ min-width:0;font-size:12px;line-height:1.5;text-align:right;
+ font-variant-numeric:tabular-nums;overflow-wrap:normal
+}
+@media(max-width:410px){
+ #forecastPage .forecast-card{padding:17px 13px}
+ #forecastPage .piaf-custom-color-key{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 8px}
+ #forecastPage .piaf-custom-color-key span{font-size:11px;line-height:1.3}
+ #forecastPage .piaf-custom-color-key i{height:16px}
+ #forecastPage #nationalUpstreamRows .upstream-distance-row,
+ #forecastPage #nearbyGaugesRows .upstream-distance-row{grid-template-columns:minmax(0,1fr);gap:4px}
+ #forecastPage #nationalUpstreamRows .upstream-distance-row>span,
+ #forecastPage #nearbyGaugesRows .upstream-distance-row>span{text-align:left;font-size:12px}
+}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -411,7 +454,6 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <p class="note safety-note">Seuils indicatifs non officiels. Une montée rapide (≥ 30 cm/h) peut déclencher l’orange même sous 3 m. En cas de danger, consultez <a href="https://www.vigicrues.gouv.fr/" target="_blank" rel="noopener noreferrer">Vigicrues</a> et les consignes officielles. Ne pas utiliser cette application comme unique moyen d’alerte.</p></div>
 <div id="forecastPage" class="hidden">
  <div class="section-title" id="forecastPageTitle">Prévisions · bassin de l’Argens</div>
- <p id="forecastPageIntro" class="note" style="margin:0 3px 15px">Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.</p>
  <section id="earlySignalsPanel" aria-label="Indicateurs de précocité Argens">
   <div class="forecast-stack">
    <article class="panel forecast-card" id="rainForecastCard">
