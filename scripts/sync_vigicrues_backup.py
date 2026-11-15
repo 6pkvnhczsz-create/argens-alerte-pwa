@@ -2,6 +2,7 @@
 """Fetch official Vigicrues readings, then send signed GitHub Actions OIDC snapshot.
 No external credentials or stored secrets; live readings only, one fixed station.
 """
+import base64
 import datetime as dt
 import json
 import math
@@ -69,6 +70,15 @@ identity = get_json(
 jwt = identity.get("value")
 if not isinstance(jwt, str) or not jwt:
     raise RuntimeError("GitHub OIDC identity token unavailable")
+# The printed claims are public repository/workflow metadata, NOT the identity token.
+claims = json.loads(base64.urlsafe_b64decode(jwt.split('.')[1] + '==='))
+print("GitHub OIDC identity metadata:", {
+    field: claims.get(field) for field in [
+        "iss", "aud", "sub", "repository", "repository_id",
+        "repository_owner_id", "ref", "workflow_ref", "event_name"
+    ]
+}, flush=True)
+
 body = json.dumps(snapshot, separators=(",", ":")).encode("utf-8")
 request = urllib.request.Request(
     TARGET,
