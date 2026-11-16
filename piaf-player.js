@@ -10,7 +10,7 @@
  const time=x=>new Date(x).toLocaleTimeString(
   document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',
   {hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'});
- const slider=id('piafSlider'),play=id('piafPlay'),mapNode=id('piafForecastMap'),controls=id('piafForecastControls');
+ const slider=id('piafSlider'),play=id('piafPlay'),mapNode=id('piafForecastMap'),controls=id('piafForecastControls'),timeBadge=id('piafMapTimeBadge');
  const palette=window.PiafPalette;
  let map=null,overlay=null,model=null,frameIndex=0,loading=false,lastCheck=0,requestSerial=0;
  let selectedCode=window.argensHomeStationCode||DEFAULT_CODE,stationPin=null;
@@ -20,7 +20,7 @@
   selectedCode=code;requestSerial++;lastCheck=0;pause();cancelPrefetch();drawSerial++;
   if(overlay&&map)map.removeLayer(overlay);
   overlay=null;model=null;frameIndex=0;loading=false;
-  mapNode.hidden=true;controls.hidden=true;slider.disabled=true;play.disabled=true;
+  mapNode.hidden=true;timeBadge.hidden=true;controls.hidden=true;slider.disabled=true;play.disabled=true;
   labels();if(mapVisible())load();
  }
  document.addEventListener('argens-station-selected',e=>setStation(e.detail?.code));
@@ -72,10 +72,10 @@
   slider.setAttribute('aria-label',lang('Heure prévue','Forecast time','Vorhersagezeit'));
   play.setAttribute('aria-label',lang('Lancer ou arrêter l’animation','Play or pause animation','Animation starten oder pausieren'));
   mapNode.setAttribute('aria-label',lang('Carte de pluie prévue','Forecast rain map','Regenprognose-Karte'));
+  text('piafMapTimeLabel',lang('Prévision pour','Forecast for','Prognose für'));
 
   if(model){
    text('piafFrameTime',time(model.frames[frameIndex]));
-   text('piafRunTime',lang('Modèle actualisé : ','Model run: ','Modelllauf: ')+time(model.referenceTime)+' · Météo-France');
    text('piafForecastStatus','');id('piafForecastStatus').hidden=true;
   }
  }
@@ -274,7 +274,7 @@
     throw Error('Incomplete or outdated PIAF metadata');
    const L=await window.loadMapLibrary();
    if(!mapVisible()||request!==requestSerial||requestedCode!==selectedCode)return;
-   mapNode.hidden=false;controls.hidden=false;
+   mapNode.hidden=false;timeBadge.hidden=false;controls.hidden=false;
    if(!map){
     map=L.map(mapNode,{scrollWheelZoom:false,zoomControl:true});
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
@@ -294,7 +294,7 @@
   }catch(error){
    if(request!==requestSerial)return;
    model=null;pause();cancelPrefetch();slider.disabled=true;play.disabled=true;
-   controls.hidden=true;mapNode.hidden=true;
+   controls.hidden=true;mapNode.hidden=true;timeBadge.hidden=true;
    labels();id('piafForecastStatus').hidden=false;
    text('piafForecastStatus',lang('Prévision PIAF momentanément indisponible.',
     'PIAF forecast temporarily unavailable.','PIAF-Regenprognose derzeit nicht verfügbar.'));
