@@ -602,9 +602,9 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 </div>
 <div class="panel alert-info-card">
 <div class="alert-section-heading"><span class="alert-heading-icon">🌧️</span><div><strong>Fortes pluies</strong><div class="note">Prévisions · cumul sur 24 h</div></div></div>
-<div class="alert-tier"><span class="alert-tier-icon">🟠</span><div><strong>Orange</strong><div class="alert-rule">≥ 50 mm / 24 h</div></div></div>
-<div class="alert-tier"><span class="alert-tier-icon">🔴</span><div><strong>Rouge</strong><div class="alert-rule">≥ 90 mm / 24 h</div></div></div>
-<div class="alert-tier"><span class="alert-tier-icon">🟣</span><div><strong>Violet</strong><div class="alert-rule">≥ 120 mm / 24 h</div></div></div>
+<div class="alert-tier"><span class="alert-tier-icon">🟠</span><div><strong>Orange</strong><div class="alert-rule" id="alertRainOrangeRule">≥ 50 mm / 24 h</div></div></div>
+<div class="alert-tier"><span class="alert-tier-icon">🔴</span><div><strong>Rouge</strong><div class="alert-rule" id="alertRainRedRule">≥ 90 mm / 24 h</div></div></div>
+<div class="alert-tier"><span class="alert-tier-icon">🟣</span><div><strong>Violet</strong><div class="alert-rule" id="alertRainPurpleRule">≥ 120 mm / 24 h</div></div></div>
 <p class="alert-explain">↗ Alerte uniquement si le niveau de risque augmente. Prévisions indicatives sur 48 h (Open-Meteo).</p>
 </div>
 </div>
@@ -757,6 +757,12 @@ function renderAlertRules(code){
   de?'Anstieg größer oder gleich 30 cm/Std.':en?'rise greater than or equal to 30 cm/h':'hausse supérieure ou égale à 30 cm/h';
  document.querySelector('#alertRedRise').textContent=
   de?'Anstieg größer oder gleich 50 cm/Std.':en?'rise greater than or equal to 50 cm/h':'hausse supérieure ou égale à 50 cm/h';
+ const rainRule=(id,mm)=>document.querySelector('#'+id).textContent=
+  de?'Mindestens '+mm+' mm in 24 Std.':
+  en?'At least '+mm+' mm in 24 h':'Au moins '+mm+' mm en 24 h';
+ rainRule('alertRainOrangeRule',50);
+ rainRule('alertRainRedRule',90);
+ rainRule('alertRainPurpleRule',120);
  document.querySelectorAll('#pushSettings .alert-or').forEach(el=>el.textContent=de?'ODER':en?'OR':'OU');
  document.querySelectorAll('[data-rapid-rule]').forEach(el=>el.hidden=false);
 }
