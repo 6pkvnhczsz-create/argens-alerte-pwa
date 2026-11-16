@@ -53,7 +53,7 @@
  const isVisible=()=>!el('forecastPage').classList.contains('hidden');
  function scope(){
   const argens=code===DEFAULT;
-  for(const key of ['rainForecastCard','recentRainCard','earlyUpstreamStatus','upstreamMap','upstreamMapMessage','earlyUpstreamRows']){
+  for(const key of ['earlyUpstreamStatus','upstreamMap','upstreamMapMessage','earlyUpstreamRows']){
    const node=el(key);if(node)node.hidden=!argens;
   }
   const national=el('nationalUpstreamContainer');national.hidden=argens;
@@ -65,7 +65,7 @@
    'Geografisch nahe Stationen ohne bestätigte Flussverbindung flussaufwärts. Luftlinie; nicht für Warnungen verwendet.'));
   if(nearPanel.open&&nearbyItems)drawNearby(nearbyItems);
   const updated=el('earlySignalsChecked')?.closest('.forecast-updated');
-  if(updated)updated.hidden=!argens;
+  if(updated)updated.hidden=false; // Show last-update time and refresh for every selected station.
   text('forecastPageTitle',argens?
    lang('Prévisions · bassin de l’Argens','Forecasts · Argens catchment','Vorhersagen · Argens-Einzugsgebiet'):
    lang('Prévisions · ','Forecasts · ','Vorhersagen · ')+(name||code));
