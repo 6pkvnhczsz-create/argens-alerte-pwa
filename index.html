@@ -2225,7 +2225,8 @@ async function updateUpstreamMap(){
 
 function renderEarlySignals(){
  const homeCode=currentRainStation(),argens=homeCode===LOCAL_RAIN_DEFAULT;
- const d=argens?earlySignalsSnapshot:localRainSnapshot;
+ const d=argens?(earlySignalsSnapshot||localRainSnapshot):localRainSnapshot;
+ const regional=argens&&d===earlySignalsSnapshot;
  const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
  const fmt=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
  const titles={
@@ -2237,7 +2238,7 @@ function renderEarlySignals(){
  earlyText('forecastPageTitle',argens?
   earlyI18n('Prévisions · bassin de l’Argens','Forecasts · Argens basin','Vorhersagen · Argens-Einzugsgebiet'):
   earlyI18n('Prévisions · ','Forecasts · ','Vorhersagen · ')+(window.argensHomeStationName||homeCode));
- earlyText('forecastPageIntro',argens?earlyI18n(
+ earlyText('forecastPageIntro',regional?earlyI18n(
   'Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.',
   'Forecasts, recent rainfall estimates and upstream gauges. Informational only: your alerts remain unchanged.',
   'Regenvorhersagen, bisherige Regenmengen und flussaufwärtsliegende Pegel. Zusätzliche Informationen ohne Änderung deiner Warnungen.'):
@@ -2248,14 +2249,14 @@ function renderEarlySignals(){
  earlyText('earlyRainTitle',earlyI18n('Pluie récente estimée','Estimated recent rainfall','Regen der letzten Stunden (geschätzt)'));
  if(argens)earlyText('earlyUpstreamTitle',
   earlyI18n('Stations en amont','Upstream gauges','Flussaufwärtsliegende Pegel'));
- earlyText('earlyForecastDisclaimer',argens?earlyI18n(
+ earlyText('earlyForecastDisclaimer',regional?earlyI18n(
   'Modèles AROME/ARPEGE de Météo-France via Open-Meteo. Prévisions, pas de mesures radar ni de prévisions de crue.',
   'Météo-France AROME/ARPEGE model forecasts via Open-Meteo. Not radar measurements or flood predictions.',
   'Météo-France-Modelle AROME/ARPEGE über Open-Meteo. Prognosen, keine Radarmessung oder Hochwasservorhersage.'):
   earlyI18n('Prévisions locales des modèles Météo-France via Open-Meteo pour la station sélectionnée. Aucune mesure radar, aucune prévision de crue.',
    'Local Météo-France model forecast via Open-Meteo for the selected gauge. Not radar measurements or flood predictions.',
    'Lokale Météo-France-Modellprognose über Open-Meteo für die gewählte Station. Keine Radarmessung oder Hochwasservorhersage.'));
- earlyText('earlyRainDisclaimer',argens?earlyI18n(
+ earlyText('earlyRainDisclaimer',regional?earlyI18n(
   'Estimations passées d’Open-Meteo, pas de mesures radar. La pluie peut varier entre les points.',
   'Past-hour Open-Meteo estimates, not radar measurements. Rainfall varies across the basin.',
   'Vergangene Regenmengen aus Open-Meteo-Modellschätzungen, keine Radarmessungen. Örtlich sind Abweichungen möglich.'):
@@ -2275,7 +2276,7 @@ function renderEarlySignals(){
  function initRainList(parent,periods){
   const header=document.createElement('div');header.className='rain-list-header';
   for(let i=0;i<3;i++){
-   const cell=document.createElement('span');cell.textContent=i===0?(argens?earlyI18n('Secteur','Area','Gebiet'):'Station'):periods[i-1];cell.style.textAlign=i===0?'left':'center';header.append(cell);
+   const cell=document.createElement('span');cell.textContent=i===0?(regional?earlyI18n('Secteur','Area','Gebiet'):'Station'):periods[i-1];cell.style.textAlign=i===0?'left':'center';header.append(cell);
   }
   parent.append(header);
  }
@@ -2323,7 +2324,7 @@ function renderEarlySignals(){
  for(const x of rain)addRainRow(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
   [fmt(x.last3hMm)+' mm',fmt(x.last6hMm)+' mm']);
  if(!rain.length)emptyRainList(rainNode);
- const gauges=(argens?d.upstream||[]:[]).filter(x=>{
+ const gauges=(regional?d.upstream||[]:[]).filter(x=>{
   const timestamp=Date.parse(x.observedAt);
   return x.status==='current'&&Number.isFinite(x.levelM)&&Number.isFinite(x.trendCmH)
    &&Number.isFinite(timestamp)&&Date.now()-timestamp<=90*60000&&timestamp-Date.now()<=15*60000;
@@ -2342,7 +2343,7 @@ function renderEarlySignals(){
  }else if(!document.getElementById('forecastPage').classList.contains('hidden')){
   requestAnimationFrame(()=>updateUpstreamMap());
  }
- const radar=d.radar;
+ const radar=regional?d.radar:null;
  earlyText('earlyRadarStatus',radar?.status==='catalogue_only'?
   earlyI18n('✓ Catalogue radar officiel accessible','✓ Official radar catalogue accessible','✓ Amtlicher Radarkatalog erreichbar'):
   radar?.status==='not_configured'?
@@ -2350,30 +2351,47 @@ function renderEarlySignals(){
    earlyI18n('API radar temporairement indisponible','Radar API temporarily unavailable','Radar-API vorübergehend nicht verfügbar'));
  const age=new Date(d.checkedAt);
  earlyText('earlySignalsChecked',Number.isFinite(age.getTime())?
-  earlyI18n('Mise à jour : ','Updated: ','Aktualisiert: ')+age.toLocaleString(locale):'');
+  (argens&&!regional?earlyI18n('Données locales de remplacement · ','Local fallback data · ','Lokale Ersatzdaten · '):
+   earlyI18n('Mise à jour : ','Updated: ','Aktualisiert: '))+age.toLocaleString(locale):'');
  healthState.weather=forecasts.length?'good':'bad';renderSystemHealth();
 }
 async function loadEarlySignalsPanel(){
  const btn=document.getElementById('earlySignalsRefresh');if(!btn)return;
  const station=currentRainStation(),argens=station===LOCAL_RAIN_DEFAULT,request=++earlySignalsRequest;
- btn.disabled=true;
- if(!argens){
-  if(localRainStationCode!==station){localRainSnapshot=null;localRainStationCode=station}
-  localRainLoading=true;
-  if(!localRainSnapshot)renderEarlySignals();
+ btn.disabled=true;localRainLoading=true;
+ if(localRainStationCode!==station){
+  localRainSnapshot=null;localRainStationCode=station;
  }
+ if(!earlySignalsSnapshot&&!localRainSnapshot)renderEarlySignals();
+ const base='https://argens-alerte-push.p-hammerschmidt.workers.dev';
+ const get=async path=>{
+  const response=await fetch(base+path,{cache:'no-store',signal:AbortSignal.timeout(30000)});
+  return response.ok?await response.json():null;
+ };
  try{
-  const endpoint=argens?'/api/early-signals':'/api/rain/station?station='+encodeURIComponent(station);
-  const response=await fetch('https://argens-alerte-push.p-hammerschmidt.workers.dev'+endpoint,
-   {cache:'no-store',signal:AbortSignal.timeout(30000)});
-  const payload=response.ok?await response.json():null;
-  if(request!==earlySignalsRequest||station!==currentRainStation())return;
-  if(argens)earlySignalsSnapshot=payload?.ok===true?payload:null;
-  else localRainSnapshot=payload?.ok===true&&payload.station?.code===station?payload:null;
+  if(argens){
+   let regionalData=null;
+   try{regionalData=await get('/api/early-signals')}catch{}
+   if(request!==earlySignalsRequest||station!==currentRainStation())return;
+   const available=regionalData?.ok===true&&
+    (regionalData.forecast||[]).some(x=>x.status==='forecast'&&
+     Number.isFinite(x.next6hMm)&&Number.isFinite(x.next24hMm));
+   earlySignalsSnapshot=available?regionalData:null;
+   if(!available){
+    // A missing or expired regional snapshot must not hide available local rain.
+    const local=await get('/api/rain/station?station='+encodeURIComponent(station));
+    if(request!==earlySignalsRequest||station!==currentRainStation())return;
+    localRainSnapshot=local?.ok===true&&local.station?.code===station?local:null;
+   }else localRainSnapshot=null;
+  }else{
+   const local=await get('/api/rain/station?station='+encodeURIComponent(station));
+   if(request!==earlySignalsRequest||station!==currentRainStation())return;
+   localRainSnapshot=local?.ok===true&&local.station?.code===station?local:null;
+  }
  }catch(error){
   if(request!==earlySignalsRequest||station!==currentRainStation())return;
   if(argens)earlySignalsSnapshot=null;
-  else localRainSnapshot=null;
+  localRainSnapshot=null;
  }finally{
   if(request===earlySignalsRequest&&station===currentRainStation()){
    localRainLoading=false;btn.disabled=false;renderEarlySignals();
