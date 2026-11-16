@@ -413,3 +413,35 @@ test('local rainfall follows the selected gauge coordinates and remains informat
  assert.match(page,/document\.addEventListener\('argens-station-selected',rainHomeChanged\)/);
  assert.doesNotMatch(national,/\['rainForecastCard','recentRainCard'/);
 });
+
+test('missing recent model hours trigger a full-history retry; zero precipitation is valid',async()=>{
+ const area=RAIN_AREAS[0],now=NOW+49*60000;
+ const hourlyTimes=Array.from({length:9},(_,i)=>Math.floor((now-(8-i)*3600000)/1000));
+ const calls=[];
+ const fetchImpl=async url=>{
+  const query=new URL(url).searchParams;
+  assert.equal(Number(query.get('latitude')),area.lat);
+  assert.equal(Number(query.get('longitude')),area.lon);
+  calls.push(query);
+  const complete=query.has('past_days');
+  return {ok:true,json:async()=>({hourly:{time:hourlyTimes,
+   precipitation:hourlyTimes.map((_,i)=>complete?0:i<7?null:0)}})};
+ };
+ const result=await fetchRainArea(area,{now,fetchImpl});
+ assert.equal(calls.length,2);
+ assert.equal(calls[0].get('past_hours'),'8');
+ assert.equal(calls[1].get('past_days'),'2');
+ assert.equal(result.status,'estimated');
+ assert.equal(result.last3hMm,0);
+ assert.equal(result.last6hMm,0);
+});
+test('Argens model fallback preserves all three catchment area IDs',()=>{
+ const backend=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ const page=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
+ assert.deepEqual(RAIN_AREAS.map(x=>x.id),['central','nartuby','lower']);
+ assert.match(backend,/\/api\/rain\/basin/);
+ assert.match(backend,/RAIN_AREAS\.map\(area=>fetchRainArea/);
+ assert.match(backend,/RAIN_AREAS\.map\(area=>fetchRainForecast/);
+ assert.match(page,/get\('\/api\/rain\/basin'\)/);
+ assert.match(page,/\['central','nartuby','lower'\]\.map/);
+});
