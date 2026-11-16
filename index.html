@@ -492,8 +492,8 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 @media(max-width:390px){#forecastPage .upstream-distance-row{grid-template-columns:25px minmax(0,1fr) 75px;gap:6px;padding:10px 7px}#forecastPage .upstream-distance-values small{font-size:9px}}
 
 /* Uniform service-status indicators across all four health rows */
-#healthRiver,#healthTrend,#healthWeather,#healthPush{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
-#healthRiver::before,#healthTrend::before,#healthWeather::before,#healthPush::before{content:"";display:inline-block;flex:0 0 12px;width:12px;height:12px;border-radius:50%;background:currentColor}
+#healthRiver,#healthTrend,#healthWeather,#healthPush{display:inline-flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap;vertical-align:middle;line-height:1.4}
+#healthRiver::before,#healthTrend::before,#healthWeather::before,#healthPush::before{content:"";display:block;box-sizing:border-box;flex-grow:0;flex-shrink:0;flex-basis:14px;width:14px;min-width:14px;max-width:14px;height:14px;min-height:14px;max-height:14px;aspect-ratio:1;border:0;border-radius:50%;background-color:currentColor;transform:none;line-height:0}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
