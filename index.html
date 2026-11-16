@@ -2268,6 +2268,17 @@ function renderEarlySignals(){
   'Only gauges with recent measurements are shown. Water levels from different gauges cannot be compared directly.',
   'Nur Pegel mit aktuellen Messwerten werden angezeigt. Die Pegelhöhen verschiedener Stationen sind nicht direkt vergleichbar.'));
  earlyText('earlySignalsRefresh',earlyI18n('↻ Actualiser les données','↻ Refresh data','↻ Daten aktualisieren'));
+ // If the dedicated Météo-France feed is unavailable, the backup comes
+ // from Open-Meteo's best-match model. Never label it Météo-France.
+ const bestMatch=!!d?.forecast?.some(x=>x.status==='forecast'&&x.model==='open_meteo_best_match');
+ if(bestMatch){
+  earlyText('earlyForecastTitle',earlyI18n('Pluie prévue · modèle de remplacement',
+   'Forecast rain · backup model','Regenprognose · Ersatzmodell'));
+  earlyText('earlyForecastDisclaimer',earlyI18n(
+   'Modèle alternatif Open-Meteo (meilleur modèle disponible). Prévision indicative, pas une mesure radar ni une prévision de crue.',
+   'Open-Meteo best-match alternative model. Forecast only, not measured radar rainfall or a flood forecast.',
+   'Ersatzmodell von Open-Meteo (Best Match). Modellprognose, keine Radarmessung und keine Hochwasservorhersage.'));
+ }
  const forecastNode=document.getElementById('earlyForecastRows');
  const rainNode=document.getElementById('earlyRainRows');
  const upstreamNode=document.getElementById('earlyUpstreamRows');
