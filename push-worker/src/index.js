@@ -6,7 +6,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 import { getHydroObservations, readVigicruesObservations, validHydroStation } from './water-sources.mjs';
 import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, activeBackupStationCodes, markVigicruesUnavailable, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
 import { translateFeedbackRecord } from './feedback-translation.mjs';
-import { refreshEarlySignals, loadEarlySignals, fetchOfficialVigilance, fetchRainArea, fetchRainForecast } from './early-signals.mjs';
+import { refreshEarlySignals, loadEarlySignals, fetchOfficialVigilance, fetchRainArea, fetchRainForecast, RAIN_AREAS, EARLY_SIGNALS_STATION } from './early-signals.mjs';
 import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
 import { fetchPiafMetadata, fetchPiafFrame, fetchPiafLegend } from './piaf-map.mjs';
 import { DEFAULT_STATION, validStationCode, cachedStation } from './piaf-station.mjs';
@@ -915,6 +915,45 @@ export default {
     console.warn('Departmental official vigilance unavailable',String(error?.message||'official source').slice(0,90));
     return json(request,{ok:false,status:'unavailable',station:code,
      reason:'department_or_source_unavailable',periods:[]},503);
+   }
+  }
+  // Independent on-demand Argens region data. If the scheduled early-signals
+  // snapshot is absent or partial, preserve all three regional locations
+  // instead of silently falling back to the single Roquebrune gauge.
+  // All sources are model estimates only, never used for alert decisions.
+  if(url.pathname==='/api/rain/basin'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{ok:false,error:'Origin not allowed'},403);
+   if([...url.searchParams].length)return json(request,{ok:false,error:'Unexpected parameters'},400);
+   try{
+    const cache=globalThis.caches?.default;
+    const cacheKey=new Request('https://riviere-alerte.fr/__meteo_cache/argens_rain_v2');
+    if(cache){
+     const hit=await cache.match(cacheKey);
+     if(hit){
+      const saved=await hit.json().catch(()=>null);
+      if(saved?.ok===true&&saved.station===EARLY_SIGNALS_STATION&&
+       Number.isFinite(Date.parse(saved.checkedAt))&&
+       Date.now()-Date.parse(saved.checkedAt)<3*60000)return json(request,saved);
+     }
+    }
+    const now=Date.now();
+    const [forecast,rain]=await Promise.all([
+     Promise.all(RAIN_AREAS.map(area=>fetchRainForecast(area,{now}))),
+     Promise.all(RAIN_AREAS.map(area=>fetchRainArea(area,{now})))
+    ]);
+    const data={ok:true,station:EARLY_SIGNALS_STATION,
+     checkedAt:new Date(now).toISOString(),forecast,rain,upstream:[],
+     informationalOnly:true,changesFloodThresholds:false,
+     forecastSource:'Météo-France AROME/ARPEGE or labelled Open-Meteo best-match fallback',
+     rainSource:'Open-Meteo past-hour model estimates; not measurements'};
+    if(cache&&(forecast.some(x=>x.status==='forecast')||rain.some(x=>x.status==='estimated')))
+     await cache.put(cacheKey,new Response(JSON.stringify(data),{
+      headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=180'}}));
+    return json(request,data);
+   }catch(error){
+    console.warn('Argens regional rain unavailable',String(error?.message||'source').slice(0,110));
+    return json(request,{ok:false,error:'Argens regional model data unavailable'},503);
    }
   }
   // Local precipitation is informational only. Unlike the Argens-wide
