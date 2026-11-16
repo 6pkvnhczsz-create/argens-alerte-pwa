@@ -95,19 +95,29 @@ export function parseRainForecast(data,now=Date.now()){
  return {status:'forecast',next6hMm:mm(first6),next24hMm:mm(first24),firstHour:new Date(rows[0].t).toISOString(),lastHour:new Date(first24.at(-1).t).toISOString()};
 }
 export async function fetchRainForecast(area,{now=Date.now(),fetchImpl=fetch}={}){
- try{
-  const params=new URLSearchParams({
-   latitude:String(area.lat),longitude:String(area.lon),hourly:'precipitation',
-   forecast_hours:'30',timezone:'UTC',timeformat:'unixtime'
-  });
-  const response=await fetchImpl('https://api.open-meteo.com/v1/meteofrance?'+params,{
-   headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000),cf:{cacheTtl:300}
-  });
-  if(!response.ok)throw Error('Forecast unavailable');
-  return {id:area.id,name:area.name,...parseRainForecast(await response.json(),now)};
- }catch{
-  return {id:area.id,name:area.name,status:'unavailable',next6hMm:null,next24hMm:null,firstHour:null,lastHour:null};
+ const params=new URLSearchParams({
+  latitude:String(area.lat),longitude:String(area.lon),hourly:'precipitation',
+  forecast_hours:'30',timezone:'UTC',timeformat:'unixtime'
+ });
+ // Prefer the explicit Météo-France AROME/ARPEGE models. When that endpoint
+ // is temporarily unavailable or lacks a complete horizon, fall back to the
+ // documented Open-Meteo best-match forecast and label the source honestly.
+ const sources=[
+  {url:'https://api.open-meteo.com/v1/meteofrance?',model:'meteofrance_arome_arpege'},
+  {url:'https://api.open-meteo.com/v1/forecast?',model:'open_meteo_best_match'}
+ ];
+ for(const source of sources){
+  try{
+   const response=await fetchImpl(source.url+params,{
+    headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000),cf:{cacheTtl:300}
+   });
+   if(!response.ok)continue;
+   const parsed=parseRainForecast(await response.json(),now);
+   return {id:area.id,name:area.name,...parsed,model:source.model};
+  }catch(error){ /* Try the other independent forecast endpoint. */ }
  }
+ return {id:area.id,name:area.name,status:'unavailable',model:null,
+  next6hMm:null,next24hMm:null,firstHour:null,lastHour:null};
 }
 
 const PHENOMENA={
