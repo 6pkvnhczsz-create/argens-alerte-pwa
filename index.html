@@ -2117,14 +2117,20 @@ function renderEarlySignals(){
  earlyText('earlyRainTitle',earlyI18n('Pluie récente estimée','Estimated recent rainfall','Regen der letzten Stunden (geschätzt)'));
  if(argens)earlyText('earlyUpstreamTitle',
   earlyI18n('Stations en amont','Upstream gauges','Flussaufwärts gelegene Pegel'));
- earlyText('earlyForecastDisclaimer',earlyI18n(
+ earlyText('earlyForecastDisclaimer',argens?earlyI18n(
   'Modèles AROME/ARPEGE de Météo-France via Open-Meteo. Prévisions, pas de mesures radar ni de prévisions de crue.',
   'Météo-France AROME/ARPEGE model forecasts via Open-Meteo. Not radar measurements or flood predictions.',
-  'Météo-France-Modelle AROME/ARPEGE über Open-Meteo. Prognosen, keine Radarmessung oder Hochwasservorhersage.'));
- earlyText('earlyRainDisclaimer',earlyI18n(
+  'Météo-France-Modelle AROME/ARPEGE über Open-Meteo. Prognosen, keine Radarmessung oder Hochwasservorhersage.'):
+  earlyI18n('Prévisions locales des modèles Météo-France via Open-Meteo pour la station sélectionnée. Aucune mesure radar, aucune prévision de crue.',
+   'Local Météo-France model forecast via Open-Meteo for the selected gauge. Not radar measurements or flood predictions.',
+   'Lokale Météo-France-Modellprognose über Open-Meteo für die gewählte Station. Keine Radarmessung oder Hochwasservorhersage.'));
+ earlyText('earlyRainDisclaimer',argens?earlyI18n(
   'Estimations passées d’Open-Meteo, pas de mesures radar. La pluie peut varier entre les points.',
   'Past-hour Open-Meteo estimates, not radar measurements. Rainfall varies across the basin.',
-  'Vergangene Regenmengen aus Open-Meteo-Modellschätzungen, keine Radarmessungen. Örtlich sind Abweichungen möglich.'));
+  'Vergangene Regenmengen aus Open-Meteo-Modellschätzungen, keine Radarmessungen. Örtlich sind Abweichungen möglich.'):
+  earlyI18n('Estimation locale des précipitations passées via Open-Meteo, pas un relevé de pluviomètre ou radar.',
+   'Local estimate of past rainfall from Open-Meteo, not a rain gauge or radar measurement.',
+   'Örtlich geschätzte Regenmenge der letzten Stunden aus Open-Meteo, keine Messung durch Regenmesser oder Radar.'));
  earlyText('earlyUpstreamDisclaimer',earlyI18n(
   'Seules les stations avec mesures récentes sont affichées. Les hauteurs de stations différentes ne sont pas comparables.',
   'Only gauges with recent measurements are shown. Water levels from different gauges cannot be compared directly.',
@@ -2138,7 +2144,7 @@ function renderEarlySignals(){
  function initRainList(parent,periods){
   const header=document.createElement('div');header.className='rain-list-header';
   for(let i=0;i<3;i++){
-   const cell=document.createElement('span');cell.textContent=i===0?earlyI18n('Secteur','Area','Gebiet'):periods[i-1];cell.style.textAlign=i===0?'left':'center';header.append(cell);
+   const cell=document.createElement('span');cell.textContent=i===0?(argens?earlyI18n('Secteur','Area','Gebiet'):'Station'):periods[i-1];cell.style.textAlign=i===0?'left':'center';header.append(cell);
   }
   parent.append(header);
  }
