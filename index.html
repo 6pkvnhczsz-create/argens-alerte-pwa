@@ -984,7 +984,17 @@ function renderForecast(items,code){
  const unavailable=(msg)=>{statusEl.textContent=msg||tr('Mesures récentes insuffisantes pour établir une tendance.','Insufficient recent measurements for a trend.')};
  if(items.length<3){unavailable();return}
  const last=items[0],age=Date.now()-last.date.getTime();
- if(age< -15*60000||age>60*60000){unavailable(tr('Dernière mesure trop ancienne pour estimer la tendance.','Latest reading too old to estimate the trend.'));return}
+ if(age< -15*60000||age>60*60000){
+  const timestamp=new Intl.DateTimeFormat(de?'de-DE':en?'en-GB':'fr-FR',{
+   hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'
+  }).format(last.date);
+  unavailable(age>60*60000?
+   (de?'Der letzte Messwert ist zu alt (':en?'The latest reading is too old (':'La dernière mesure est trop ancienne (')+
+   timestamp+(de?' Uhr).':').'):
+   (de?'Der Zeitstempel des letzten Messwerts liegt in der Zukunft (':en?'The latest reading has a future timestamp (':'La dernière mesure est datée dans le futur (')+
+   timestamp+(de?' Uhr).':').'));
+  return;
+ }
  const reference=target=>items.filter(x=>{const d=(last.date-x.date)/60000;return d>=target-10&&d<=target+10}).sort((a,b)=>Math.abs((last.date-a.date)/60000-target)-Math.abs((last.date-b.date)/60000-target))[0];
  const p60=reference(60),p120=reference(120);
  if(!p60||!p120){unavailable();return}
