@@ -1734,7 +1734,9 @@ setLanguage(lang);
 })();
 
 /* Information only. These supplementary signals never change risk colors or Push. */
-let earlySignalsSnapshot=null;
+let earlySignalsSnapshot=null,localRainSnapshot=null,earlySignalsRequest=0;
+const LOCAL_RAIN_DEFAULT='Y531201001';
+const currentRainStation=()=>window.argensHomeStationCode||LOCAL_RAIN_DEFAULT;
 function earlyI18n(fr,en,de){
  const lang=document.documentElement.lang;
  return lang==='de'?de:lang==='en'?en:fr;
@@ -2090,7 +2092,9 @@ async function updateUpstreamMap(){
 }
 
 function renderEarlySignals(){
- const d=earlySignalsSnapshot,locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
+ const homeCode=currentRainStation(),argens=homeCode===LOCAL_RAIN_DEFAULT;
+ const d=argens?earlySignalsSnapshot:localRainSnapshot;
+ const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
  const fmt=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
  const titles={
   central:earlyI18n('Argens central','Central Argens','Mittlerer Argens'),
@@ -2098,14 +2102,20 @@ function renderEarlySignals(){
   lower:'Roquebrune'
  };
  const icons={central:'🏞️',nartuby:'⛰️',lower:'🌊'};
- earlyText('forecastPageTitle',earlyI18n('Prévisions · bassin de l’Argens','Forecasts · Argens basin','Vorhersagen · Argens-Einzugsgebiet'));
- earlyText('forecastPageIntro',earlyI18n(
+ earlyText('forecastPageTitle',argens?
+  earlyI18n('Prévisions · bassin de l’Argens','Forecasts · Argens basin','Vorhersagen · Argens-Einzugsgebiet'):
+  earlyI18n('Prévisions · ','Forecasts · ','Vorhersagen · ')+(window.argensHomeStationName||homeCode));
+ earlyText('forecastPageIntro',argens?earlyI18n(
   'Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.',
   'Forecasts, recent rainfall estimates and upstream gauges. Informational only: your alerts remain unchanged.',
-  'Regenvorhersagen, bisherige Regenmengen und Oberlieger-Pegel. Zusätzliche Informationen ohne Änderung deiner Warnungen.'));
+  'Regenvorhersagen, bisherige Regenmengen und Oberlieger-Pegel. Zusätzliche Informationen ohne Änderung deiner Warnungen.'):
+  earlyI18n('Prévisions de pluie et estimations récentes pour la station sélectionnée. Vos alertes restent inchangées.',
+   'Rain forecasts and recent rainfall estimates for the selected gauge. Alerts remain unchanged.',
+   'Regenprognosen und geschätzter Regen der letzten Stunden für die gewählte Station. Warnmeldungen bleiben unverändert.'));
  earlyText('earlyForecastTitle',earlyI18n('Pluie prévue · Météo-France','Forecast rain · Météo-France','Regenprognose · Météo-France'));
  earlyText('earlyRainTitle',earlyI18n('Pluie récente estimée','Estimated recent rainfall','Regen der letzten Stunden (geschätzt)'));
- earlyText('earlyUpstreamTitle',earlyI18n('Stations en amont','Upstream gauges','Flussaufwärts gelegene Pegel'));
+ if(argens)earlyText('earlyUpstreamTitle',
+  earlyI18n('Stations en amont','Upstream gauges','Flussaufwärts gelegene Pegel'));
  earlyText('earlyForecastDisclaimer',earlyI18n(
   'Modèles AROME/ARPEGE de Météo-France via Open-Meteo. Prévisions, pas de mesures radar ni de prévisions de crue.',
   'Météo-France AROME/ARPEGE model forecasts via Open-Meteo. Not radar measurements or flood predictions.',
@@ -2173,7 +2183,7 @@ function renderEarlySignals(){
  for(const x of rain)addRainRow(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
   [fmt(x.last3hMm)+' mm',fmt(x.last6hMm)+' mm']);
  if(!rain.length)emptyRainList(rainNode);
- const gauges=(d.upstream||[]).filter(x=>{
+ const gauges=(argens?d.upstream||[]:[]).filter(x=>{
   const timestamp=Date.parse(x.observedAt);
   return x.status==='current'&&Number.isFinite(x.levelM)&&Number.isFinite(x.trendCmH)
    &&Number.isFinite(timestamp)&&Date.now()-timestamp<=90*60000&&timestamp-Date.now()<=15*60000;
@@ -2205,15 +2215,36 @@ function renderEarlySignals(){
 }
 async function loadEarlySignalsPanel(){
  const btn=document.getElementById('earlySignalsRefresh');if(!btn)return;
+ const station=currentRainStation(),argens=station===LOCAL_RAIN_DEFAULT,request=++earlySignalsRequest;
  btn.disabled=true;
+ if(!argens){localRainSnapshot=null;renderEarlySignals()}
  try{
-  const response=await fetch('https://argens-alerte-push.p-hammerschmidt.workers.dev/api/early-signals',{cache:'no-store',signal:AbortSignal.timeout(12000)});
-  earlySignalsSnapshot=response.ok?await response.json():null;
- }catch(error){earlySignalsSnapshot=null}
- finally{btn.disabled=false;renderEarlySignals()}
+  const endpoint=argens?'/api/early-signals':'/api/rain/station?station='+encodeURIComponent(station);
+  const response=await fetch('https://argens-alerte-push.p-hammerschmidt.workers.dev'+endpoint,
+   {cache:'no-store',signal:AbortSignal.timeout(30000)});
+  const payload=response.ok?await response.json():null;
+  if(request!==earlySignalsRequest||station!==currentRainStation())return;
+  if(argens)earlySignalsSnapshot=payload?.ok===true?payload:null;
+  else localRainSnapshot=payload?.ok===true&&payload.station?.code===station?payload:null;
+ }catch(error){
+  if(request!==earlySignalsRequest||station!==currentRainStation())return;
+  if(argens)earlySignalsSnapshot=null;
+  else localRainSnapshot=null;
+ }finally{
+  if(request===earlySignalsRequest&&station===currentRainStation()){
+   btn.disabled=false;renderEarlySignals();
+  }
+ }
 }
 document.getElementById('earlySignalsRefresh')?.addEventListener('click',loadEarlySignalsPanel);
 document.addEventListener('argens-language-changed',renderEarlySignals);
+function rainHomeChanged(){
+ // Clear any stale station values, then request fresh coordinates-based rainfall.
+ localRainSnapshot=null;
+ loadEarlySignalsPanel();
+}
+document.addEventListener('argens-station-selected',rainHomeChanged);
+document.addEventListener('argens-home-station-restored',rainHomeChanged);
 loadEarlySignalsPanel();
 setInterval(()=>{if(!document.hidden)loadEarlySignalsPanel()},300000);
 </script><script src="./piaf-palette.js"></script><script src="./piaf-player.js"></script><script src="./national-upstream.js"></script><script src="./home-vigilance.js"></script>
