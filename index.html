@@ -474,6 +474,12 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #forecastPage .piaf-map-time-badge[hidden]{display:none!important}
 #forecastPage .piaf-map-time-badge small{display:block;color:#517082;font-size:10px;font-weight:700;line-height:1.2}
 #forecastPage .piaf-map-time-badge #piafFrameTime{font-size:15px;font-weight:800;color:#124b62;min-width:0;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* Diagnostic for 6-hour extrapolation (separate from the river feed's uptime). */
+#systemHealthPanel .health-trend-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0}
+#systemHealthPanel .health-trend-row span{flex:1;min-width:0}
+#systemHealthPanel .health-trend-row strong{text-align:right;font-size:13px;line-height:1.45;white-space:normal}
+#systemHealthPanel .health-trend-detail{margin:0;padding:10px 12px;border:1px solid #dfebef;background:#f4f9fb;border-radius:10px;color:#4d6a77;font-size:12px;line-height:1.6;overflow-wrap:break-word}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -620,6 +626,8 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <strong id="systemHealthTitle">🛡 État des services</strong>
 <div style="display:grid;gap:10px;margin-top:12px;font-size:14px">
 <div style="display:flex;justify-content:space-between;gap:10px"><span id="healthRiverLabel">Mesures du fleuve</span><strong id="healthRiver">⏳ Vérification…</strong></div>
+<div class="health-trend-row"><span id="healthTrendLabel">Tendance du niveau</span><strong id="healthTrend">⏳ Vérification…</strong></div>
+<p id="healthTrendDetail" class="note health-trend-detail" role="status" aria-live="polite"></p>
 <div style="display:flex;justify-content:space-between;gap:10px"><span id="healthWeatherLabel">Prévisions météo</span><strong id="healthWeather">⏳ Vérification…</strong></div>
 <div style="display:flex;justify-content:space-between;gap:10px"><span id="healthPushLabel">Serveur de notifications</span><strong id="healthPush">⏳ Vérification…</strong></div>
 </div>
@@ -847,19 +855,76 @@ window.argensHomeStationName=storedHomeStation?.name||HOME_DEFAULT.name;
 if(storedHomeStation)stationTitle.textContent=storedHomeStation.name;let chartHours=1,chartReadings=[];document.querySelectorAll('[data-hours]').forEach(b=>b.addEventListener('click',()=>{chartHours=Number(b.dataset.hours);document.querySelectorAll('[data-hours]').forEach(x=>x.setAttribute('aria-pressed',String(Number(x.dataset.hours)===chartHours)));drawChart(chartReadings)}));
 // Client-side service checks: reachability is not proof of scheduled push delivery.
 const healthState={river:'pending',riverAt:null,weather:'pending',push:'pending'};
+// Same freshness and baseline conditions as renderForecast, but a distinct
+// explanatory Settings diagnostic. Never affects flood colours or push alerts.
+function trendHealthDiagnostic(){
+ const language=document.documentElement.lang;
+ const lang=(fr,en,de)=>language==='de'?de:language==='en'?en:fr;
+ const pending={state:'pending',detail:lang('Chargement des mesures…','Loading water-level readings…','Lade Pegelmesswerte…')};
+ const unavailable={state:'bad',detail:lang('Les sources de mesure sont indisponibles.','Water-level sources are unavailable.','Die Pegel-Datenquellen sind derzeit nicht verfügbar.')};
+ if(healthState.river==='bad')return unavailable;
+ if(!chartReadings.length)return pending;
+ const last=chartReadings[0],age=Date.now()-last.date.getTime();
+ if(!Number.isFinite(age))return unavailable;
+ const minutes=Math.max(0,Math.floor(age/60000));
+ const ageLabel=lang('Dernière mesure il y a ','Last reading ','Letzte Messung vor ')+
+  minutes+lang(' min',' min ago',' Min.');
+ if(age< -15*60000||age>60*60000){
+  return {state:'stale',detail:age>60*60000?
+   ageLabel+lang('. Les mesures restent visibles mais la tendance exige une mesure datant de moins de 60 minutes.',
+    '. Readings remain visible, but the trend needs a reading no older than 60 minutes.',
+    '. Messwerte bleiben sichtbar, für den Trend ist jedoch eine höchstens 60 Minuten alte Messung nötig.'):
+   lang('Horodatage des mesures dans le futur, vérification impossible.',
+    'Reading timestamp is in the future; trend cannot be checked.',
+    'Der Messzeitstempel liegt in der Zukunft; Trendberechnung nicht möglich.')};
+ }
+ if(chartReadings.length<3)return {state:'stale',detail:ageLabel+lang('. Trop peu de mesures pour calculer une tendance.',
+  '. Too few readings to calculate a trend.',
+  '. Zu wenige Messwerte für die Trendberechnung.')};
+ const reference=target=>chartReadings.filter(x=>{
+  const d=(last.date-x.date)/60000;return d>=target-10&&d<=target+10
+ }).sort((a,b)=>Math.abs((last.date-a.date)/60000-target)-Math.abs((last.date-b.date)/60000-target))[0];
+ const p60=reference(60),p120=reference(120);
+ if(!p60||!p120)return {state:'stale',detail:ageLabel+lang(
+  '. Historique incomplet : il manque une mesure à environ 60 ou 120 minutes avant la dernière.',
+  '. Not enough history: a reading around 60 or 120 minutes before the latest one is missing.',
+  '. Für den Trend fehlen Vergleichswerte von ungefähr 60 oder 120 Minuten vor der letzten Messung.')};
+ const r1=(last.value-p60.value)/10/((last.date-p60.date)/3600000);
+ const r2=(p60.value-p120.value)/10/((p60.date-p120.date)/3600000);
+ if(!Number.isFinite(r1)||!Number.isFinite(r2))return {state:'stale',detail:ageLabel+lang(
+  '. Les intervalles de mesure ne permettent pas un calcul fiable.',
+  '. The reading intervals do not allow a reliable calculation.',
+  '. Die Messabstände lassen keine zuverlässige Berechnung zu.')};
+ if(Math.abs(r1-r2)>Math.max(15,Math.max(Math.abs(r1),Math.abs(r2))*.75))
+  return {state:'stale',detail:ageLabel+lang(
+   '. Le niveau varie trop fortement pour une extrapolation fiable.',
+   '. Water level varies too much for a reliable extrapolation.',
+   '. Der Wasserstand schwankt zu stark für eine verlässliche Hochrechnung.')};
+ return {state:'good',detail:ageLabel+lang(
+  '. Données suffisantes pour une tendance indicative sur 6 heures.',
+  '. Sufficient recent readings for an indicative 6-hour trend.',
+  '. Ausreichend aktuelle Messwerte für eine unverbindliche 6-Stunden-Trendberechnung.')};
+}
 function renderSystemHealth(){
- const en=document.documentElement.lang==='en';
- const labels={good:en?'● Available':'● Disponible',stale:en?'● Outdated reading':'● Mesure ancienne',bad:en?'● Unavailable':'● Indisponible',pending:en?'⏳ Checking…':'⏳ Vérification…'};
+ const language=document.documentElement.lang,en=language==='en',de=language==='de';
+ const labels={good:de?'● Verfügbar':en?'● Available':'● Disponible',
+  stale:de?'● Eingeschränkt':en?'● Limited':'● Limité',
+  bad:de?'● Nicht verfügbar':en?'● Unavailable':'● Indisponible',
+  pending:de?'⏳ Prüfung läuft…':en?'⏳ Checking…':'⏳ Vérification…'};
  const put=(id,state)=>{const el=document.querySelector(id);el.textContent=labels[state];el.style.color=state==='good'?'#087f71':state==='pending'?'#64748b':'#b45309'};
- document.querySelector('#settingsPageTitle').textContent=en?'Settings':'Réglages';
- document.querySelector('#systemHealthTitle').textContent=en?'🛡 Service status':'🛡 État des services';
- document.querySelector('#healthRiverLabel').textContent=en?'River measurements':'Mesures du fleuve';
- document.querySelector('#healthWeatherLabel').textContent=en?'Weather forecast':'Prévisions météo';
- document.querySelector('#healthPushLabel').textContent=en?'Notification server':'Serveur de notifications';
- document.querySelector('#healthNote').textContent=en?'Checked from this device. Server availability does not confirm that scheduled push notifications are being sent.':'État vérifié depuis cet appareil. La disponibilité du serveur ne confirme pas l’envoi des notifications automatiques.';
- document.querySelector('#healthRefresh').textContent=en?'↻ Refresh status':'↻ Actualiser l’état';
+ document.querySelector('#settingsPageTitle').textContent=de?'Einstellungen':en?'Settings':'Réglages';
+ document.querySelector('#systemHealthTitle').textContent=de?'🛡 Dienstestatus':en?'🛡 Service status':'🛡 État des services';
+ document.querySelector('#healthRiverLabel').textContent=de?'Pegelmessungen':en?'River measurements':'Mesures du fleuve';
+ document.querySelector('#healthTrendLabel').textContent=de?'Wasserstandstrend':en?'Water-level trend':'Tendance du niveau';
+ document.querySelector('#healthWeatherLabel').textContent=de?'Wettervorhersage':en?'Weather forecast':'Prévisions météo';
+ document.querySelector('#healthPushLabel').textContent=de?'Push-Server':en?'Notification server':'Serveur de notifications';
+ document.querySelector('#healthNote').textContent=de?'Statusprüfung auf diesem Gerät. Die Erreichbarkeit des Servers bestätigt nicht den Versand automatischer Push-Warnungen.':en?'Checked from this device. Server availability does not confirm that scheduled push notifications are being sent.':'État vérifié depuis cet appareil. La disponibilité du serveur ne confirme pas l’envoi des notifications automatiques.';
+ document.querySelector('#healthRefresh').textContent=de?'↻ Status aktualisieren':en?'↻ Refresh status':'↻ Actualiser l’état';
  const age=healthState.riverAt===null?null:Date.now()-healthState.riverAt;
  put('#healthRiver',healthState.river==='good'&&age!==null&&(age>3*3600000||age< -15*60000)?'stale':healthState.river);
+ const diagnostic=trendHealthDiagnostic();
+ put('#healthTrend',diagnostic.state);
+ document.querySelector('#healthTrendDetail').textContent=diagnostic.detail;
  put('#healthWeather',healthState.weather);
  put('#healthPush',healthState.push);
 }
