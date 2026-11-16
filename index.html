@@ -2022,14 +2022,17 @@ function renderUpstreamOrderedList(items,locale,fmt){
   const details=document.createElement('span');details.className='upstream-distance-info';
   const title=document.createElement('strong');title.textContent=g.name;
   const subtitle=document.createElement('small');
-  subtitle.textContent=upstreamConfluenceNote(g.code)+(point?'':earlyI18n(' · position indisponible',' · location unavailable',' · Position nicht verfügbar'));
+  const observed=Date.parse(g.observedAt);
+  const observedLabel=Number.isFinite(observed)?new Date(observed).toLocaleString(locale,{timeZone:'Europe/Paris',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+  const stale=Number.isFinite(observed)&&Date.now()-observed>90*60000;
+  subtitle.textContent=upstreamConfluenceNote(g.code)+' · '+earlyI18n('Mesure : ','Measured: ','Messung: ')+observedLabel+(stale?earlyI18n(' · ancienne mesure',' · outdated',' · veraltet'):'')+(point?'':earlyI18n(' · position indisponible',' · location unavailable',' · Position nicht verfügbar'));
   details.append(title,subtitle);
   const level=document.createElement('span');level.className='upstream-distance-values';
   const height=document.createElement('strong');height.textContent=fmt(g.levelM)+' m';
   const trend=document.createElement('small');
   trend.className=g.trendCmH>0?'trend-up':g.trendCmH<0?'trend-down':'trend-flat';
   const icon=g.trendCmH>0?'↗':g.trendCmH<0?'↘':'→';
-  trend.textContent=icon+' '+(g.trendCmH>0?'+':'')+fmt(g.trendCmH)+' cm/h';
+  trend.textContent=stale||!Number.isFinite(g.trendCmH)?earlyI18n('Tendance indisponible','Trend unavailable','Trend nicht verfügbar'):icon+' '+(g.trendCmH>0?'+':'')+fmt(g.trendCmH)+' cm/h';
   level.append(height,trend);
   node.append(marker,details,level);
   if(mapped)node.addEventListener('click',()=>{
@@ -2129,11 +2132,7 @@ async function updateUpstreamMap(){
  if(window.argensHomeStationCode!=='Y531201001'){mapNode.hidden=true;return}
  const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
  const fmt=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
- const gauges=upstreamDisplayedGauges.filter(x=>{
-  const at=Date.parse(x.observedAt);
-  return x.status==='current'&&Number.isFinite(x.levelM)&&Number.isFinite(x.trendCmH)&&Number.isFinite(at)
-   &&Date.now()-at<=90*60000&&at-Date.now()<=15*60000;
- });
+ const gauges=upstreamDisplayedGauges.filter(x=>Number.isFinite(x.levelM)&&Number.isFinite(Date.parse(x.observedAt))&&Date.parse(x.observedAt)-Date.now()<=15*60000);
  if(!gauges.length){
   mapNode.hidden=true;
   if(upstreamMapMarkers)upstreamMapMarkers.clearLayers();
@@ -2178,7 +2177,8 @@ async function updateUpstreamMap(){
   upstreamMapMarkers.clearLayers();
   upstreamMarkerByCode.clear();
   for(const {g,point,rank} of mapped){
-   const trend=upstreamTrend(g,fmt);
+   const stale=Date.now()-Date.parse(g.observedAt)>90*60000;
+   const trend=stale||!Number.isFinite(g.trendCmH)?{className:'trend-flat',label:earlyI18n('Ancienne mesure','Outdated reading','Veralteter Wert')}:upstreamTrend(g,fmt);
    // The compact trend is permanently visible. A click opens exactly one popup.
    // Never bind a Leaflet tooltip: mobile Safari may display it together with the popup.
    const pin=L.divIcon({
@@ -2335,15 +2335,12 @@ function renderEarlySignals(){
  for(const x of rain)addRainRow(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
   [fmt(x.last3hMm)+' mm',fmt(x.last6hMm)+' mm']);
  if(!rain.length)emptyRainList(rainNode);
- const gauges=(regional?d.upstream||[]:[]).filter(x=>{
-  const timestamp=Date.parse(x.observedAt);
-  return x.status==='current'&&Number.isFinite(x.levelM)&&Number.isFinite(x.trendCmH)
-   &&Number.isFinite(timestamp)&&Date.now()-timestamp<=90*60000&&timestamp-Date.now()<=15*60000;
- });
+ const gauges=(regional?d.upstream||[]:[]).filter(x=>Number.isFinite(x.levelM)&&Number.isFinite(Date.parse(x.observedAt))&&Date.parse(x.observedAt)-Date.now()<=15*60000);
  earlyText('earlyUpstreamStatus',gauges.length?
-  earlyI18n('Stations avec mesures actuelles : ','Gauges with current readings: ','Pegel mit aktuellen Messwerten: ')+gauges.length:
-  earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Messwerte flussaufwärtsliegender Pegel verfügbar'));
+  earlyI18n('Dernières mesures disponibles : ','Latest available readings: ','Letzte vorhandene Messwerte: ')+gauges.length:
+  earlyI18n('Recherche des dernières mesures…','Checking latest available readings…','Letzte vorhandene Messwerte werden geprüft…'));
  upstreamDisplayedGauges=gauges;
+ if(regional)refreshMissingUpstreamReadings(gauges);
  if(window.argensHomeStationCode!=='Y531201001'){
   document.getElementById('upstreamMap').hidden=true;
   document.getElementById('earlyUpstreamRows').hidden=true;
@@ -2355,6 +2352,39 @@ function renderEarlySignals(){
   requestAnimationFrame(()=>updateUpstreamMap());
  }
  const radar=regional?d.radar:null;
+
+// Read-only fallback for Argens: request the last real H observation per station.
+// Old values remain visible with their measurement time; they never trigger warnings.
+let upstreamFallbackRequest=0;
+async function refreshMissingUpstreamReadings(existing){
+ const request=++upstreamFallbackRequest;
+ const missing=UPSTREAM_CONFLUENCE_ORDER.filter(code=>!existing.some(g=>g.code===code));
+ if(!missing.length)return;
+ const results=await Promise.all(missing.map(async code=>{
+  try{
+   const url='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?'+new URLSearchParams({code_entite:code,grandeur_hydro:'H',size:'1',sort:'desc',format:'json'});
+   const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(10000)});
+   if(!response.ok)return null;
+   const payload=await response.json();
+   const obs=(payload.data||[]).find(x=>x.resultat_obs!==null&&x.resultat_obs!==''&&Number.isFinite(Number(x.resultat_obs))&&Number.isFinite(Date.parse(x.date_obs)));
+   if(!obs)return null;
+   const levelM=Number(obs.resultat_obs)/1000;
+   if(levelM< -5||levelM>30||Date.parse(obs.date_obs)>Date.now()+15*60000)return null;
+   return {code,name:obs.libelle_station||obs.libelle_entite||code,levelM,trendCmH:null,observedAt:obs.date_obs,status:'last_known'};
+  }catch{return null}
+ }));
+ if(request!==upstreamFallbackRequest||window.argensHomeStationCode!=='Y531201001')return;
+ const added=results.filter(Boolean);
+ if(!added.length){
+  if(!existing.length)earlyText('earlyUpstreamStatus',earlyI18n('Aucune mesure disponible (service indisponible ou historique vide)','No readings available (service unavailable or empty history)','Keine Messwerte abrufbar (Dienst nicht erreichbar oder keine Historie)'));
+  return;
+ }
+ const merged=[...existing,...added];
+ upstreamDisplayedGauges=merged;
+ earlyText('earlyUpstreamStatus',earlyI18n('Dernières mesures disponibles : ','Latest available readings: ','Letzte vorhandene Messwerte: ')+merged.length);
+ if(!document.getElementById('forecastPage').classList.contains('hidden'))requestAnimationFrame(()=>updateUpstreamMap());
+}
+
  earlyText('earlyRadarStatus',radar?.status==='catalogue_only'?
   earlyI18n('✓ Catalogue radar officiel accessible','✓ Official radar catalogue accessible','✓ Amtlicher Radarkatalog erreichbar'):
   radar?.status==='not_configured'?
