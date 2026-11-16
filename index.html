@@ -451,6 +451,30 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .donation-invite-footnote{display:block;margin-top:11px;color:#6a8390;font-size:10px;line-height:1.45}
 .donation-invite :is(a,button):focus-visible{outline:3px solid #e4a728;outline-offset:3px}
 @media(prefers-reduced-motion:no-preference){.donation-invite:not([hidden]){animation:donation-pop .25s ease-out both}@keyframes donation-pop{from{opacity:.3;translate:0 12px}to{opacity:1;translate:0 0}}}
+
+/* Readable Alerts on narrow phones: complete phrases, intentional line breaks. */
+#pushSettings .alert-cards-grid{display:flex;flex-direction:column;gap:13px}
+#pushSettings .alert-cards-grid .alert-info-card{display:flex;flex-direction:column;padding:18px 17px!important;min-width:0}
+#pushSettings .alert-cards-grid .alert-section-heading{min-height:0;align-items:center;padding-bottom:12px;gap:11px}
+#pushSettings .alert-cards-grid .alert-section-heading strong{font-size:16px;line-height:1.35}
+#pushSettings .alert-cards-grid .alert-section-heading .note{font-size:12px;line-height:1.45}
+#pushSettings .alert-cards-grid .alert-tier{gap:12px;align-items:center;padding:12px 0}
+#pushSettings .alert-cards-grid .alert-tier-icon{width:27px;font-size:23px}
+#pushSettings .alert-cards-grid .alert-tier>div{flex:1;min-width:0}
+#pushSettings .alert-cards-grid .alert-tier strong{font-size:14px}
+#pushSettings .alert-cards-grid .alert-rule{font-size:13px;line-height:1.55;overflow-wrap:normal;hyphens:auto}
+#pushSettings .alert-cards-grid .alert-rule-line{display:block;line-height:1.55}
+#pushSettings .alert-cards-grid .alert-rule-line+.alert-rule-line{margin-top:2px}
+#pushSettings .alert-cards-grid .alert-or{font-size:10px;padding:2px 5px;margin-right:5px;vertical-align:baseline}
+#pushSettings .alert-cards-grid .alert-explain{margin-top:12px;padding:11px 12px;font-size:12px;line-height:1.6}
+#pushSettings .alert-cards-grid .alert-rapid-rise-note{margin-top:9px}
+@media(max-width:365px){#pushSettings .alert-cards-grid .alert-info-card{padding:15px 13px!important}#pushSettings .alert-cards-grid .alert-rule{font-size:12px}}
+/* The actual 5-minute forecast time now appears on the map itself. */
+#forecastPage .piaf-map-shell{position:relative;min-width:0}
+#forecastPage .piaf-map-time-badge{position:absolute;right:11px;top:23px;z-index:800;display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding:7px 11px;border:1px solid #bed8e1;border-radius:11px;background:rgba(249,253,255,.96);box-shadow:0 4px 14px #183c4e26;pointer-events:none;max-width:calc(100% - 78px)}
+#forecastPage .piaf-map-time-badge[hidden]{display:none!important}
+#forecastPage .piaf-map-time-badge small{display:block;color:#517082;font-size:10px;font-weight:700;line-height:1.2}
+#forecastPage .piaf-map-time-badge #piafFrameTime{font-size:15px;font-weight:800;color:#124b62;min-width:0;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -506,10 +530,12 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <span class="forecast-card-icon" aria-hidden="true">🗺️</span>
     <strong id="piafForecastTitle">Prévision de pluie</strong>
     <p id="piafForecastStatus" class="note" role="status">Chargement de la prévision Météo-France PIAF…</p>
-    <div id="piafForecastMap" class="piaf-forecast-map" role="region" aria-label="Animation des pluies prévues" hidden></div>
+    <div class="piaf-map-shell">
+     <div id="piafForecastMap" class="piaf-forecast-map" role="region" aria-label="Animation des pluies prévues" hidden></div>
+     <div id="piafMapTimeBadge" class="piaf-map-time-badge" role="status" aria-live="off" hidden><small id="piafMapTimeLabel">Prévision pour</small><strong id="piafFrameTime">—</strong></div>
+    </div>
     <div id="piafForecastControls" class="piaf-controls" hidden>
-     <div class="piaf-controller-row"><button id="piafPlay" type="button" aria-label="Lire la prévision" disabled>▶</button><input id="piafSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Heure de prévision" disabled><span id="piafFrameTime" aria-live="off">—</span></div>
-     <p id="piafRunTime" class="note"></p>
+     <div class="piaf-controller-row"><button id="piafPlay" type="button" aria-label="Lire la prévision" disabled>▶</button><input id="piafSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Heure de prévision" disabled></div>
      <p id="piafBufferStatus" class="note piaf-buffer-status" role="status"></p>
     </div>
     <div id="piafLegendBlock" class="piaf-legend-block">
@@ -569,9 +595,9 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <div class="alert-cards-grid">
 <div class="panel alert-info-card">
 <div class="alert-section-heading"><span class="alert-heading-icon">🌊</span><div><strong id="alertWaterHeading">Niveau d’eau</strong><div class="note" id="alertStationName">Seuils de crue · Roquebrune-sur-Argens</div></div></div>
-<div class="alert-tier"><span class="alert-tier-icon">🟢</span><div><strong>Vert</strong><div class="alert-rule" id="alertGreenRule">&lt; 3,00 m et hausse &lt; 30 cm/h</div></div></div>
-<div class="alert-tier"><span class="alert-tier-icon">🟠</span><div><strong>Orange</strong><div class="alert-rule"><span class="alert-rule-line" id="alertOrangeRule">3,00 à 4,50 m</span><span class="alert-rule-line" data-rapid-rule><span class="alert-or">OU</span> hausse ≥ 30 cm/h</span></div></div></div>
-<div class="alert-tier"><span class="alert-tier-icon">🔴</span><div><strong>Rouge</strong><div class="alert-rule"><span class="alert-rule-line" id="alertRedRule">≥ 4,50 m</span><span class="alert-rule-line" data-rapid-rule><span class="alert-or">OU</span> hausse ≥ 50 cm/h</span></div></div></div>
+<div class="alert-tier"><span class="alert-tier-icon">🟢</span><div><strong>Vert</strong><div class="alert-rule" id="alertGreenRule"><span class="alert-rule-line" id="alertGreenHeight">Sous 3,00 m et hausse</span><span class="alert-rule-line" id="alertGreenRise">inférieure à 30 cm/h</span></div></div></div>
+<div class="alert-tier"><span class="alert-tier-icon">🟠</span><div><strong>Orange</strong><div class="alert-rule"><span class="alert-rule-line" id="alertOrangeRule">3,00 à moins de 4,50 m</span><span class="alert-rule-line" data-rapid-rule><span class="alert-or">OU</span> <span id="alertOrangeRise">hausse supérieure ou égale à 30 cm/h</span></span></div></div></div>
+<div class="alert-tier"><span class="alert-tier-icon">🔴</span><div><strong>Rouge</strong><div class="alert-rule"><span class="alert-rule-line" id="alertRedRule">À partir de 4,50 m</span><span class="alert-rule-line" data-rapid-rule><span class="alert-or">OU</span> <span id="alertRedRise">hausse supérieure ou égale à 50 cm/h</span></span></div></div></div>
 <p class="alert-explain">↘ Notification à chaque changement de niveau d’alerte, y compris lors du retour au vert.</p>
 <p class="alert-explain alert-rapid-rise-note">ℹ️ Une montée rapide (≥ 30 cm/h) peut déclencher une alerte orange même sous le seuil de hauteur défini.</p>
 </div>
@@ -711,7 +737,30 @@ const trend=document.querySelector('#trend'),readingTime=document.querySelector(
 const CUSTOM_DEFAULTS={orange:3,red:4.5};let personalThresholds=null;
 function activeThresholds(code){return personalThresholds&&personalThresholds.code===code?personalThresholds:CUSTOM_DEFAULTS}
 function renderThresholdLabels(code){const t=activeThresholds(code),fr=document.documentElement.lang!=='en',fmt=n=>n.toLocaleString(fr?'fr-FR':'en-GB',{maximumFractionDigits:2,minimumFractionDigits:2});const chips=document.querySelectorAll('[data-threshold]');if(chips.length===3){chips[0].textContent='< '+fmt(t.orange)+' m';chips[1].textContent=fmt(t.orange)+'–'+fmt(t.red)+' m';chips[2].textContent='≥ '+fmt(t.red)+' m'}const labels=document.querySelectorAll('#forecastResults .card small');if(labels.length===2){labels[0].textContent=(fr?'🟠 Seuil ':'🟠 Threshold ')+fmt(t.orange)+' m';labels[1].textContent=(fr?'🔴 Seuil ':'🔴 Threshold ')+fmt(t.red)+' m'}}
-function renderAlertRules(code){const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code),en=document.documentElement.lang==='en',fmt=n=>n.toLocaleString(document.documentElement.lang==='de'?'de-DE':en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});document.querySelector('#alertWaterHeading').textContent=en?'Water level':'Niveau d’eau';document.querySelector('#alertStationName').textContent=(en?'Flood thresholds · ':'Seuils de crue · ')+(stationTitle.textContent.trim()||code);document.querySelector('#alertGreenRule').textContent='< '+fmt(t.orange)+' m'+(en?' and rise < 30 cm/h':' et hausse < 30 cm/h');document.querySelector('#alertOrangeRule').textContent=fmt(t.orange)+(en?' to below ':' à moins de ')+fmt(t.red)+' m';document.querySelector('#alertRedRule').textContent='≥ '+fmt(t.red)+' m';document.querySelectorAll('[data-rapid-rule]').forEach(el=>el.hidden=false)}
+function renderAlertRules(code){
+ const t=activeThresholds(code),language=document.documentElement.lang;
+ const en=language==='en',de=language==='de';
+ const fmt=n=>n.toLocaleString(de?'de-DE':en?'en-GB':'fr-FR',
+  {minimumFractionDigits:2,maximumFractionDigits:2});
+ const low=fmt(t.orange),high=fmt(t.red);
+ document.querySelector('#alertWaterHeading').textContent=de?'Wasserstand':en?'Water level':'Niveau d’eau';
+ document.querySelector('#alertStationName').textContent=
+  (de?'Hochwasserschwellen · ':en?'Flood thresholds · ':'Seuils de crue · ')+(stationTitle.textContent.trim()||code);
+ document.querySelector('#alertGreenHeight').textContent=
+  de?'Unter '+low+' m und Anstieg':en?'Below '+low+' m and rise':'Sous '+low+' m et hausse';
+ document.querySelector('#alertGreenRise').textContent=
+  de?'kleiner als 30 cm/Std.':en?'less than 30 cm/h':'inférieure à 30 cm/h';
+ document.querySelector('#alertOrangeRule').textContent=
+  low+(de?' bis unter ':en?' to below ':' à moins de ')+high+' m';
+ document.querySelector('#alertRedRule').textContent=
+  (de?'Ab ':en?'From ':'À partir de ')+high+' m';
+ document.querySelector('#alertOrangeRise').textContent=
+  de?'Anstieg größer oder gleich 30 cm/Std.':en?'rise greater than or equal to 30 cm/h':'hausse supérieure ou égale à 30 cm/h';
+ document.querySelector('#alertRedRise').textContent=
+  de?'Anstieg größer oder gleich 50 cm/Std.':en?'rise greater than or equal to 50 cm/h':'hausse supérieure ou égale à 50 cm/h';
+ document.querySelectorAll('#pushSettings .alert-or').forEach(el=>el.textContent=de?'ODER':en?'OR':'OU');
+ document.querySelectorAll('[data-rapid-rule]').forEach(el=>el.hidden=false);
+}
 // Connect the current water-level tile to the actually active threshold tile.
 let connectorPending=false;
 function updateLevelConnector(){
