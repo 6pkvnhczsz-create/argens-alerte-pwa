@@ -2216,4 +2216,62 @@ document.getElementById('earlySignalsRefresh')?.addEventListener('click',loadEar
 document.addEventListener('argens-language-changed',renderEarlySignals);
 loadEarlySignalsPanel();
 setInterval(()=>{if(!document.hidden)loadEarlySignalsPanel()},300000);
-</script><script src="./piaf-palette.js"></script><script src="./piaf-player.js"></script><script src="./national-upstream.js"></script><script src="./home-vigilance.js"></script></body></html>
+</script><script src="./piaf-palette.js"></script><script src="./piaf-player.js"></script><script src="./national-upstream.js"></script><script src="./home-vigilance.js"></script>
+<script>
+/* Once per local calendar day on this device. No tracking, account or server calls. */
+(()=>{
+ const panel=document.getElementById('donationInvite');
+ if(!panel)return;
+ const get=id=>document.getElementById(id);
+ const key='riviere-alerte-donation-day-v1';
+ const messages={
+  fr:{title:'Aidez-nous à garder Rivière Alerte gratuite',
+   body:'Notre service est gratuit pour tous. Les données, les serveurs et la maintenance ont un coût : pour poursuivre ce travail, nous comptons sur les dons volontaires. Même un petit don via PayPal est précieux.',
+   donate:'💙 Faire un don via PayPal',later:'Plus tard',close:'Fermer',
+   footnote:'Don facultatif · Toutes les alertes restent gratuites.'},
+  en:{title:'Help keep Rivière Alerte free',
+   body:'Rivière Alerte is free for everyone. Data, servers and maintenance cost money, so we depend on voluntary support to keep it running. Even a small PayPal donation makes a difference.',
+   donate:'💙 Donate via PayPal',later:'Maybe later',close:'Close',
+   footnote:'Completely optional · All alerts remain free.'},
+  de:{title:'Hilf mit, Rivière Alerte kostenlos zu halten',
+   body:'Rivière Alerte ist für alle kostenlos. Daten, Server und Wartung verursachen Kosten. Damit wir den Dienst weiter kostenlos anbieten können, sind wir auf freiwillige Spenden angewiesen. Auch eine kleine Spende über PayPal hilft.',
+   donate:'💙 Mit PayPal spenden',later:'Vielleicht später',close:'Schließen',
+   footnote:'Freiwillig · Alle Warnmeldungen bleiben kostenlos.'}
+ };
+ function translate(){
+  const t=messages[document.documentElement.lang]||messages.fr;
+  get('donationInviteTitle').textContent=t.title;
+  get('donationInviteMessage').textContent=t.body;
+  get('donationInvitePayPal').textContent=t.donate;
+  get('donationInviteLater').textContent=t.later;
+  get('donationInviteClose').setAttribute('aria-label',t.close);
+  get('donationInviteFootnote').textContent=t.footnote;
+ }
+ const dateKey=()=>{
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+ };
+ let lastShownThisSession='';
+ function offer(){
+  if(document.hidden||!panel.hidden||document.querySelector('dialog[open]'))return;
+  const day=dateKey();
+  if(lastShownThisSession===day)return;
+  try{if(localStorage.getItem(key)===day)return}catch{}
+  // Do not place a donation invitation over urgent flood information.
+  const level=document.querySelector('#overview .hero')?.dataset.alert;
+  if(level==='orange'||level==='red')return;
+  translate();
+  panel.hidden=false;
+  lastShownThisSession=day;
+  try{localStorage.setItem(key,day)}catch{}
+ }
+ function close(){panel.hidden=true}
+ get('donationInviteClose').addEventListener('click',close);
+ get('donationInviteLater').addEventListener('click',close);
+ get('donationInvitePayPal').addEventListener('click',close);
+ document.addEventListener('argens-language-changed',translate);
+ window.addEventListener('pageshow',()=>setTimeout(offer,1700));
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(offer,1700)});
+ translate();
+})();
+</script></body></html>
