@@ -59,20 +59,29 @@ export function parseRainEstimate(data,now=Date.now()){
  return {status:'estimated',last3hMm:sum(last3),last6hMm:sum(last6),latestHour:new Date(Math.max(...rows.map(x=>x.t))).toISOString()};
 }
 export async function fetchRainArea(area,{now=Date.now(),fetchImpl=fetch}={}){
- try{
-  const params=new URLSearchParams({
-   latitude:String(area.lat),longitude:String(area.lon),
-   hourly:'precipitation',past_hours:'8',forecast_hours:'1',
-   timezone:'UTC',timeformat:'unixtime'
-  });
-  const response=await fetchImpl('https://api.open-meteo.com/v1/forecast?'+params,{
-   headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000),cf:{cacheTtl:300}
-  });
-  if(!response.ok)throw Error('Model precipitation unavailable');
-  return {id:area.id,name:area.name,...parseRainEstimate(await response.json(),now)};
- }catch(error){
-  return {id:area.id,name:area.name,status:'unavailable',last3hMm:null,last6hMm:null,latestHour:null};
+ // Best-match hourly retrospective rain can occasionally have missing values
+ // within the last few hours; request a fuller history before declaring failure.
+ const requests=[
+  {past_hours:'8',forecast_hours:'1'},
+  {past_days:'2',forecast_days:'1'}
+ ];
+ for(const window of requests){
+  try{
+   const params=new URLSearchParams({
+    latitude:String(area.lat),longitude:String(area.lon),
+    hourly:'precipitation',...window,
+    timezone:'UTC',timeformat:'unixtime'
+   });
+   const response=await fetchImpl('https://api.open-meteo.com/v1/forecast?'+params,{
+    headers:{Accept:'application/json'},signal:AbortSignal.timeout(12000),cf:{cacheTtl:180}
+   });
+   if(!response.ok)continue;
+   return {id:area.id,name:area.name,...parseRainEstimate(await response.json(),now),
+    model:'open_meteo_best_match'};
+  }catch(error){ /* Try a full-history model request. Never invent missing rainfall. */ }
  }
+ return {id:area.id,name:area.name,status:'unavailable',model:null,
+  last3hMm:null,last6hMm:null,latestHour:null};
 }
 
 /**
