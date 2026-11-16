@@ -70,8 +70,8 @@
    lang('Prévisions · bassin de l’Argens','Forecasts · Argens catchment','Vorhersagen · Argens-Einzugsgebiet'):
    lang('Prévisions · ','Forecasts · ','Vorhersagen · ')+(name||code));
   text('earlyUpstreamTitle',argens?
-   lang('Stations en amont','Upstream gauges','Oberlieger-Pegel'):
-   lang('Stations en amont · réseau vérifié','Upstream gauges · verified river network','Oberlieger · geprüftes Flussnetz'));
+   lang('Stations en amont','Upstream gauges','Flussaufwärtsliegende Pegel'):
+   lang('Stations en amont · réseau vérifié','Upstream gauges · verified river network','Flussaufwärtsliegende Pegel · geprüftes Flussnetz'));
   if(loaded)draw(loaded);
  }
  function putLabel(node,label,value){
@@ -91,11 +91,11 @@
     putLabel(list,(i+1)+'. '+st.name,
      format(st.levelM)+' m · '+sign+format(st.trendCmH)+' cm/h');
    }
-   text('nationalUpstreamStatus',lang('Stations reliées avec mesures récentes : ','Verified upstream gauges with recent measurements: ','Verifizierte Oberlieger mit aktuellen Messwerten: ')+Math.min(5,data.stations.length));
+   text('nationalUpstreamStatus',lang('Stations reliées avec mesures récentes : ','Verified upstream gauges with recent measurements: ','Verifizierte flussaufwärtsliegende Pegel mit aktuellen Messwerten: ')+Math.min(5,data.stations.length));
   }else if(data?.ok){
    text('nationalUpstreamStatus',lang('Aucune station en amont avec connexion et mesures récentes vérifiées dans ce secteur.',
     'No verified upstream station with fresh measurements in this local area.',
-    'Keine verifizierte Oberliegerstation mit aktuellen Messwerten in diesem lokalen Kartenausschnitt.'));
+    'Keine verifizierte flussaufwärtsliegende Pegelstation mit aktuellen Messwerten in diesem Kartenausschnitt.'));
   }else{
    text('nationalUpstreamStatus',lang('Vérification des connexions fluviales temporairement indisponible.',
     'Upstream river connectivity currently cannot be verified.',
@@ -104,7 +104,7 @@
   note.textContent=lang(
    'Jusqu’à cinq stations réellement situées en amont, avec mesures récentes, classées selon la proximité dans le réseau fluvial vérifié. La couverture BD TOPAGE peut être incomplète. Aucune durée de propagation calculée ; alertes inchangées.',
    'Up to five verified upstream gauges with recent readings, ordered by proximity in the verified river network. BD TOPAGE coverage can be incomplete. No flood travel times inferred; alerts unchanged.',
-   'Bis zu fünf verifizierte Oberlieger mit aktuellen Messwerten, geordnet nach Nähe im geprüften Flussnetz. Die BD-TOPAGE-Abdeckung kann unvollständig sein. Keine Hochwasser-Laufzeiten berechnet; Warnungen unverändert.');
+   'Bis zu fünf verifizierte flussaufwärtsliegende Pegel mit aktuellen Messwerten, nach Nähe im geprüften Flussnetz geordnet. Die BD-TOPAGE-Abdeckung kann unvollständig sein. Keine Hochwasser-Laufzeiten berechnet; Warnungen unverändert.');
 
  }
  // These optional neighbours are not verified upstream stations. Load only after
