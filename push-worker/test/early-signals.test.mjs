@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 import {
  UPSTREAM_STATIONS, RAIN_AREAS, parseUpstreamPoints, parseRainEstimate,
- parseMeteoVigilance, fetchOfficialVigilance, parseRainForecast, fetchRainForecast, fetchRadarCatalogue, buildEarlySignals,
+ parseMeteoVigilance, fetchOfficialVigilance, parseRainForecast, fetchRainForecast, fetchRainArea, fetchRadarCatalogue, buildEarlySignals,
  refreshEarlySignals, loadEarlySignals
 } from '../src/early-signals.mjs';
 
@@ -350,4 +350,41 @@ test('worker surface is information only, does not rewrite warning functions',()
  const inline=[...page.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).filter(Boolean);
  for(const script of inline) assert.doesNotThrow(()=>new Script(script));
  assert.equal(RAIN_AREAS.length,3);
+});
+
+test('local rainfall follows the selected gauge coordinates and remains informational',async()=>{
+ const area={id:'home',name:'Gauge elsewhere in France',lat:47.345,lon:2.678};
+ const past=Array.from({length:9},(_,i)=>Math.floor((NOW+(i-8)*3600000)/1000));
+ const future=Array.from({length:30},(_,i)=>Math.floor((NOW+(i+1)*3600000)/1000));
+ let requests=0;
+ const fetchImpl=async url=>{
+  const request=new URL(url);
+  assert.equal(Number(request.searchParams.get('latitude')),area.lat);
+  assert.equal(Number(request.searchParams.get('longitude')),area.lon);
+  requests++;
+  const forecast=request.pathname==='/v1/meteofrance';
+  return {ok:true,json:async()=>({hourly:{
+   time:forecast?future:past,precipitation:Array(forecast?30:9).fill(forecast?1.5:2)
+  }})};
+ };
+ const [forecast,rain]=await Promise.all([
+  fetchRainForecast(area,{now:NOW,fetchImpl}),fetchRainArea(area,{now:NOW,fetchImpl})
+ ]);
+ assert.equal(requests,2);
+ assert.equal(forecast.id,'home');
+ assert.equal(forecast.name,area.name);
+ assert.equal(forecast.status,'forecast');
+ assert.equal(forecast.next6hMm,9);
+ assert.equal(forecast.next24hMm,36);
+ assert.equal(rain.status,'estimated');
+ assert.equal(rain.last3hMm,6);
+ assert.equal(rain.last6hMm,12);
+ const page=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
+ const national=readFileSync(new URL('../../national-upstream.js',import.meta.url),'utf8');
+ const backend=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ assert.match(backend,/\/api\/rain\/station/);
+ assert.match(backend,/await cachedStation\(code\)/);
+ assert.match(page,/payload\.station\?\.code===station/);
+ assert.match(page,/document\.addEventListener\('argens-station-selected',rainHomeChanged\)/);
+ assert.doesNotMatch(national,/\['rainForecastCard','recentRainCard'/);
 });
