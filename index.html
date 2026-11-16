@@ -989,8 +989,10 @@ function renderForecast(items,code){
    hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'
   }).format(last.date);
   unavailable(age>60*60000?
-   (de?'Der letzte Messwert ist zu alt (':en?'The latest reading is too old (':'La dernière mesure est trop ancienne (')+
-   timestamp+(de?' Uhr).':').'):
+   (de?'Der letzte Messwert von ':en?'The latest reading from ':'La dernière mesure de ')+
+   timestamp+(de?' Uhr ist zu alt (älter als 60 Minuten).':
+    en?' is too old (more than 60 minutes old).':
+    ' est trop ancienne (plus de 60 minutes).'):
    (de?'Der Zeitstempel des letzten Messwerts liegt in der Zukunft (':en?'The latest reading has a future timestamp (':'La dernière mesure est datée dans le futur (')+
    timestamp+(de?' Uhr).':').'));
   return;
