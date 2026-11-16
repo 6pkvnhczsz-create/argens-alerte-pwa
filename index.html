@@ -495,6 +495,17 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #systemHealthPanel .health-status-value{display:inline-flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;min-width:0;white-space:nowrap;line-height:1.4;color:#64748b}
 #systemHealthPanel .health-status-value strong{display:block;font-size:15px;line-height:1.4;font-weight:700;white-space:nowrap;color:inherit}
 #systemHealthPanel .health-status-dot{display:block;box-sizing:border-box;flex:0 0 14px;width:14px;height:14px;min-width:14px;min-height:14px;max-width:14px;max-height:14px;border:0;border-radius:50%;background:currentColor;padding:0;margin:0;appearance:none;-webkit-appearance:none}
+
+.hero .chart-with-scale{position:relative}
+.hero #chart{touch-action:pan-y;cursor:crosshair}
+.hero #chart .chart-probe-line{stroke:#f4ffff;stroke-width:1;stroke-dasharray:3 3;opacity:.9;vector-effect:non-scaling-stroke;pointer-events:none}
+.hero #chart .chart-probe-halo{fill:#008877;stroke:#fff;stroke-width:2.5;vector-effect:non-scaling-stroke;pointer-events:none}
+.hero #chart .chart-probe-core{fill:white;pointer-events:none}
+.hero #chart .chart-probe-layer{pointer-events:none}
+.hero .chart-probe-tooltip{position:absolute;z-index:5;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 11px;min-width:104px;background:#f8fdfe;color:#164b5d;border:1px solid #c3e2e9;border-radius:10px;box-shadow:0 5px 17px #08393b44;pointer-events:none;transform:translate(-50%,-100%);white-space:nowrap;font-variant-numeric:tabular-nums}
+.hero .chart-probe-tooltip[hidden]{display:none!important}
+.hero .chart-probe-tooltip time{font-size:11px;color:#497284;font-weight:650}
+.hero .chart-probe-tooltip strong{font-size:15px;color:#124659;font-weight:800}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -508,7 +519,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <p id="installBannerHint" class="note"></p>
   </div>
 </section>
-<div id="overview"><div class="hero"><div class="hero-orb" aria-hidden="true"></div><small>NIVEAU D’EAU ACTUEL</small><div class="station-heading"><span id="stationTitle">Roquebrune-sur-Argens</span><span id="stationUpdated" class="station-updated" aria-label="Date et heure de la dernière mesure"></span></div><div class="level"><span class="level-glass"><span id="level">—</span><span style="font-size:25px;letter-spacing:0"> m</span></span></div><div class="level-connector" aria-hidden="true" style="visibility:hidden"><svg viewBox="0 0 300 44" preserveAspectRatio="none" focusable="false"><path d="M150 0 V23 H50 V44" /></svg></div><div class="threshold-row" aria-label="Seuils indicatifs"><span class="threshold threshold-green" data-threshold="green">0–3 m</span><span class="threshold threshold-orange" data-threshold="orange">3–4,5 m</span><span class="threshold threshold-red" data-threshold="red">≥ 4,5 m</span></div><div id="status" class="threshold-message" role="status">Données en attente</div><div id="thresholdNotice" class="threshold-notice" hidden><div id="thresholdNoticeText">Aucun seuil d’alerte n’est défini pour cette station. Définissez vos seuils personnels dans les réglages.</div><button id="thresholdSettingsLink" type="button" style="margin-top:14px;padding:12px 18px;border:1px solid #ffffff99;border-radius:11px;background:#ffffffed;color:#195469;font:inherit;font-weight:700;cursor:pointer">⚙ Définir mes seuils</button></div><div class="sub" id="trend">Chargement des mesures</div><div class="hero-chart-head"><div class="hero-chart-label">ÉVOLUTION DU NIVEAU</div><div class="range-switch" role="group" aria-label="Période du graphique"><button type="button" data-hours="1" aria-pressed="true">1 h</button><button type="button" data-hours="6">6 h</button><button type="button" data-hours="12">12 h</button><button type="button" data-hours="24">24 h</button><button type="button" data-hours="48">48 h</button></div></div><div class="range-info" id="rangeInfo"></div><div class="chart-with-scale"><div class="height-scale height-scale-left" id="heightScaleLeft" aria-label="Hauteurs en mètres"></div><svg class="chart" id="chart" viewBox="0 0 340 110" preserveAspectRatio="none" aria-label="Évolution des dernières mesures"><path d="M0 106 H340" stroke="#456476" stroke-dasharray="5 5"/></svg><div class="height-scale height-scale-right" id="heightScaleRight" aria-hidden="true"></div></div><div class="chart-times" id="chartTimes" aria-label="Heures des mesures"></div><div class="hidden"><span id="readingTime"></span></div><div class="hero-source-footer" id="waterDataSource" aria-live="polite">Source: HUB’EAU</div></div>
+<div id="overview"><div class="hero"><div class="hero-orb" aria-hidden="true"></div><small>NIVEAU D’EAU ACTUEL</small><div class="station-heading"><span id="stationTitle">Roquebrune-sur-Argens</span><span id="stationUpdated" class="station-updated" aria-label="Date et heure de la dernière mesure"></span></div><div class="level"><span class="level-glass"><span id="level">—</span><span style="font-size:25px;letter-spacing:0"> m</span></span></div><div class="level-connector" aria-hidden="true" style="visibility:hidden"><svg viewBox="0 0 300 44" preserveAspectRatio="none" focusable="false"><path d="M150 0 V23 H50 V44" /></svg></div><div class="threshold-row" aria-label="Seuils indicatifs"><span class="threshold threshold-green" data-threshold="green">0–3 m</span><span class="threshold threshold-orange" data-threshold="orange">3–4,5 m</span><span class="threshold threshold-red" data-threshold="red">≥ 4,5 m</span></div><div id="status" class="threshold-message" role="status">Données en attente</div><div id="thresholdNotice" class="threshold-notice" hidden><div id="thresholdNoticeText">Aucun seuil d’alerte n’est défini pour cette station. Définissez vos seuils personnels dans les réglages.</div><button id="thresholdSettingsLink" type="button" style="margin-top:14px;padding:12px 18px;border:1px solid #ffffff99;border-radius:11px;background:#ffffffed;color:#195469;font:inherit;font-weight:700;cursor:pointer">⚙ Définir mes seuils</button></div><div class="sub" id="trend">Chargement des mesures</div><div class="hero-chart-head"><div class="hero-chart-label">ÉVOLUTION DU NIVEAU</div><div class="range-switch" role="group" aria-label="Période du graphique"><button type="button" data-hours="1" aria-pressed="true">1 h</button><button type="button" data-hours="6">6 h</button><button type="button" data-hours="12">12 h</button><button type="button" data-hours="24">24 h</button><button type="button" data-hours="48">48 h</button></div></div><div class="range-info" id="rangeInfo"></div><div class="chart-with-scale"><div class="height-scale height-scale-left" id="heightScaleLeft" aria-label="Hauteurs en mètres"></div><svg class="chart" id="chart" viewBox="0 0 340 110" preserveAspectRatio="none" aria-label="Évolution des dernières mesures"><path d="M0 106 H340" stroke="#456476" stroke-dasharray="5 5"/></svg><div id="chartProbeTooltip" class="chart-probe-tooltip" role="status" aria-live="off" hidden><time id="chartProbeTime"></time><strong id="chartProbeLevel"></strong></div><div class="height-scale height-scale-right" id="heightScaleRight" aria-hidden="true"></div></div><div class="chart-times" id="chartTimes" aria-label="Heures des mesures"></div><div class="hidden"><span id="readingTime"></span></div><div class="hero-source-footer" id="waterDataSource" aria-live="polite">Source: HUB’EAU</div></div>
 <div class="hidden" aria-hidden="true"><span id="delta"></span><span id="deltaPeriod"></span></div><div class="panel simulation-panel hidden"><strong>Tester les couleurs d’alerte (simulation uniquement)</strong><p class="note">Déplacez le curseur pour prévisualiser les couleurs. Les données réelles restent distinctes. Aperçu uniquement : les seuils réels sont configurés séparément.</p><div id="simulation" class="status green">Aperçu : vert</div><input type="range" min="1" max="4" step=".05" value="1.56" id="slider"><div class="muted" style="display:flex;justify-content:space-between"><span>1,00 m</span><span>4,00 m</span></div></div>
 <div id="forecastPanel" class="panel" style="margin-top:15px;text-align:center" aria-live="polite">
 <strong id="forecastHeading">🔎 Projection des seuils</strong>
@@ -1047,9 +1058,11 @@ function renderForecast(items,code){
  projectedEl.classList.remove('hidden');
  out.classList.remove('hidden');
 }
-function noReading(text){document.querySelectorAll('#forecastResults .card').forEach(card=>card.classList.remove('forecast-threshold-orange','forecast-threshold-red'));document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'Not enough reliable data to estimate the short-term trend.':'Données insuffisantes pour estimer l’évolution à court terme.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";scheduleLevelConnector();document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='threshold-message';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren()}
+function noReading(text){document.querySelectorAll('#forecastResults .card').forEach(card=>card.classList.remove('forecast-threshold-orange','forecast-threshold-red'));document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'Not enough reliable data to estimate the short-term trend.':'Données insuffisantes pour estimer l’évolution à court terme.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";scheduleLevelConnector();document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='threshold-message';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren();document.getElementById('chartProbeTooltip').hidden=true}
 function drawChart(items){
  const svg=document.querySelector('#chart'),axis=document.querySelector('#chartTimes'),info=document.querySelector('#rangeInfo');
+ document.getElementById('chartProbeTooltip').hidden=true;
+ svg.onpointerdown=svg.onpointermove=svg.onpointerup=svg.onpointercancel=svg.onpointerleave=svg.onlostpointercapture=null;
  svg.replaceChildren();axis.replaceChildren();document.querySelector('#heightScaleLeft').replaceChildren();document.querySelector('#heightScaleRight').replaceChildren();
  const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR',fmt=new Intl.DateTimeFormat(locale,{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'});
  if(!items.length){info.textContent='';trend.textContent='Aucune mesure disponible';return}
@@ -1068,6 +1081,54 @@ function drawChart(items){
  const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');defs.innerHTML='<linearGradient id="river-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#ffffff" stop-opacity=".32"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>';svg.append(defs);
  const area=document.createElementNS('http://www.w3.org/2000/svg','path');area.setAttribute('d',d+' L340 110 L0 110 Z');area.setAttribute('fill','url(#river-fill)');svg.append(area);
  const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke','#ffffff');p.setAttribute('stroke-width','3');p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');svg.append(p);
+ // Finger-driven crosshair snaps only to real observations, not invented values.
+ const ns='http://www.w3.org/2000/svg';
+ const probe=document.createElementNS(ns,'g');probe.setAttribute('class','chart-probe-layer');probe.setAttribute('visibility','hidden');
+ const cross=document.createElementNS(ns,'line');cross.setAttribute('class','chart-probe-line');cross.setAttribute('y1','0');cross.setAttribute('y2','110');
+ const halo=document.createElementNS(ns,'circle');halo.setAttribute('class','chart-probe-halo');halo.setAttribute('r','5');
+ const core=document.createElementNS(ns,'circle');core.setAttribute('class','chart-probe-core');core.setAttribute('r','2');
+ probe.append(cross,halo,core);svg.append(probe);
+ const tooltip=document.getElementById('chartProbeTooltip'),wrapper=svg.parentElement;
+ const probeTime=document.getElementById('chartProbeTime'),probeLevel=document.getElementById('chartProbeLevel');
+ const showReading=reading=>{
+  const x=(reading.date.getTime()-start)/(newest-start)*340;
+  const y=94-(reading.value-min)*77/range;
+  cross.setAttribute('x1',x);cross.setAttribute('x2',x);
+  halo.setAttribute('cx',x);halo.setAttribute('cy',y);
+  core.setAttribute('cx',x);core.setAttribute('cy',y);
+  probe.setAttribute('visibility','visible');
+  probeTime.textContent=fmt.format(reading.date);
+  probeLevel.textContent=(reading.value/1000).toLocaleString(locale,{minimumFractionDigits:2,maximumFractionDigits:3})+' m';
+  tooltip.hidden=false;
+  const rect=svg.getBoundingClientRect(),container=wrapper.getBoundingClientRect();
+  const pixelX=rect.left-container.left+x/340*rect.width;
+  const half=tooltip.offsetWidth/2;
+  tooltip.style.left=Math.max(half+2,Math.min(container.width-half-2,pixelX))+'px';
+  const pixelY=rect.top-container.top+y/110*rect.height;
+  if(pixelY<tooltip.offsetHeight+16){
+   tooltip.style.top=(pixelY+12)+'px';tooltip.style.transform='translateX(-50%)';
+  }else{
+   tooltip.style.top=(pixelY-12)+'px';tooltip.style.transform='translate(-50%,-100%)';
+  }
+ };
+ const hide=()=>{probe.setAttribute('visibility','hidden');tooltip.hidden=true};
+ const scrub=event=>{
+  const rect=svg.getBoundingClientRect();if(!rect.width)return;
+  const progress=Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width));
+  const stamp=start+progress*(newest-start);
+  let lo=0,hi=points.length;
+  while(lo<hi){const mid=(lo+hi)>>1;if(points[mid].date.getTime()<stamp)lo=mid+1;else hi=mid}
+  const closest=lo===0?points[0]:lo===points.length?points[points.length-1]:
+   stamp-points[lo-1].date.getTime()<=points[lo].date.getTime()-stamp?points[lo-1]:points[lo];
+  showReading(closest);
+ };
+ let pointer=null;
+ svg.onpointerdown=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;pointer=e.pointerId;if(svg.setPointerCapture)svg.setPointerCapture(e.pointerId);scrub(e)};
+ svg.onpointermove=e=>{if(e.pointerType==='mouse'||pointer===e.pointerId)scrub(e)};
+ svg.onpointerup=e=>{if(pointer===e.pointerId)pointer=null};
+ svg.onpointercancel=()=>{pointer=null;hide()};
+ svg.onpointerleave=e=>{if(e.pointerType==='mouse'&&pointer===null)hide()};
+ svg.onlostpointercapture=()=>{pointer=null};
  for(let i=0;i<3;i++){const label=document.createElement('span'),t=start+(newest-start)*i/2;label.textContent=fmt.format(new Date(t));axis.append(label)}
 }
 async function loadMeasurements(code,{silent=false}={}){
