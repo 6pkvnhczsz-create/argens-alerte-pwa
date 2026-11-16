@@ -1734,7 +1734,8 @@ setLanguage(lang);
 })();
 
 /* Information only. These supplementary signals never change risk colors or Push. */
-let earlySignalsSnapshot=null,localRainSnapshot=null,earlySignalsRequest=0;
+let earlySignalsSnapshot=null,localRainSnapshot=null,earlySignalsRequest=0,localRainLoading=false;
+let localRainStationCode='';
 const LOCAL_RAIN_DEFAULT='Y531201001';
 const currentRainStation=()=>window.argensHomeStationCode||LOCAL_RAIN_DEFAULT;
 function earlyI18n(fr,en,de){
@@ -2157,14 +2158,16 @@ function renderEarlySignals(){
  initRainList(forecastNode,['6 h','24 h']);
  initRainList(rainNode,['3 h','6 h']);
  if(!d||d.ok!==true){
-  const unavailable=earlyI18n('Données temporairement indisponibles','Data temporarily unavailable','Daten vorübergehend nicht verfügbar');
+  const unavailable=!argens&&localRainLoading?
+   earlyI18n('Chargement pour la station sélectionnée…','Loading the selected station…','Lade Daten der gewählten Station…'):
+   earlyI18n('Données temporairement indisponibles','Data temporarily unavailable','Daten vorübergehend nicht verfügbar');
   for(const id of ['earlyForecastStatus','earlyRainStatus','earlyUpstreamStatus','earlyRadarStatus'])earlyText(id,unavailable);
   earlyText('earlySignalsChecked','');
   upstreamDisplayedGauges=[];
   document.getElementById('upstreamMap').hidden=true;
   document.getElementById('earlyUpstreamRows').hidden=true;
   earlyText('upstreamMapMessage',unavailable);
-  healthState.weather='bad';renderSystemHealth();
+  healthState.weather=localRainLoading?'pending':'bad';renderSystemHealth();
   return;
  }
  // Official departmental vigilance is rendered independently by home-vigilance.js.
@@ -2217,7 +2220,11 @@ async function loadEarlySignalsPanel(){
  const btn=document.getElementById('earlySignalsRefresh');if(!btn)return;
  const station=currentRainStation(),argens=station===LOCAL_RAIN_DEFAULT,request=++earlySignalsRequest;
  btn.disabled=true;
- if(!argens){localRainSnapshot=null;renderEarlySignals()}
+ if(!argens){
+  if(localRainStationCode!==station){localRainSnapshot=null;localRainStationCode=station}
+  localRainLoading=true;
+  if(!localRainSnapshot)renderEarlySignals();
+ }
  try{
   const endpoint=argens?'/api/early-signals':'/api/rain/station?station='+encodeURIComponent(station);
   const response=await fetch('https://argens-alerte-push.p-hammerschmidt.workers.dev'+endpoint,
@@ -2232,7 +2239,7 @@ async function loadEarlySignalsPanel(){
   else localRainSnapshot=null;
  }finally{
   if(request===earlySignalsRequest&&station===currentRainStation()){
-   btn.disabled=false;renderEarlySignals();
+   localRainLoading=false;btn.disabled=false;renderEarlySignals();
   }
  }
 }
@@ -2240,7 +2247,7 @@ document.getElementById('earlySignalsRefresh')?.addEventListener('click',loadEar
 document.addEventListener('argens-language-changed',renderEarlySignals);
 function rainHomeChanged(){
  // Clear any stale station values, then request fresh coordinates-based rainfall.
- localRainSnapshot=null;
+ localRainSnapshot=null;localRainStationCode='';
  loadEarlySignalsPanel();
 }
 document.addEventListener('argens-station-selected',rainHomeChanged);
