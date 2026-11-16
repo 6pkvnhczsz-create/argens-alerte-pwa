@@ -6,7 +6,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 import { getHydroObservations, readVigicruesObservations, validHydroStation } from './water-sources.mjs';
 import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, activeBackupStationCodes, markVigicruesUnavailable, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
 import { translateFeedbackRecord } from './feedback-translation.mjs';
-import { refreshEarlySignals, loadEarlySignals, fetchOfficialVigilance } from './early-signals.mjs';
+import { refreshEarlySignals, loadEarlySignals, fetchOfficialVigilance, fetchRainArea, fetchRainForecast } from './early-signals.mjs';
 import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
 import { fetchPiafMetadata, fetchPiafFrame, fetchPiafLegend } from './piaf-map.mjs';
 import { DEFAULT_STATION, validStationCode, cachedStation } from './piaf-station.mjs';
@@ -915,6 +915,50 @@ export default {
     console.warn('Departmental official vigilance unavailable',String(error?.message||'official source').slice(0,90));
     return json(request,{ok:false,status:'unavailable',station:code,
      reason:'department_or_source_unavailable',periods:[]},503);
+   }
+  }
+  // Local precipitation is informational only. Unlike the Argens-wide
+  // early-signals snapshot, this follows the user's selected French gauge.
+  // Coordinates come exclusively from the official Hub'Eau station registry.
+  if(url.pathname==='/api/rain/station'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{ok:false,error:'Origin not allowed'},403);
+   const code=url.searchParams.get('station')||DEFAULT_STATION;
+   if(!validStationCode(code)||[...url.searchParams].length!==1||
+      url.searchParams.get('station')!==code)
+    return json(request,{ok:false,error:'Invalid hydrometric station'},400);
+   try{
+    const station=await cachedStation(code);
+    const cache=globalThis.caches?.default;
+    const key=new Request('https://riviere-alerte.fr/__meteo_cache/station_rain_v1?station='+code);
+    if(cache){
+     const hit=await cache.match(key);
+     if(hit){
+      const saved=await hit.json().catch(()=>null);
+      if(saved?.ok===true&&saved.station?.code===code&&
+         Number.isFinite(Date.parse(saved.checkedAt))&&Date.now()-Date.parse(saved.checkedAt)<5*60000)
+       return json(request,saved);
+     }
+    }
+    const area={id:'home',name:station.name,lat:station.lat,lon:station.lon};
+    const now=Date.now();
+    const [forecast,rain]=await Promise.all([
+     fetchRainForecast(area,{now}),fetchRainArea(area,{now})
+    ]);
+    const data={ok:true,station:{code:station.code,name:station.name,
+      lat:station.lat,lon:station.lon},
+     forecast:[forecast],rain:[rain],checkedAt:new Date(now).toISOString(),
+     forecastSource:'Météo-France model through Open-Meteo, forecast, not measured rain',
+     rainSource:'Open-Meteo past-hour model estimates, not measured radar',
+     informationalOnly:true,notForAlerts:true};
+    if(cache&&(forecast.status==='forecast'||rain.status==='estimated'))
+     await cache.put(key,new Response(JSON.stringify(data),{headers:{
+      'Content-Type':'application/json','Cache-Control':'public, max-age=300'}}));
+    return json(request,data);
+   }catch(error){
+    console.warn('Station-local rain unavailable',String(error?.message||'source').slice(0,120));
+    return json(request,{ok:false,error:'Station precipitation temporarily unavailable',
+     station:code,forecast:[],rain:[],notForAlerts:true},503);
    }
   }
   // Read-only information about officially issued weather warnings, model
