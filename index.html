@@ -470,10 +470,10 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 @media(max-width:365px){#pushSettings .alert-cards-grid .alert-info-card{padding:15px 13px!important}#pushSettings .alert-cards-grid .alert-rule{font-size:12px}}
 /* The actual 5-minute forecast time now appears on the map itself. */
 #forecastPage .piaf-map-shell{position:relative;min-width:0}
-#forecastPage .piaf-map-time-badge{position:absolute;right:11px;top:23px;z-index:800;display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding:7px 11px;border:1px solid #bed8e1;border-radius:11px;background:rgba(249,253,255,.96);box-shadow:0 4px 14px #183c4e26;pointer-events:none;max-width:calc(100% - 78px)}
+#forecastPage .piaf-map-time-badge{position:absolute;right:11px;top:23px;z-index:800;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:7px 11px;border:1px solid #bed8e1;border-radius:11px;background:rgba(249,253,255,.96);box-shadow:0 4px 14px #183c4e26;pointer-events:none;max-width:calc(100% - 78px)}
 #forecastPage .piaf-map-time-badge[hidden]{display:none!important}
 #forecastPage .piaf-map-time-badge small{display:block;color:#517082;font-size:10px;font-weight:700;line-height:1.2}
-#forecastPage .piaf-map-time-badge #piafFrameTime{font-size:15px;font-weight:800;color:#124b62;min-width:0;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums}
+#forecastPage .piaf-map-time-badge #piafFrameTime{display:block;text-align:center;font-size:15px;font-weight:800;color:#124b62;min-width:0;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums}
 
 /* Diagnostic for 6-hour extrapolation (separate from the river feed's uptime). */
 
