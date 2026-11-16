@@ -437,6 +437,20 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 .station-confirm-cancel{border:1px solid #d7e5ec;background:#edf4f7;color:#295367}
 .station-confirm-actions button:focus-visible{outline:3px solid #e0a33e;outline-offset:2px}
 @media(prefers-reduced-motion:no-preference){.station-confirm-dialog[open]{animation:station-confirm-enter .2s ease-out}@keyframes station-confirm-enter{from{opacity:.6;transform:translateY(9px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}}
+
+/* Optional daily PayPal support card. Not a warning or blocking dialog. */
+.donation-invite{position:fixed;z-index:2200;left:50%;bottom:calc(82px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(460px,calc(100vw - 28px));max-height:min(410px,calc(75dvh - 15px));overflow:auto;background:#fafdfe;border:1px solid #b8d7df;border-radius:22px;box-shadow:0 18px 52px #0a314054;text-align:left;color:#143b4e;padding:18px 18px 16px}
+.donation-invite-head{display:flex;align-items:flex-start;gap:10px;padding-right:25px}
+.donation-invite-symbol{flex:none;width:38px;height:38px;display:grid;place-items:center;background:linear-gradient(135deg,#def3f5,#c0e5e9);border-radius:12px;font-size:20px}
+.donation-invite-head h2{font-size:16px;line-height:1.3;font-weight:800;letter-spacing:-.2px;margin:1px 0 0;color:#0f465a}
+.donation-invite p{font-size:12px;line-height:1.6;margin:11px 0 13px;color:#496c7a}
+.donation-invite-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.donation-invite-paypal{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:10px 15px;border-radius:12px;background:linear-gradient(125deg,#075c75,#088d97);color:white;text-decoration:none;font-size:13px;font-weight:750;box-shadow:0 5px 15px #0b809020}
+.donation-invite-later{border:1px solid #d7e5ea;background:#f1f7f9;border-radius:12px;color:#315b6b;padding:10px 13px;min-height:43px;font-size:12px;font-weight:700;cursor:pointer}
+.donation-invite-close{position:absolute;top:11px;right:11px;display:grid;place-items:center;width:30px;height:30px;border:0;background:#eaf4f7;border-radius:50%;color:#426576;font-size:18px;cursor:pointer}
+.donation-invite-footnote{display:block;margin-top:11px;color:#6a8390;font-size:10px;line-height:1.45}
+.donation-invite :is(a,button):focus-visible{outline:3px solid #e4a728;outline-offset:3px}
+@media(prefers-reduced-motion:no-preference){.donation-invite:not([hidden]){animation:donation-pop .25s ease-out both}@keyframes donation-pop{from{opacity:.3;translate:0 12px}to{opacity:1;translate:0 0}}}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -662,6 +676,19 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <div class="legal-de" lang="de" hidden><p><strong>Anbieter und inhaltlich Verantwortlicher:</strong> Patrick Hammerschmidt, c/o one-shot Filmproduktionen GmbH, Kalscheurener Straße 19, 50354 Hürth, Deutschland. Die App wird privat betrieben; das Unternehmen ist ausschließlich als Korrespondenzanschrift angegeben.</p><p>Kontakt: <a href="mailto:privacy@riviere-alerte.fr">privacy@riviere-alerte.fr</a>. Technische Infrastruktur: Cloudflare. Rivière Alerte ist ein unabhängiger Dienst ohne Verbindung zu öffentlichen Behörden. Die Daten und Schätzungen stellen keine amtlichen Warnungen dar.</p></div></details></section>
 <nav class="bottom" aria-label="Navigation"><button class="active" data-tab="overview"><span class="nav-icon">⌂</span><span>Accueil</span></button><button data-tab="Carte"><span class="nav-icon">⌖</span><span>Carte</span></button><button data-tab="Alertes"><span class="nav-icon">♧</span><span>Messages d’alerte</span></button><button data-tab="Prévisions"><span class="nav-icon">☁</span><span>Prévisions</span></button><button data-tab="Réglages"><span class="nav-icon">⚙</span><span>Réglages</span></button></nav>
 </div>
+<aside id="donationInvite" class="donation-invite" role="region" aria-labelledby="donationInviteTitle" hidden>
+ <button id="donationInviteClose" class="donation-invite-close" type="button" aria-label="Fermer">×</button>
+ <div class="donation-invite-head">
+  <div class="donation-invite-symbol" aria-hidden="true">💙</div>
+  <h2 id="donationInviteTitle">Aidez-nous à garder Rivière Alerte gratuite</h2>
+ </div>
+ <p id="donationInviteMessage">Notre service est gratuit pour tous. Les données, les serveurs et la maintenance ont un coût : pour poursuivre ce travail, nous comptons sur les dons volontaires. Même un petit don via PayPal est précieux.</p>
+ <div class="donation-invite-actions">
+  <a id="donationInvitePayPal" class="donation-invite-paypal" href="https://www.paypal.biz/argensalerte" target="_blank" rel="noopener noreferrer">💙 Faire un don via PayPal</a>
+  <button id="donationInviteLater" class="donation-invite-later" type="button">Plus tard</button>
+ </div>
+ <small id="donationInviteFootnote" class="donation-invite-footnote">Don facultatif · Toutes les alertes restent gratuites.</small>
+</aside>
 <dialog id="homeStationDialog" class="station-confirm-dialog" aria-labelledby="homeStationDialogTitle" aria-describedby="homeStationDialogDescription">
  <div class="station-confirm-head">
   <div class="station-confirm-icon" aria-hidden="true">📍</div>
