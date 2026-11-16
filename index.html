@@ -868,7 +868,7 @@ function trendHealthDiagnostic(){
  if(!Number.isFinite(age))return unavailable;
  const minutes=Math.max(0,Math.floor(age/60000));
  const ageLabel=lang('Dernière mesure il y a ','Last reading ','Letzte Messung vor ')+
-  minutes+lang(' min',' min ago',' Min.');
+  minutes+lang(' min',' min ago',' Minuten');
  if(age< -15*60000||age>60*60000){
   return {state:'stale',detail:age>60*60000?
    ageLabel+lang('. Les mesures restent visibles mais la tendance exige une mesure datant de moins de 60 minutes.',
