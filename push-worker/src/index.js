@@ -948,7 +948,9 @@ export default {
     const data={ok:true,station:{code:station.code,name:station.name,
       lat:station.lat,lon:station.lon},
      forecast:[forecast],rain:[rain],checkedAt:new Date(now).toISOString(),
-     forecastSource:'Météo-France model through Open-Meteo, forecast, not measured rain',
+     forecastSource:forecast.model==='open_meteo_best_match'?
+      'Open-Meteo best-match model (fallback), forecast not measured rain':
+      'Météo-France model through Open-Meteo, forecast, not measured rain',
      rainSource:'Open-Meteo past-hour model estimates, not measured radar',
      informationalOnly:true,notForAlerts:true};
     if(cache&&(forecast.status==='forecast'||rain.status==='estimated'))
