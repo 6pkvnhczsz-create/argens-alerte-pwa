@@ -496,16 +496,16 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #systemHealthPanel .health-status-value strong{display:block;font-size:15px;line-height:1.4;font-weight:700;white-space:nowrap;color:inherit}
 #systemHealthPanel .health-status-dot{display:block;box-sizing:border-box;flex:0 0 14px;width:14px;height:14px;min-width:14px;min-height:14px;max-width:14px;max-height:14px;border:0;border-radius:50%;background:currentColor;padding:0;margin:0;appearance:none;-webkit-appearance:none}
 
-.hero .chart-with-scale{position:relative}
+.hero .chart-with-scale{position:relative;padding-top:46px}
 .hero #chart{touch-action:pan-y;cursor:crosshair}
 .hero #chart .chart-probe-line{stroke:#f4ffff;stroke-width:1;stroke-dasharray:3 3;opacity:.9;vector-effect:non-scaling-stroke;pointer-events:none}
 .hero #chart .chart-probe-halo{fill:#008877;stroke:#fff;stroke-width:2.5;vector-effect:non-scaling-stroke;pointer-events:none}
 .hero #chart .chart-probe-core{fill:white;pointer-events:none}
 .hero #chart .chart-probe-layer{pointer-events:none}
-.hero .chart-probe-tooltip{position:absolute;z-index:5;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 11px;min-width:104px;background:#f8fdfe;color:#164b5d;border:1px solid #c3e2e9;border-radius:10px;box-shadow:0 5px 17px #08393b44;pointer-events:none;transform:translate(-50%,-100%);white-space:nowrap;font-variant-numeric:tabular-nums}
+.hero .chart-probe-tooltip{position:absolute;z-index:5;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 9px;min-width:91px;background:rgba(248,253,254,.83);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#164b5d;border:1px solid rgba(213,238,242,.84);border-radius:9px;box-shadow:0 3px 12px #08393b30;pointer-events:none;transform:translate(-50%,-100%);white-space:nowrap;font-variant-numeric:tabular-nums}
 .hero .chart-probe-tooltip[hidden]{display:none!important}
-.hero .chart-probe-tooltip time{font-size:11px;color:#497284;font-weight:650}
-.hero .chart-probe-tooltip strong{font-size:15px;color:#124659;font-weight:800}
+.hero .chart-probe-tooltip time{font-size:10px;color:#3d697a;font-weight:650;letter-spacing:0}
+.hero .chart-probe-tooltip strong{font-size:13px;color:#124659;font-weight:800;letter-spacing:0}
 </style></head>
 <body><div class="phone">
 <div class="top"><div><div class="brand">🌊 Argens Alerte</div><div class="muted">Surveillance des crues</div></div><div class="lang-switch" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français" aria-pressed="true"><span class="lang-flag" aria-hidden="true">🇫🇷</span><span>FR</span></button><button type="button" data-lang="en" aria-label="English" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇬🇧</span><span>EN</span></button><button type="button" data-lang="de" aria-label="Deutsch" aria-pressed="false"><span class="lang-flag" aria-hidden="true">🇩🇪</span><span>DE</span></button></div></div>
@@ -1098,18 +1098,17 @@ function drawChart(items){
   core.setAttribute('cx',x);core.setAttribute('cy',y);
   probe.setAttribute('visibility','visible');
   probeTime.textContent=fmt.format(reading.date);
-  probeLevel.textContent=(reading.value/1000).toLocaleString(locale,{minimumFractionDigits:2,maximumFractionDigits:3})+' m';
+  probeLevel.textContent=(reading.value/1000).toLocaleString(locale,{minimumFractionDigits:2,maximumFractionDigits:2})+' m';
   tooltip.hidden=false;
   const rect=svg.getBoundingClientRect(),container=wrapper.getBoundingClientRect();
   const pixelX=rect.left-container.left+x/340*rect.width;
   const half=tooltip.offsetWidth/2;
   tooltip.style.left=Math.max(half+2,Math.min(container.width-half-2,pixelX))+'px';
   const pixelY=rect.top-container.top+y/110*rect.height;
-  if(pixelY<tooltip.offsetHeight+16){
-   tooltip.style.top=(pixelY+12)+'px';tooltip.style.transform='translateX(-50%)';
-  }else{
-   tooltip.style.top=(pixelY-12)+'px';tooltip.style.transform='translate(-50%,-100%)';
-  }
+  // Always place the compact bubble ABOVE the actual curve and the finger.
+  // The extra top padding reserves room even for the highest water reading.
+  tooltip.style.top=(pixelY-12)+'px';
+  tooltip.style.transform='translate(-50%,-100%)';
  };
  const hide=()=>{probe.setAttribute('visibility','hidden');tooltip.hidden=true};
  const scrub=event=>{
@@ -1123,12 +1122,29 @@ function drawChart(items){
   showReading(closest);
  };
  let pointer=null;
- svg.onpointerdown=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;pointer=e.pointerId;if(svg.setPointerCapture)svg.setPointerCapture(e.pointerId);scrub(e)};
- svg.onpointermove=e=>{if(e.pointerType==='mouse'||pointer===e.pointerId)scrub(e)};
- svg.onpointerup=e=>{if(pointer===e.pointerId)pointer=null};
- svg.onpointercancel=()=>{pointer=null;hide()};
- svg.onpointerleave=e=>{if(e.pointerType==='mouse'&&pointer===null)hide()};
- svg.onlostpointercapture=()=>{pointer=null};
+ svg.onpointerdown=e=>{
+  if(pointer!==null||(e.pointerType==='mouse'&&e.button!==0))return;
+  pointer=e.pointerId;
+  if(svg.setPointerCapture){try{svg.setPointerCapture(e.pointerId)}catch{}}
+  scrub(e);
+ };
+ svg.onpointermove=e=>{
+  // No hover preview: only an actively touching / pressed pointer may show it.
+  if(pointer!==e.pointerId)return;
+  const rect=svg.getBoundingClientRect();
+  if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom){
+   hide();return;
+  }
+  scrub(e);
+ };
+ svg.onpointerup=e=>{
+  if(pointer!==e.pointerId)return;
+  pointer=null;hide();
+  if(svg.hasPointerCapture?.(e.pointerId))svg.releasePointerCapture(e.pointerId);
+ };
+ svg.onpointercancel=e=>{if(pointer===e.pointerId){pointer=null;hide()}};
+ svg.onpointerleave=e=>{if(pointer===e.pointerId)hide()};
+ svg.onlostpointercapture=e=>{if(pointer===e.pointerId)pointer=null;hide()};
  for(let i=0;i<3;i++){const label=document.createElement('span'),t=start+(newest-start)*i/2;label.textContent=fmt.format(new Date(t));axis.append(label)}
 }
 async function loadMeasurements(code,{silent=false}={}){
