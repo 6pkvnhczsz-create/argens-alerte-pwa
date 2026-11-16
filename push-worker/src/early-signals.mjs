@@ -278,7 +278,9 @@ export async function buildEarlySignals(env,{now=Date.now(),fetchImpl=fetch}={})
   upstream:availableUpstream,upstreamStationsChecked:UPSTREAM_STATIONS.length,rain,forecast,official,radar,
   interpretation:'information_only',changesFloodThresholds:false,
   rainSource:'Open-Meteo past-hour model estimates; not measured rain or calibrated radar',
-  forecastSource:'Météo-France AROME/ARPEGE model forecast via Open-Meteo; not measured rain'};
+  forecastSource:forecast.some(x=>x.model==='open_meteo_best_match'&&x.status==='forecast')?
+   'Open-Meteo best-match forecast model fallback; not measured rain':
+   'Météo-France AROME/ARPEGE model forecast via Open-Meteo; not measured rain'};
 }
 async function ensureTable(db){
  await db.prepare('CREATE TABLE IF NOT EXISTS early_signals (station_code TEXT PRIMARY KEY, checked_ms INTEGER NOT NULL, payload TEXT NOT NULL)').run();
