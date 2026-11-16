@@ -1265,7 +1265,7 @@ document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()
  if((window.argensHomeStationCode||'Y531201001')==='Y531201001')updateUpstreamMap();
  if(typeof window.loadNationwideUpstream==='function')window.loadNationwideUpstream();
  if(typeof window.loadPiafForecastMap==='function')window.loadPiafForecastMap();
- });if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;document.querySelector('#place').value='Roquebrune-sur-Argens';searchPlace()}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
+ });if(tab==='Carte'){if(!initialMapSearch){initialMapSearch=true;searchPlace('Roquebrune-sur-Argens')}else if(stationMap)setTimeout(()=>stationMap.invalidateSize(),80)}window.scrollTo({top:0,behavior:'instant'})}));
 
 // Web Push requires a deployed backend and a public VAPID key. Never request permission until configured.
 const PUSH_API_URL='https://argens-alerte-push.p-hammerschmidt.workers.dev';const PUSH_VAPID_PUBLIC_KEY='BNmAS3Gm-VN8T9-_TsA4viBni7q-TwNk0dMEcWR6QYdb0T-fHEQ0Nz8s2sIlCrIBPW_A9LdqI8paKvVqCStUOrA';
@@ -1598,7 +1598,7 @@ async function findStations(lat,lon){
   if(stationMap){const visible=stationEntries.filter(x=>x.marker).map(x=>x.marker.getLatLng());if(visible.length)stationMap.fitBounds(visible,{padding:[24,24],maxZoom:12});else stationMap.setView([lat,lon],10);setTimeout(()=>stationMap.invalidateSize(),100)}
  }catch(e){message.textContent=mapText('Recherche indisponible pour le moment. Réessayez plus tard.','Search temporarily unavailable. Please try again.')}
 }
-async function searchPlace(){const q=document.querySelector('#place').value.trim();if(!q)return;message.textContent='Recherche de la commune…';try{const res=await fetch('https://api-adresse.data.gouv.fr/search/?limit=1&q='+encodeURIComponent(q));if(!res.ok)throw Error();const j=await res.json();const point=j.features?.[0]?.geometry?.coordinates;if(!point){message.textContent='Lieu introuvable en France.';return}await findStations(point[1],point[0])}catch(e){message.textContent='Recherche de commune indisponible.'}}
+async function searchPlace(queryOverride){const q=(typeof queryOverride==='string'?queryOverride:document.querySelector('#place').value).trim();if(!q)return;message.textContent='Recherche de la commune…';try{const res=await fetch('https://api-adresse.data.gouv.fr/search/?limit=1&q='+encodeURIComponent(q));if(!res.ok)throw Error();const j=await res.json();const point=j.features?.[0]?.geometry?.coordinates;if(!point){message.textContent='Lieu introuvable en France.';return}await findStations(point[1],point[0])}catch(e){message.textContent='Recherche de commune indisponible.'}}
 document.querySelector('#findPlace').addEventListener('click',searchPlace);
 document.querySelector('#place').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchPlace()}});
 document.querySelector('#gps').addEventListener('click',()=>{if(!navigator.geolocation){message.textContent='Géolocalisation non disponible.';return}message.textContent='Demande de position…';navigator.geolocation.getCurrentPosition(p=>findStations(p.coords.latitude,p.coords.longitude),()=>message.textContent='Position non autorisée ou indisponible.',{timeout:12000,enableHighAccuracy:false})});
