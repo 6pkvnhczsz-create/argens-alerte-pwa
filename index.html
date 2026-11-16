@@ -496,7 +496,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #systemHealthPanel .health-status-value strong{display:block;font-size:15px;line-height:1.4;font-weight:700;white-space:nowrap;color:inherit}
 #systemHealthPanel .health-status-dot{display:block;box-sizing:border-box;flex:0 0 14px;width:14px;height:14px;min-width:14px;min-height:14px;max-width:14px;max-height:14px;border:0;border-radius:50%;background:currentColor;padding:0;margin:0;appearance:none;-webkit-appearance:none}
 
-.hero .chart-with-scale{position:relative;padding-top:46px}
+.hero .chart-with-scale{position:relative;padding-top:76px}
 .hero #chart{touch-action:pan-y;cursor:crosshair}
 .hero #chart .chart-probe-line{stroke:#f4ffff;stroke-width:1;stroke-dasharray:3 3;opacity:.9;vector-effect:non-scaling-stroke;pointer-events:none}
 .hero #chart .chart-probe-halo{fill:#008877;stroke:#fff;stroke-width:2.5;vector-effect:non-scaling-stroke;pointer-events:none}
@@ -1106,8 +1106,8 @@ function drawChart(items){
   tooltip.style.left=Math.max(half+2,Math.min(container.width-half-2,pixelX))+'px';
   const pixelY=rect.top-container.top+y/110*rect.height;
   // Always place the compact bubble ABOVE the actual curve and the finger.
-  // The extra top padding reserves room even for the highest water reading.
-  tooltip.style.top=(pixelY-12)+'px';
+  // The 76px top area reserves enough room for a 48px clearance above the highest peaks.
+  tooltip.style.top=(pixelY-48)+'px';
   tooltip.style.transform='translate(-50%,-100%)';
  };
  const hide=()=>{probe.setAttribute('visibility','hidden');tooltip.hidden=true};
