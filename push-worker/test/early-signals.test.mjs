@@ -98,6 +98,31 @@ test('forecast call uses dedicated Météo-France model API, not generic Open-Me
  assert.equal(out.next6hMm,3);
  assert.equal(out.status,'forecast');
 });
+test('forecast failover uses Open-Meteo best-match when the Météo-France model endpoint fails',async()=>{
+ const hours=Array.from({length:30},(_,i)=>Math.floor((NOW+i*3600000)/1000));
+ const urls=[];
+ const out=await fetchRainForecast(RAIN_AREAS[0],{now:NOW,fetchImpl:async url=>{
+  urls.push(new URL(url).pathname);
+  if(url.includes('/v1/meteofrance'))return {ok:false,status:503};
+  return {ok:true,json:async()=>({hourly:{time:hours,precipitation:Array(30).fill(1)}})};
+ }});
+ assert.deepEqual(urls,['/v1/meteofrance','/v1/forecast']);
+ assert.equal(out.model,'open_meteo_best_match');
+ assert.equal(out.status,'forecast');
+ assert.equal(out.next6hMm,6);
+ assert.equal(out.next24hMm,24);
+});
+
+test('missing both weather model sources does not invent a forecast',async()=>{
+ let calls=0;
+ const out=await fetchRainForecast(RAIN_AREAS[0],{now:NOW,fetchImpl:async()=>{
+  calls++;return {ok:false,status:503};
+ }});
+ assert.equal(calls,2);
+ assert.equal(out.status,'unavailable');
+ assert.equal(out.next24hMm,null);
+});
+
 test('radar catalogue only verifies freshness; metadata never masquerades as measured rain',async()=>{
  const secret='RADAR_SECRET_MUST_NOT_APPEAR';
  let seen='';
