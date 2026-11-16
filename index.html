@@ -971,6 +971,7 @@ function loadLocalWeather(){
 function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
  const en=document.documentElement.lang==='en',de=document.documentElement.lang==='de';
+ statusEl.style.whiteSpace='pre-line';
  const tr=(fr,english)=>de?(window.argensGermanText?window.argensGermanText(fr,english):fr):en?english:fr;
  const projectedEl=document.querySelector('#forecastProjected');projectedEl.classList.add('hidden');
  // Clear forecast-only colors before every recalculation, including stale or missing data.
