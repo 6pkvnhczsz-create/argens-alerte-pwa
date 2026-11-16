@@ -2006,6 +2006,7 @@ function upstreamConfluenceNote(code){
  };
  return earlyI18n(...(notes[code]||['Affluent de l’Argens','Argens tributary','Argens-Zufluss']));
 }
+let upstreamFallbackRequest=0;
 function renderUpstreamOrderedList(items,locale,fmt){
  const panel=document.getElementById('earlyUpstreamRows');
  panel.replaceChildren();
@@ -2058,7 +2059,7 @@ function buildUpstreamPopup(g,fmt,locale){
  const summary=document.createElement('div');summary.className='upstream-popup-summary';
  const reading=document.createElement('span');reading.className='upstream-popup-level';
  reading.textContent=fmt(g.levelM)+' m';
- const trend=document.createElement('span');const value=upstreamTrend(g,fmt);
+ const trend=document.createElement('span');const value=Date.now()-Date.parse(g.observedAt)>90*60000||!Number.isFinite(g.trendCmH)?{className:'trend-flat',label:earlyI18n('Ancienne mesure','Outdated reading','Veralteter Wert')}:upstreamTrend(g,fmt);
  trend.className=value.className;trend.textContent=value.label;
  summary.append(reading,trend);
  const extra=document.createElement('details');extra.className='upstream-popup-extra';
@@ -2264,9 +2265,9 @@ function renderEarlySignals(){
    'Local estimate of past rainfall from Open-Meteo, not a rain gauge or radar measurement.',
    'Örtlich geschätzte Regenmenge der letzten Stunden aus Open-Meteo, keine Messung durch Regenmesser oder Radar.'));
  earlyText('earlyUpstreamDisclaimer',earlyI18n(
-  'Seules les stations avec mesures récentes sont affichées. Les hauteurs de stations différentes ne sont pas comparables.',
+  'Dernières mesures disponibles, y compris anciennes mesures datées. Les hauteurs de stations différentes ne sont pas comparables.',
   'Only gauges with recent measurements are shown. Water levels from different gauges cannot be compared directly.',
-  'Nur Pegel mit aktuellen Messwerten werden angezeigt. Die Pegelhöhen verschiedener Stationen sind nicht direkt vergleichbar.'));
+  'Letzte verfügbare Messwerte, auch ältere mit Zeitangabe. Die Pegelhöhen verschiedener Stationen sind nicht direkt vergleichbar.'));
  earlyText('earlySignalsRefresh',earlyI18n('↻ Actualiser les données','↻ Refresh data','↻ Daten aktualisieren'));
  // If the dedicated Météo-France feed is unavailable, the backup comes
  // from Open-Meteo's best-match model. Never label it Météo-France.
@@ -2355,7 +2356,6 @@ function renderEarlySignals(){
 
 // Read-only fallback for Argens: request the last real H observation per station.
 // Old values remain visible with their measurement time; they never trigger warnings.
-let upstreamFallbackRequest=0;
 async function refreshMissingUpstreamReadings(existing){
  const request=++upstreamFallbackRequest;
  const missing=UPSTREAM_CONFLUENCE_ORDER.filter(code=>!existing.some(g=>g.code===code));
