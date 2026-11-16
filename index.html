@@ -253,7 +253,6 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #forecastPage #piafPlay:disabled{opacity:.5;cursor:not-allowed}
 #forecastPage #piafSlider{flex:1;min-width:40px;accent-color:#0b7085}
 #forecastPage #piafFrameTime{font-size:12px;font-weight:750;color:#154a62;min-width:48px;white-space:nowrap}
-#forecastPage #piafRunTime{margin:5px 0 0;font-size:11px;text-align:center}
 #forecastPage .piaf-buffer-status{margin:5px 0 0;text-align:center;min-height:14px;font-size:11px}
 #forecastPage .piaf-legend-block{margin-top:12px;padding:10px 12px;border:1px solid #d9e7ec;border-radius:12px;background:#f6fafb}
 #forecastPage .piaf-legend-block strong{display:block;font-size:12px;font-weight:750;color:#244b5e}
@@ -2057,7 +2056,7 @@ async function updateUpstreamMap(){
   if(upstreamMapMarkers)upstreamMapMarkers.clearLayers();
   upstreamMarkerByCode.clear();
   renderUpstreamOrderedList([],locale,fmt);
-  earlyText('upstreamMapMessage',earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Oberlieger-Messwerte'));
+  earlyText('upstreamMapMessage',earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Messwerte flussaufwärtsliegender Pegel'));
   return;
  }
  // Show verified observations immediately; no invented map coordinates.
@@ -2158,14 +2157,14 @@ function renderEarlySignals(){
  earlyText('forecastPageIntro',argens?earlyI18n(
   'Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.',
   'Forecasts, recent rainfall estimates and upstream gauges. Informational only: your alerts remain unchanged.',
-  'Regenvorhersagen, bisherige Regenmengen und Oberlieger-Pegel. Zusätzliche Informationen ohne Änderung deiner Warnungen.'):
+  'Regenvorhersagen, bisherige Regenmengen und flussaufwärtsliegende Pegel. Zusätzliche Informationen ohne Änderung deiner Warnungen.'):
   earlyI18n('Prévisions de pluie et estimations récentes pour la station sélectionnée. Vos alertes restent inchangées.',
    'Rain forecasts and recent rainfall estimates for the selected gauge. Alerts remain unchanged.',
    'Regenprognosen und geschätzter Regen der letzten Stunden für die gewählte Station. Warnmeldungen bleiben unverändert.'));
  earlyText('earlyForecastTitle',earlyI18n('Pluie prévue · Météo-France','Forecast rain · Météo-France','Regenprognose · Météo-France'));
  earlyText('earlyRainTitle',earlyI18n('Pluie récente estimée','Estimated recent rainfall','Regen der letzten Stunden (geschätzt)'));
  if(argens)earlyText('earlyUpstreamTitle',
-  earlyI18n('Stations en amont','Upstream gauges','Flussaufwärts gelegene Pegel'));
+  earlyI18n('Stations en amont','Upstream gauges','Flussaufwärtsliegende Pegel'));
  earlyText('earlyForecastDisclaimer',argens?earlyI18n(
   'Modèles AROME/ARPEGE de Météo-France via Open-Meteo. Prévisions, pas de mesures radar ni de prévisions de crue.',
   'Météo-France AROME/ARPEGE model forecasts via Open-Meteo. Not radar measurements or flood predictions.',
@@ -2248,7 +2247,7 @@ function renderEarlySignals(){
  });
  earlyText('earlyUpstreamStatus',gauges.length?
   earlyI18n('Stations avec mesures actuelles : ','Gauges with current readings: ','Pegel mit aktuellen Messwerten: ')+gauges.length:
-  earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Oberlieger-Messwerte verfügbar'));
+  earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Messwerte flussaufwärtsliegender Pegel verfügbar'));
  upstreamDisplayedGauges=gauges;
  if(window.argensHomeStationCode!=='Y531201001'){
   document.getElementById('upstreamMap').hidden=true;
