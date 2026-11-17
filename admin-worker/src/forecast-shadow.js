@@ -274,6 +274,16 @@ export function mergeRainHistory(liveRows,historyRows,nowMs) {
     historical_sample_count:rows.filter(x=>x.source==='historic_csv').length,
     live_sample_count:rows.filter(x=>x.source!=='historic_csv').length};
 }
+// Forecast colors are informational tiers, never the official warning levels.
+export function modelForecastColorTier(modelForecast){
+  if(!['experimental','experimental_delayed'].includes(modelForecast?.status)
+    ||typeof modelForecast.peak_m!=='number'||!Number.isFinite(modelForecast.peak_m)
+    ||modelForecast.peak_m<0)return 'neutral';
+  if(modelForecast.peak_m>=5.90)return 'red'; // fence / property
+  if(modelForecast.peak_m>=5.40)return 'orange'; // street / property
+  return 'green';
+}
+
 export function summarizeSixHourRisk(hydro,rain,modelForecast=null) {
   const thresholds=CRITICAL_THRESHOLDS.map(x=>({
     ...x,observed_status:hydro.ok?(hydro.level_m>=x.metres?'reached':'below'):'unknown',
@@ -294,7 +304,7 @@ export function summarizeSixHourRisk(hydro,rain,modelForecast=null) {
   const delayed=modelForecast?.status==='experimental_delayed';
   const peak=estimated?modelForecast.peak_m:null;
   const label=estimated?(delayed?'Verzögerte Testrechnung · ': 'Testmodell · ')+(peak>=5.40?'Schwelle 5,40 m möglicherweise überschritten':'Schätzung unter 5,40 m (keine Entwarnung)'):'6-Stunden-Risiko noch nicht berechenbar';
-  return {status:estimated?modelForecast.status:'not_calculated',label,
+  return {status:estimated?modelForecast.status:'not_calculated',color_tier:modelForecastColorTier(modelForecast),label,
     reason:estimated?(delayed?'Der letzte Pegelwert ist '+modelForecast.gauge_age_minutes+' Minuten alt. Diese verzögerte Testrechnung ist keine aktuelle Hochwasserprognose oder Entwarnung.':'Experimentelle Modellschätzung, nicht als Warnentscheidung geeignet. Einzelne Hochwasser wurden deutlich überschätzt.'):modelForecast?.reason||blockedReason,signals,thresholds,
     disclaimer:'Messsignale sind keine validierte 6-Stunden-Vorhersage und ändern keine Warnungen.'};
 }
