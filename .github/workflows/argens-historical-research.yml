@@ -1,0 +1,30 @@
+name: Research Argens historical rain and river level (read-only)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'research/argens_rain_levels.py'
+      - '.github/workflows/argens-historical-research.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  historical-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Identify available official weather archives and historical daily crests
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: |
+          python3 research/argens_rain_levels.py | tee historical-analysis.log
+      - name: Save report log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: argens-historical-research-log
+          path: historical-analysis.log
+          retention-days: 30
