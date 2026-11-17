@@ -106,7 +106,7 @@ export async function syncForecastRain(env, nowMs = Date.now(), fetcher = fetch)
 // Restore the gap between the immutable CSV archive and the start of live polling.
 // Each user-initiated job is capped to 55 upstream calls to respect the free 100 req/min API limit.
 // Failed observation hours are NOT treated as 0 mm; short-lived retries are suppressed.
-export async function backfillForecastRain(env, nowMs=Date.now(), fetcher=fetch) {
+export async function backfillForecastRain(env, nowMs=Date.now(), fetcher=fetch, maxCalls=55) {
   if(!env.DB||!env.METEO_FRANCE_OBS_API_KEY)return {status:'unavailable',error:'D1 oder Météo-France-Schlüssel fehlt'};
   await ensureTables(env.DB);
   const at=new Date(nowMs).toISOString(),retryTime=new Date(nowMs-30*60000).toISOString();
@@ -135,7 +135,8 @@ export async function backfillForecastRain(env, nowMs=Date.now(), fetcher=fetch)
         if(!known.has(id)&&!recentlyTried.has(id))jobs.push([station,hour]);
       }
     }
-    const selected=jobs.slice(0,55),remaining=Math.max(0,jobs.length-selected.length);
+    const cap=Math.max(1,Math.min(55,Math.floor(Number(maxCalls)||55)));
+    const selected=jobs.slice(0,cap),remaining=Math.max(0,jobs.length-selected.length);
     for(let i=0;i<selected.length&&!quotaReached;i+=5){
       const results=await Promise.allSettled(selected.slice(i,i+5).map(async([station,hour])=>{
         const u=new URL(API);
