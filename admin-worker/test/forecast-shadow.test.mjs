@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source = readFileSync(new URL('../src/forecast-shadow.js',import.meta.url),'utf8');
-const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS} = await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
+const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain} = await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
 
 test('accepts valid observed zero rain with UTC hour and quality 1',()=>{
   const hour='2026-11-17T10:00:00.000Z';
@@ -34,4 +34,30 @@ test('hourly data from model estimates are never marked as observed',()=>{
   assert.equal(RAIN_STATIONS.length,11);
   assert.equal(source.includes('api.open-meteo.com'),false);
   assert.equal(source.includes('forecast_peak_m:null'),true);
+});
+
+test('manual probe returns API permission failure without exposing secret', async ()=>{
+  const now=Date.parse('2026-11-17T12:35:00Z');
+  const key='internal-test-key-do-not-log';
+  const result=await probeForecastRain({METEO_FRANCE_OBS_API_KEY:key},now, async (url,options)=>{
+    assert.equal(new URL(url).searchParams.get('date'),'2026-11-17T11:00:00Z');
+    assert.equal(options.headers.apikey,key);
+    return new Response('forbidden',{status:403});
+  });
+  assert.equal(result.http_status,403);
+  assert.equal(result.ok,false);
+  assert.ok(!JSON.stringify(result).includes(key));
+});
+test('manual probe verifies hourly rain and never confuses missing reading with zero',async()=>{
+  const now=Date.parse('2026-11-17T12:35:00Z');
+  const result=await probeForecastRain({METEO_FRANCE_OBS_API_KEY:'secret'},now, async()=>new Response(
+    JSON.stringify([{geo_id_insee:'83075001',validity_time:'2026-11-17T11:00:00Z',rr1:0}]),
+    {status:200,headers:{'Content-Type':'application/json'}}));
+  assert.equal(result.ok,true);
+  assert.equal(result.reading_available,true);
+  assert.equal(result.rain_mm,0);
+  const missing=await probeForecastRain({METEO_FRANCE_OBS_API_KEY:'secret'},now,async()=>new Response('[]',{status:200}));
+  assert.equal(missing.ok,true);
+  assert.equal(missing.reading_available,false);
+  assert.equal(missing.rain_mm,null);
 });
