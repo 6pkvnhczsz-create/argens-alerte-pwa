@@ -41,7 +41,7 @@ test('public UI distinguishes real rain from Open-Meteo estimates, keeping model
  const index=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
  assert.ok(index.includes("x.status==='observed'"));
  assert.ok(index.includes('Gemessener Niederschlag · Météo-France'));
- assert.ok(index.includes('keine flächendeckende Einzugsgebietsmessung'));
+ assert.ok(index.includes('Keine flächendeckende Einzugsgebietsmessung'));
  assert.ok(index.includes('Open-Meteo-Modellschätzungen als Ersatz'));
  const worker=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
  assert.ok(worker.includes('loadArgensObservedRain(env.DB)'));
