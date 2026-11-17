@@ -211,15 +211,14 @@ assert.match(css,/#forecastPage #nearbyGaugesRows \.upstream-distance-row>[\s\S]
  'National station lists should support narrow phone breakpoints');
 assert.match(css, /\.piaf-custom-color-key\{grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/,
  'The six legend labels should form readable three-column rows on small screens');
-// Simulate an old station; it must disappear from the map even if still cached.
-model.upstream[0].observedAt=new Date(Date.now()-120*60000).toISOString();
-w.renderEarlySignals();
-await new Promise(resolve=>setTimeout(resolve,200));
-assert.equal(pins.length,6,'Last known gauge remains visible with its observation timestamp');
-assert.match(pins[0].popup.textContent,/Ancienne mesure|Outdated reading|Veralteter Wert/,
- 'Stale upstream values must not display a current rate');
+// Regression for the standalone stale-reading popup, without mutating the
+// network snapshot used by the asynchronously cached Home forecast map.
+const staleGauge={...model.upstream[0],observedAt:new Date(Date.now()-120*60000).toISOString()};
+const stalePopup=w.buildUpstreamPopup(staleGauge,n=>String(n),'fr-FR');
+assert.match(stalePopup.textContent,/Ancienne mesure|Outdated reading|Veralteter Wert/,
+ 'A genuinely stale upstream reading must not display a current rise rate');
 assert.match(d.querySelector('#earlyUpstreamRows .upstream-distance-info small').textContent,/Mesure|Measured|Messung/,
- 'Every retained gauge reading must show its timestamp');
+ 'Displayed upstream readings retain their official observation timestamps');
 const nearbyBlock=d.getElementById('nearbyGaugesBlock');
 nearbyBlock.open=true;
 nearbyBlock.dispatchEvent(new w.Event('toggle'));
