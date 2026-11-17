@@ -2,7 +2,9 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source = readFileSync(new URL('../src/forecast-shadow.js',import.meta.url),'utf8');
-const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate} = await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
+const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk} = await import('../src/forecast-shadow.js');
+const {archivedRainRows} = await import('../src/rain-archive-2026.js');
+const {FORECAST_SHADOW_PAGE} = await import('../src/forecast-shadow-page.js');
 
 test('accepts valid observed zero rain with UTC hour and quality 1',()=>{
   const hour='2026-11-17T10:00:00.000Z';
@@ -99,4 +101,52 @@ test('automatic import fetches 3 completed hours without milliseconds and stores
   assert.equal(rows.length,33);
   assert.ok(rows.every(row=>row[2]===0));
   assert.ok(!JSON.stringify(result).includes('example-key'));
+});
+
+test('historical CSV archive preserves measured zeros, explicit missing hours and observed rainfall',()=>{
+  const start=Date.parse('2026-11-07T00:00:00Z');
+  const rows=archivedRainRows(start,start+239*3600000);
+  assert.equal(rows.length,2587);
+  assert.equal(rows.filter(x=>x.station_id==='83004004').length,227);
+  assert.equal(rows.some(x=>x.station_id==='83004004'&&x.hour_utc==='2026-11-08T07:00:00.000Z'),false);
+  assert.equal(rows.find(x=>x.station_id==='83075001'&&x.hour_utc==='2026-11-07T00:00:00.000Z').rain_mm,0.2);
+  assert.equal(rows.find(x=>x.station_id==='83004004'&&x.hour_utc==='2026-11-12T10:00:00.000Z').rain_mm,12.3);
+  assert.deepEqual(archivedRainRows(Date.parse('2026-12-01T00:00:00Z'),Date.parse('2026-12-02T00:00:00Z')),[]);
+});
+test('history merges 11 stations with recent live values and excludes missing archive time',()=>{
+  const now=Date.parse('2026-11-17T14:01:00Z');
+  const archive=archivedRainRows(now-239*3600000,now);
+  const live=RAIN_STATIONS.map(([station_id])=>({
+    station_id,hour_utc:'2026-11-17T13:00:00.000Z',rain_mm:0,source:'live'
+  }));
+  const combined=mergeRainHistory(live,archive,now);
+  const coverage=summarizeCoverage(combined.covered,now);
+  assert.equal(coverage.recent_stations,11);
+  assert.equal(coverage.complete_10d_stations,11);
+  assert.equal(coverage.ready,true);
+  assert.equal(combined.live_sample_count,11);
+  assert.ok(combined.historical_sample_count>2300);
+  assert.equal(combined.rolling_24h.mm,null);
+  assert.ok(Number.isFinite(combined.rolling_240h.mm));
+  assert.ok(combined.rolling_240h.valid_hours>=192);
+});
+test('hourly zeros must be real measurements, never treat missing or null as zero',()=>{
+  const now=Date.parse('2026-11-17T14:01:00Z');
+  const fake=[{station_id:'83004004',hour_utc:'2026-11-17T13:00:00.000Z',rain_mm:null}];
+  const out=mergeRainHistory(fake,[],now);
+  assert.equal(out.live_sample_count,0);
+  assert.equal(out.covered.find(x=>x.station_id==='83004004').n,0);
+});
+test('risk and three thresholds remain strictly informational; model forecast is blocked',()=>{
+  const hydro={ok:true,level_m:5.52,change_1h_m:0.42,age_minutes:5};
+  const rain={ready:true,rolling_24h:{mm:63}};
+  const risk=summarizeSixHourRisk(hydro,rain);
+  assert.equal(risk.status,'not_calculated');
+  assert.equal(risk.thresholds.length,3);
+  assert.equal(risk.thresholds[0].observed_status,'reached');
+  assert.equal(risk.thresholds[1].observed_status,'below');
+  assert.ok(risk.thresholds.every(x=>x.forecast_crossing===null));
+  assert.equal(risk.signals.length,3);
+  assert.ok(FORECAST_SHADOW_PAGE.includes('Nächste 6 Stunden'));
+  assert.ok(FORECAST_SHADOW_PAGE.includes('Keine amtliche Warnung'));
 });
