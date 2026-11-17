@@ -313,3 +313,36 @@ test('page refreshes itself every minute and manual backfill is tucked under tec
  const positionClosingDetails=FORECAST_SHADOW_PAGE.indexOf('</details>');
  assert.ok(positionDetails<positionManualButton&&positionManualButton<positionClosingDetails);
 });
+
+test('gauge 62 min old: experimental-only delayed estimate, measured status remains unknown',()=>{
+ const now=Date.parse('2026-11-17T15:02:00Z'),H=3600000;
+ const rain=[];
+ for(const [id] of RAIN_STATIONS)
+  for(let hours=239;hours>=0;hours--)
+   rain.push({station_id:id,hour_utc:new Date(Date.parse('2026-11-17T14:00:00Z')-hours*H).toISOString(),rain_mm:0,source:'live'});
+ const series=[];
+ for(let mins=0;mins<=14*60;mins+=15)
+  series.push({at:new Date(Date.parse('2026-11-17T14:00:00Z')-mins*60000).toISOString(),metres:1.34});
+ const hydro={ok:false,level_m:1.34,observed_at_utc:'2026-11-17T14:00:00Z',age_minutes:62,series,source:'Hub’Eau'};
+ const model=computeShadowForecast(rain,hydro,now,true);
+ assert.equal(model.status,'experimental_delayed');
+ assert.equal(model.gauge_age_minutes,62);
+ assert.equal(model.reference_hour_utc,'2026-11-17T14:00:00.000Z');
+ assert.equal(model.valid_until_utc,'2026-11-17T20:00:00.000Z');
+ assert.ok(Number.isFinite(model.peak_m));
+ const risk=summarizeSixHourRisk(hydro,{ready:true,rolling_24h:{mm:0}},model);
+ assert.equal(risk.status,'experimental_delayed');
+ assert.equal(risk.thresholds[0].observed_status,'unknown');
+ assert.ok(risk.reason.includes('62 Minuten'));
+ assert.ok(risk.label.includes('Verzögerte'));
+ assert.ok(FORECAST_SHADOW_PAGE.includes('Verzögerte Pegelmessung'));
+});
+test('observations older than 90 minutes never create an admin shadow estimate',()=>{
+ const now=Date.parse('2026-11-17T15:31:00Z');
+ const old={ok:false,observed_at_utc:'2026-11-17T14:00:00Z',level_m:1.34,
+    age_minutes:91,source:'Hub’Eau',series:[{at:'2026-11-17T14:00:00Z',metres:1.34}]};
+ assert.equal(computeShadowForecast([],old,now,true).status,'unavailable');
+ old.observed_at_utc='2026-11-17T14:00:00Z';
+ old.source='unverified';
+ assert.equal(computeShadowForecast([],old,Date.parse('2026-11-17T15:02:00Z'),true).status,'unavailable');
+});
