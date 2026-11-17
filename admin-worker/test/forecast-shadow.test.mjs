@@ -2,9 +2,10 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source = readFileSync(new URL('../src/forecast-shadow.js',import.meta.url),'utf8');
-const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk} = await import('../src/forecast-shadow.js');
+const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk,getForecastShadowStatus} = await import('../src/forecast-shadow.js');
 const {archivedRainRows} = await import('../src/rain-archive-2026.js');
 const {FORECAST_SHADOW_PAGE} = await import('../src/forecast-shadow-page.js');
+const {shadowTreePredict,buildShadowFeatureVector,computeShadowForecast,MODEL_INFO}=await import('../src/forecast-shadow-model.js');
 
 test('accepts valid observed zero rain with UTC hour and quality 1',()=>{
   const hour='2026-11-17T10:00:00.000Z';
@@ -35,7 +36,7 @@ test('seven fresh stations with at least 216 of 240 hourly observations are requ
 test('hourly data from model estimates are never marked as observed',()=>{
   assert.equal(RAIN_STATIONS.length,11);
   assert.equal(source.includes('api.open-meteo.com'),false);
-  assert.equal(source.includes('forecast_peak_m:null'),true);
+  assert.ok(source.includes('computeShadowForecast(combined.rows')); // no public alert path
 });
 
 test('manual probe returns API permission failure without exposing secret', async ()=>{
@@ -147,7 +148,7 @@ test('risk and three thresholds remain strictly informational; model forecast is
   assert.equal(risk.thresholds[1].observed_status,'below');
   assert.ok(risk.thresholds.every(x=>x.forecast_crossing===null));
   assert.equal(risk.signals.length,3);
-  assert.ok(FORECAST_SHADOW_PAGE.includes('Nächste 6 Stunden'));
+  assert.ok(FORECAST_SHADOW_PAGE.includes('6 Stunden ab Bezugszeitpunkt'));
   assert.ok(FORECAST_SHADOW_PAGE.includes('Keine amtliche Warnung'));
 });
 
@@ -155,4 +156,85 @@ test('admin page inline JavaScript parses without syntax errors',()=>{
   const m=FORECAST_SHADOW_PAGE.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(m,'inline admin script exists');
   assert.doesNotThrow(()=>new Function(m[1]));
+});
+
+test('distilled model matches independent Python sklearn predictions on historical 2024 fixtures',()=>{
+ const v=[
+ {h:3.25,r_Aille_6h:55.25,r_all_6h:40.1545455,r_Upstream_24h:53.45,r_Nartuby_240h:170.4,r_East_240h:180.6,r_Bresque_72h:70.8,r_Aille_240h:187.5,r_all_3h:21.6,r_Argens_middle_24h:62.7666667,r_Nartuby_6h:33.2},
+ {h:5.52,r_Aille_6h:37.8,r_all_6h:35.4909091,r_Upstream_24h:73.5,r_Nartuby_240h:199.8,r_East_240h:232.9,r_Bresque_72h:91.55,r_Aille_240h:216.3,r_all_3h:8.8727273,r_Argens_middle_24h:93.0333333,r_Nartuby_6h:35.2},
+ {h:5.77,r_Aille_6h:4.9,r_all_6h:6.5363636,r_Upstream_24h:56.8,r_Nartuby_240h:245.5,r_East_240h:306.7,r_Bresque_72h:95.05,r_Aille_240h:301.15,r_all_3h:1.4454545,r_Argens_middle_24h:99.2666667,r_Nartuby_6h:12.2}
+ ];
+ for(let i=0;i<v.length;i++)
+  assert.ok(Math.abs(shadowTreePredict(v[i])-[5.21261846672676,6.885164701801838,5.956996481011241][i])<0.00001);
+ assert.equal(MODEL_INFO.operational,false);
+ assert.equal(MODEL_INFO.early_5_40_false_positive_hours,8);
+});
+test('valid observed rain and fresh gauge produce a real experimental 6-hour shadow estimate',()=>{
+ const now=Date.parse('2026-11-17T14:22:00Z'),H=3600000;
+ const rain=[];
+ for(const [id] of RAIN_STATIONS)
+  for(let hours=239;hours>=0;hours--)
+   rain.push({station_id:id,hour_utc:new Date(Math.floor(now/H)*H-hours*H).toISOString(),rain_mm:0,source:'live'});
+ const gauge=[];
+ for(let mins=0;mins<=14*60;mins+=15)
+  gauge.push({at:new Date(Date.parse('2026-11-17T14:15:00Z')-mins*60000).toISOString(),metres:1.34});
+ const hydro={ok:true,level_m:1.34,age_minutes:7,series:gauge};
+ const result=computeShadowForecast(rain,hydro,now,true);
+ assert.equal(result.status,'experimental');
+ assert.ok(result.peak_m>=1.34);
+ assert.equal(result.reference_hour_utc,'2026-11-17T14:00:00.000Z');
+ assert.equal(result.valid_until_utc,'2026-11-17T20:00:00.000Z');
+ assert.equal(result.rain_station_count,11);
+ assert.equal(result.model.operational,false);
+});
+test('model fails closed on stale gauge and missing 10-day data; no false relief',()=>{
+ const now=Date.parse('2026-11-17T14:22:00Z');
+ assert.equal(computeShadowForecast([],{ok:false,level_m:1.34},now,true).peak_m,null);
+ assert.equal(computeShadowForecast([],{ok:true,series:[{at:'2026-11-17T14:00:00Z',metres:1.34}],level_m:1.34},now,false).status,'unavailable');
+ const risk=summarizeSixHourRisk({ok:true,level_m:1.34,change_1h_m:0.0},{ready:true,rolling_24h:{mm:0}},{status:'experimental',peak_m:1.34});
+ assert.equal(risk.status,'experimental');
+ assert.equal(risk.thresholds[0].forecast_crossing,false);
+ assert.ok(risk.label.includes('keine Entwarnung'));
+});
+test('model threshold crossing shown only as experimental, never official warnings',()=>{
+ const hydro={ok:true,level_m:4.5,change_1h_m:0.1};
+ const risk=summarizeSixHourRisk(hydro,{ready:true,rolling_24h:{mm:54}},{status:'experimental',peak_m:6.3});
+ assert.equal(risk.thresholds.length,3);
+ assert.equal(risk.thresholds[0].forecast_crossing,true);
+ assert.equal(risk.thresholds[2].forecast_crossing,true);
+ assert.equal(risk.thresholds[2].observed_status,'below');
+ assert.equal(risk.status,'experimental');
+ assert.equal(risk.signals.length,1); // observed rainfall, not predicted rainfall
+});
+
+test('admin read API computes shadow forecast using real archive overlap, mocked D1 and Hub-Eau',async()=>{
+ const now=Date.parse('2026-11-17T14:22:00Z'),H=3600000;
+ const rows=[];
+ for(const [id] of RAIN_STATIONS)
+  for(let h=0;h<=19;h++)
+   rows.push({station_id:id,hour_utc:new Date(Date.parse('2026-11-16T19:00:00Z')+h*H).toISOString(),rain_mm:0.0});
+ const gauge=[];
+ for(let m=0;m<14*60;m+=15)
+  gauge.push({date_obs:new Date(Date.parse('2026-11-17T14:15:00Z')-m*60000).toISOString(),resultat_obs:1340});
+ const db={
+  prepare(sql){
+   const o={run:async()=>({success:true}),first:async()=>({checked_at:'2026-11-17T14:00:00Z',accepted:31,rejected:2,error_text:'einzelne Regenstunden fehlen'}),
+    all:async()=>({results:sql.includes('FROM forecast_shadow_rain')?rows:[]}),bind(){return o}};
+   return o;
+  }
+ };
+ const fakeFetch=async (url)=>{
+  assert.ok(String(url).includes('observations_tr'));
+  return new Response(JSON.stringify({data:gauge}),{status:200,headers:{'Content-Type':'application/json'}});
+ };
+ const out=await getForecastShadowStatus({DB:db,METEO_FRANCE_OBS_API_KEY:'example-key'},now,fakeFetch);
+ assert.equal(out.hydro.ok,true);
+ assert.equal(out.hydro.series,undefined); // never leak bulk raw series to browser
+ assert.ok(out.rain.ready);
+ assert.equal(out.prediction.status,'experimental');
+ assert.ok(Number.isFinite(out.prediction.forecast_peak_m));
+ assert.ok(out.prediction.forecast_peak_m>=1.34);
+ assert.equal(out.prediction.model.operational,false);
+ assert.equal(out.risk.status,'experimental');
+ assert.equal(out.risk.thresholds.length,3);
 });
