@@ -277,8 +277,8 @@ export function mergeRainHistory(liveRows,historyRows,nowMs) {
 export function summarizeSixHourRisk(hydro,rain,modelForecast=null) {
   const thresholds=CRITICAL_THRESHOLDS.map(x=>({
     ...x,observed_status:hydro.ok?(hydro.level_m>=x.metres?'reached':'below'):'unknown',
-    forecast_crossing:modelForecast?.status==='experimental'?modelForecast.peak_m>=x.metres:null,
-    forecast_status:modelForecast?.status==='experimental'?'experimental':'not_calculated'
+    forecast_crossing:['experimental','experimental_delayed'].includes(modelForecast?.status)?modelForecast.peak_m>=x.metres:null,
+    forecast_status:['experimental','experimental_delayed'].includes(modelForecast?.status)?modelForecast.status:'not_calculated'
   }));
   const blockedReason=!hydro.ok?(hydro.observed_at_utc&&hydro.age_minutes>60?
     'Der Pegel ist '+hydro.age_minutes+' Minuten alt; maximal 60 Minuten erlaubt.':(hydro.reason||'Aktueller Pegel fehlt.')):
@@ -290,11 +290,12 @@ export function summarizeSixHourRisk(hydro,rain,modelForecast=null) {
   if(hydro.ok&&rise!==null&&rise>=.4)signals.push('Schneller gemessener Pegelanstieg (≥ 40 cm/h)');
   if(rain.rolling_24h?.mm!==null&&rain24>=50)signals.push('Gemessener regionaler Regen ≥ 50 mm/24 h');
   if(hydro.ok&&hydro.level_m>=5.4)signals.push('Erste kritische Pegelschwelle bereits erreicht');
-  const estimated=modelForecast?.status==='experimental';
+  const estimated=['experimental','experimental_delayed'].includes(modelForecast?.status);
+  const delayed=modelForecast?.status==='experimental_delayed';
   const peak=estimated?modelForecast.peak_m:null;
-  const label=estimated?(peak>=5.40?'Testmodell: mögliche Überschreitung ab 5,40 m':'Testmodell: Schätzung unter 5,40 m (keine Entwarnung)'):'6-Stunden-Risiko noch nicht berechenbar';
-  return {status:estimated?'experimental':'not_calculated',label,
-    reason:estimated?'Experimentelle Modellschätzung, nicht als Warnentscheidung geeignet. Einzelne Hochwasser wurden deutlich überschätzt.':modelForecast?.reason||blockedReason,signals,thresholds,
+  const label=estimated?(delayed?'Verzögerte Testrechnung · ': 'Testmodell · ')+(peak>=5.40?'Schwelle 5,40 m möglicherweise überschritten':'Schätzung unter 5,40 m (keine Entwarnung)'):'6-Stunden-Risiko noch nicht berechenbar';
+  return {status:estimated?modelForecast.status:'not_calculated',label,
+    reason:estimated?(delayed?'Der letzte Pegelwert ist '+modelForecast.gauge_age_minutes+' Minuten alt. Diese verzögerte Testrechnung ist keine aktuelle Hochwasserprognose oder Entwarnung.':'Experimentelle Modellschätzung, nicht als Warnentscheidung geeignet. Einzelne Hochwasser wurden deutlich überschätzt.'):modelForecast?.reason||blockedReason,signals,thresholds,
     disclaimer:'Messsignale sind keine validierte 6-Stunden-Vorhersage und ändern keine Warnungen.'};
 }
 
@@ -355,7 +356,8 @@ export async function getForecastShadowStatus(env, nowMs=Date.now(), fetcher=fet
       reason:forecast.reason||forecast.warning||null,
       reference_hour_utc:forecast.reference_hour_utc||null,
       valid_until_utc:forecast.valid_until_utc||null,
-      model:forecast.model
+      model:forecast.model,
+      gauge_age_minutes:forecast.gauge_age_minutes??null
     },
     safety:'Experimentell und ausschließlich intern. Keine Änderung an öffentlichen Warnungen, Push oder Pegelschwellen.'
   };
