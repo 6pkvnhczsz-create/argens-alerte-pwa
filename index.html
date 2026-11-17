@@ -2489,10 +2489,13 @@ function renderEarlySignals(){
  const observed=rain.find(x=>x.status==='observed'&&x.model==='meteo_france_dpobs');
  if(observed){
   earlyText('earlyRainTitle',earlyI18n('Pluie mesurée · Météo-France','Measured rainfall · Météo-France','Gemessener Niederschlag · Météo-France'));
-  earlyText('earlyRainDisclaimer',earlyI18n(
+  earlyText('earlyRainDisclaimer',regional?earlyI18n(
    'Moyenne des cumuls horaires réellement mesurés dans '+observed.stationsUsed+' stations Météo-France du secteur Argens. Ce n’est pas un cumul de pluie sur tout le bassin versant.',
    'Mean of real hourly rain totals from '+observed.stationsUsed+' Météo-France gauges around the Argens. Not a measured total for the whole river basin.',
-   'Durchschnitt der echten stündlichen Regenmessungen von '+observed.stationsUsed+' Météo-France-Stationen im Argens-Gebiet. Keine flächendeckende Einzugsgebietsmessung.'));
+   'Durchschnitt der echten stündlichen Regenmessungen von '+observed.stationsUsed+' Météo-France-Stationen im Argens-Gebiet. Keine flächendeckende Einzugsgebietsmessung.'):earlyI18n(
+   'Moyenne de pluviomètres Météo-France proches de la station choisie ('+observed.stationsUsed+'). Mesure locale : pas de bilan vérifié du bassin versant en amont.',
+   'Average of '+observed.stationsUsed+' nearby Météo-France rain gauges. Local observations, not a verified measurement of the upstream river catchment.',
+   'Durchschnitt von '+observed.stationsUsed+' nahen Météo-France-Regenstationen. Lokale Messungen, keine geprüfte Niederschlagsbilanz des flussaufwärtsliegenden Einzugsgebiets.'));
   const stamp=Date.parse(observed.latestHour),ts=Number.isFinite(stamp)?
    new Date(stamp).toLocaleString(locale,{timeZone:'Europe/Paris',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
   earlyText('earlyRainStatus',earlyI18n('Dernière heure mesurée : ','Last measured hour: ','Letzte gemessene Stunde: ')+ts);
@@ -2501,10 +2504,13 @@ function renderEarlySignals(){
   earlyText('earlyRainStatus',rain.length?
    earlyI18n('Estimations des dernières 3 et 6 heures','Estimated totals from the last 3 and 6 hours','Geschätzter Regen der letzten 3 und 6 Stunden'):
    earlyI18n('Estimations indisponibles','Rainfall estimates unavailable','Regenabschätzungen derzeit nicht verfügbar'));
-  if(regional)earlyText('earlyRainDisclaimer',earlyI18n(
+  earlyText('earlyRainDisclaimer',regional?earlyI18n(
    'Pas assez de relevés Météo-France complets pour les dernières heures. Estimations de repli Open-Meteo, pas des mesures.',
    'Not enough complete Météo-France observations. Showing Open-Meteo model estimates instead, not measurements.',
-   'Noch nicht genügend vollständige Météo-France-Regenmessungen. Deshalb Open-Meteo-Modellschätzungen als Ersatz, keine Messwerte.'));
+   'Noch nicht genügend vollständige Météo-France-Regenmessungen. Deshalb Open-Meteo-Modellschätzungen als Ersatz, keine Messwerte.'):earlyI18n(
+   'La station choisie ne dispose pas encore de mesures Météo-France locales suffisamment complètes. Affichage des estimations du modèle Open-Meteo, pas de mesures.',
+   'Not enough complete local Météo-France observations for the selected station. Showing Open-Meteo estimates instead, not measurements.',
+   'Für die gewählte Station liegen noch nicht genügend vollständige lokale Météo-France-Messungen vor. Daher Open-Meteo-Modellschätzung, keine Messwerte.'));
  }
  for(const x of rain)addRainRow(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
   [fmt(x.last3hMm)+' mm',fmt(x.last6hMm)+' mm']);

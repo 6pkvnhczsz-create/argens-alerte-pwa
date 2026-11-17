@@ -17,7 +17,8 @@ jobs:
         run: |
           node --check admin-worker/src/index.js
           node --check admin-worker/src/forecast-shadow.js
+          node --check admin-worker/src/national-rain.js
           node --check admin-worker/src/forecast-shadow-comparison.js
           node --check admin-worker/src/forecast-shadow-schedule.js
       - name: Unit tests
-        run: node --test admin-worker/test/forecast-shadow.test.mjs
+        run: node --test admin-worker/test/forecast-shadow.test.mjs admin-worker/test/national-rain.test.mjs

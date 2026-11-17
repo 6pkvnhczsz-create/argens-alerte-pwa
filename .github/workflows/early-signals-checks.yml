@@ -5,7 +5,9 @@ on:
     paths:
       - 'push-worker/src/early-signals.mjs'
       - 'push-worker/src/observed-argens-rain.mjs'
-      - 'push-worker/test/observed-argens-rain.test.mjs'
+      - 'push-worker/src/measured-rain.mjs'
+      - 'push-worker/test/measured-rain.test.mjs'
+      - 'push-worker/test/observed-argens-rain.test.mjs push-worker/test/measured-rain.test.mjs'
       - 'push-worker/src/index.js'
       - 'push-worker/test/early-signals.test.mjs'
       - 'index.html'
@@ -24,4 +26,5 @@ jobs:
       - name: Check official warnings, rainfall, upstream trends and untouched alert thresholds
         run: |
           node --check push-worker/src/observed-argens-rain.mjs
+          node --check push-worker/src/measured-rain.mjs
           node --test push-worker/test/early-signals.test.mjs push-worker/test/water-sources.test.mjs push-worker/test/observed-argens-rain.test.mjs
