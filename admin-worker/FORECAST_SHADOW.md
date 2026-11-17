@@ -70,3 +70,35 @@ Die Änderung ist auf Regenimport und Admin-Test beschränkt; keine Auswirkungen
 - Die archivierte Nachfüllung ersetzt **keinen** lauffähigen Python-Modelladapter. Für eine 6-h-Schwellenüberschreitungsprognose bleibt `prediction.forecast_peak_m` unverändert `null`. Die 2019er Rücktests mahnen zusätzlich zur Vorsicht.
 
 **Sicherheit:** Nur Cloudflare-Access-geschützter Admin, deutschsprachig. Keine Änderungen an öffentlicher App, Push-Worker, Warnschwellen oder Alarmen. Die Tabelle im Admin-Popup zeigt beobachtete Daten, keine amtliche Hochwasserprognose.
+
+## Stufe 2 (experimentell): tatsächliche 6-Stunden-Pegelschätzung im Admin
+
+Die Cloudflare-JavaScript-Laufzeit kann das `joblib`-Objekt nicht direkt laden. Aus dem bereits trainierten und bis 2023 eingefrorenen Hydro+Regen-HistGradientBoosting-Modell wurde deshalb **ausschließlich auf Trainingsdaten 2015–2023** ein kleiner Entscheidungsbaum mit 24 Blättern zur Approximation seiner sechs Stunden vorausblickenden Höchststandschätzung abgeleitet. Die Baumstruktur liegt als explizite Konstanten in `src/forecast-shadow-model.js` und läuft **ohne externe Modellinfrastruktur** im Admin-Worker. Das ist ein **destilliertes Modell**, nicht das volle ursprüngliche Python-Modell.
+
+### Rücktest der kompakten Version
+
+- Unabhängig im Kalender getesteter Zeitraum: 2024–2026, 9.679 auswertbare stündliche Zeitpunkte.
+- Gesamter durchschnittlicher Absolutfehler: **0,070 m**, hauptsächlich bei niedrigen Pegeln gemessen und deshalb kein Beweis für ausreichende Hochwasser-Vorhersageleistung.
+- Vor Erreichen der 5,40-m-Schwelle: **10 von 13** positiven, zeitlich überlappenden Vorhersagefenstern erkannt; **acht** fälschliche Überschreitungsfenster. Die Fenster stammen aus wenigen voneinander unabhängigen Ereignissen.
+- Der Baum hat insbesondere das Hochwasser vom **21. Oktober 2026 erheblich überschätzt**. Es gibt keine kalibrierte Wahrscheinlichkeit und kein zuverlässiges Prognoseintervall.
+- Die unabhängige Prüfung des **ursprünglichen** Regenmodells an 2019 zeigte ebenfalls Schwächen. Das Schattenmodell ist daher **nicht als Warnsystem validiert**.
+
+### Live-Featureberechnung
+
+- Für jeden Bezugszeitpunkt werden aktuelle Höhenbeobachtungen der Station Y531201001 aus Hub’Eau und nur tatsächlich vorliegende Regenstunden aus Météo-France verwendet.
+- Regenfeatures sind dieselben ungewichteten Regionsmittel und rollenden Summen wie im historischen Training: für Argens/Aille/Bresque/Nartuby/Oberlauf die letzten 6,24,72,240 Stunden und für das Gesamtgebiet die letzten 1,3,6,12,24,72,240 Stunden.
+- Daten aus der CSV-Starthilfe vom 7.–16.11.2026 werden nur verwendet, solange sie innerhalb des letzten 240-Stunden-Fensters liegen. Der fortlaufende Live-Import ersetzt sie stündlich.
+- Kein Zahlenwert bei fehlender frischer Hub’Eau-Messung (max. 60 Minuten), weniger als sieben historischen Regenstationen mit hinreichend vollständiger 10-Tage-Abdeckung, fehlenden 24-/72-Stunden-Regendaten oder mehr als zwei Stunden alter gemeinsamer Regen-/Pegel-Bezugszeit.
+- Das Modell wird auf dem **letzten gemeinsamen vollen UTC-Stundenwert** ausgeführt. Der tatsächliche Prognoseendzeitpunkt wird angezeigt (Bezugszeit + 6 Stunden); dies ist nicht unbesehen „6 Stunden ab dem aktuellen Browserzeitpunkt“.
+- Das gefundene Modellmaximum wird nicht unter dem aktuellen gemessenen Pegel ausgewiesen; starke aktuelle Pegelanstiege bleiben separat als Messsignal sichtbar. Eine vorhergesagte Schwellenüberschreitung ist **nur eine experimentelle Modellindikation**, nie eine Push-Warnung.
+
+### Sicherheit
+
+- Nur unter Cloudflare Access im separaten **deutschen** Admin-Worker auf `/forecast-shadow`; Endpunkt `GET /api/forecast-shadow`.
+- Die Seite zeigt nur bei wirklich berechenbarer Schätzung eine Zahl; sonst einen konkreten Grund für das Fehlen. Die drei Schwellen 5,40 / 5,90 / 6,22 m zeigen gemessenen und experimentell geschätzten Status getrennt.
+- Öffentliche Seite, Push-Service, +40 cm/h-Schnellanstieg, Nutzergrenzen und amtliche Hinweise bleiben **unverändert**. Die Modellzahl ist ausdrücklich weder amtliche Vorhersage noch Entwarnung.
+- Modellvalidität und Fehlalarme sollten weiter überwacht werden, bevor weitere Schritte erwogen werden.
+
+### Zusätzliche Tests
+
+`node --test admin-worker/test/forecast-shadow.test.mjs` vergleicht Baumwerte mit golden predictions aus Python/scikit-learn (März und Oktober 2024) und testet Datenlücken, Zeitbezug, D1/Hub’Eau-Integration sowie das Blockieren der Modellzahl bei unbrauchbaren Eingaben.
