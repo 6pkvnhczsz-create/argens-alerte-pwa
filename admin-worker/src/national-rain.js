@@ -77,6 +77,10 @@ async function setup(db){
   await db.prepare(`CREATE TABLE IF NOT EXISTS forecast_local_rain_catalog (
     id INTEGER PRIMARY KEY CHECK(id=1), fetched_ms INTEGER NOT NULL, stations_json TEXT NOT NULL
   )`).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS forecast_local_rain_attempts (
+    station_id TEXT NOT NULL,hour_utc TEXT NOT NULL,attempted_ms INTEGER NOT NULL,
+    PRIMARY KEY(station_id,hour_utc)
+  )`).run();
   await db.prepare(`CREATE TABLE IF NOT EXISTS forecast_shadow_rain (
     station_id TEXT NOT NULL, hour_utc TEXT NOT NULL, rain_mm REAL NOT NULL,
     inserted_at TEXT NOT NULL,PRIMARY KEY(station_id,hour_utc)
@@ -142,15 +146,24 @@ export async function syncSelectedStationRain(env,{now=Date.now(),fetcher=fetch,
   // Always query recent hours first, then gradually fill the 24h history.
   const end=Math.floor(now/H)*H;
   const lower=isoHour(now-26*H);
-  const existing=(await env.DB.prepare('SELECT station_id,hour_utc FROM forecast_shadow_rain WHERE hour_utc>=?')
-    .bind(lower).all()).results||[];
-  const known=new Set(existing.map(x=>x.station_id+'|'+x.hour_utc));
+  const [existing,recentAttempts]=await Promise.all([
+    env.DB.prepare('SELECT station_id,hour_utc FROM forecast_shadow_rain WHERE hour_utc>=?')
+      .bind(lower).all(),
+    env.DB.prepare('SELECT station_id,hour_utc FROM forecast_local_rain_attempts WHERE attempted_ms>=?')
+      .bind(now-45*60000).all()
+  ]);
+  const known=new Set((existing.results||[]).map(x=>x.station_id+'|'+x.hour_utc));
+  const cooldown=new Set((recentAttempts.results||[]).map(x=>x.station_id+'|'+x.hour_utc));
+  // Rotate station order each 15 minutes so one popular region cannot
+  // permanently starve less-active selected stations.
+  const offset=Math.floor(now/(15*60000))%ids.length;
+  const fairIds=ids.slice(offset).concat(ids.slice(0,offset));
   const jobs=[];
   for(let k=1;k<=23;k++){
     const hour=isoHour(end-k*H);
-    if(now-Date.parse(hour)>23.75*H)continue; // Météo-F limit: older queries can return unrelated oldest point.
-    for(const id of ids){
-      if(!known.has(id+'|'+hour))jobs.push({id,hour});
+    if(now-Date.parse(hour)>23.75*H)continue; // 24-hour official API limit.
+    for(const id of fairIds){
+      if(!known.has(id+'|'+hour)&&!cooldown.has(id+'|'+hour))jobs.push({id,hour});
     }
   }
   const limit=Math.max(1,Math.min(MAX_NEW,Math.floor(Number(maxCalls)||MAX_NEW)));
@@ -159,6 +172,9 @@ export async function syncSelectedStationRain(env,{now=Date.now(),fetcher=fetch,
   // Bounded batches; never reveal the secret or permit client-selected arbitrary Météo IDs.
   for(let i=0;i<selection.length&&!rateLimited;i+=4){
     const batch=await Promise.allSettled(selection.slice(i,i+4).map(async({id,hour})=>{
+      await env.DB.prepare(`INSERT INTO forecast_local_rain_attempts(station_id,hour_utc,attempted_ms)
+        VALUES(?,?,?) ON CONFLICT(station_id,hour_utc) DO UPDATE SET attempted_ms=excluded.attempted_ms`)
+       .bind(id,hour,now).run();
       const url=new URL(OBS_URL);
       url.searchParams.set('id_station',id);url.searchParams.set('date',meteoDate(hour));url.searchParams.set('format','json');
       const r=await fetcher(url.toString(),{headers:{Accept:'application/json',apikey:env.METEO_FRANCE_OBS_API_KEY},signal:AbortSignal.timeout(9500)});
