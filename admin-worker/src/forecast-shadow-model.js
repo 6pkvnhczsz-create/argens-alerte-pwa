@@ -112,7 +112,14 @@ export function buildShadowFeatureVector(rainRows,gaugeSeries,referenceHour){
 }
 export function computeShadowForecast(rainRows,gauge,nowMs,coverageReady){
   const reason=(msg)=>({status:'unavailable',reason:msg,peak_m:null,model:MODEL_INFO});
-  if(!gauge?.ok)return reason('Aktuelle Pegelmessung älter als 60 Minuten oder nicht vorhanden');
+  // Measured gauge freshness is NOT relaxed anywhere else. Only the separate
+  // experimental admin shadow may display a clearly labelled delayed estimate
+  // from a 60–90-minute-old observation (never an alarm or an all-clear).
+  const observedAt=Date.parse(gauge?.observed_at_utc||'');
+  const gaugeAge=nowMs-observedAt;
+  const delayed=!gauge?.ok&&Number.isFinite(observedAt)&&gaugeAge>60*60000&&gaugeAge<=90*60000
+    &&Array.isArray(gauge?.series)&&Number.isFinite(gauge?.level_m)&&gauge?.source==='Hub’Eau';
+  if(!gauge?.ok&&!delayed)return reason('Keine ausreichend aktuelle Pegelmessung (maximal 90 Minuten für die verzögerte interne Testrechnung)');
   if(!coverageReady)return reason('Mindestens sieben Stationen mit hinreichender 10-Tage-Historie erforderlich');
   const gaugeSeries=gauge.series;
   if(!Array.isArray(gaugeSeries)||!gaugeSeries.length)return reason('Pegel-Zeitreihe für Modellmerkmale fehlt');
@@ -133,12 +140,14 @@ export function computeShadowForecast(rainRows,gauge,nowMs,coverageReady){
     const raw=shadowTreePredict(built.features);
     const peak=Math.max(raw,built.features.h,gauge.level_m);
     if(!Number.isFinite(peak)||peak<0||peak>20)return reason('Modell liefert keinen plausiblen Wert');
+    if(Date.parse(reference)+6*HOUR<=nowMs)return reason('Das sechs-Stunden-Prognosefenster ist bereits abgelaufen');
     return {
-      status:'experimental',peak_m:Math.round(peak*100)/100,
+      status:delayed?'experimental_delayed':'experimental',peak_m:Math.round(peak*100)/100,
+      gauge_age_minutes:Math.round(gaugeAge/60000),
       reference_hour_utc:reference,valid_until_utc:hourIso(Date.parse(reference)+6*HOUR),
       rain_station_count:n,reference_level_m:built.features.h,
       source:'hydro_rain_shadow_tree',model:MODEL_INFO,
-      warning:'Nur experimentelle, nicht ausreichend validierte 6-h-Pegelschätzung. Keine amtliche Prognose oder Entwarnung.'
+      warning:delayed?'Verzögerte experimentelle Pegelschätzung auf Grundlage eines älteren Messwerts. Keine aktuelle Warnung oder Entwarnung.':'Nur experimentelle, nicht ausreichend validierte 6-h-Pegelschätzung. Keine amtliche Prognose oder Entwarnung.'
     };
   }
   return reason('Kein hinreichend aktueller gemeinsamer Regen-/Pegel-Bezugszeitpunkt gefunden');
