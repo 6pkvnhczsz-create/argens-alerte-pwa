@@ -83,13 +83,17 @@ def meteo_resources():
     resources = metadata.get("resources") or []
     selected = {}
     for start, end in YEARS:
-        needle = "HOR_departement_83_periode_%s-%s" % (start, end)
+        prefix = "HOR_departement_83_periode_%s-" % start
         matches = [item for item in resources
-                   if needle.lower() in str(item.get("title", "")).lower()]
+                   if str(item.get("title", "")).lower().startswith(prefix.lower())]
         if matches:
             selected[start] = sorted(matches, key=lambda x: x.get("last_modified") or "", reverse=True)[0]
         else:
-            print("Missing official weather resource", needle, flush=True)
+            print("Missing official weather resource with prefix", prefix, flush=True)
+            print("Available VAR archives:",
+                  [item.get("title") for item in resources
+                   if "departement_83" in str(item.get("title", "")).lower()][-18:],
+                  flush=True)
     print("METEO records", len(resources), "selected",
           [(y, item.get("title"), item.get("filesize"), item.get("url")) for y, item in selected.items()],
           flush=True)
