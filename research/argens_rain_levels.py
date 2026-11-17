@@ -186,9 +186,43 @@ def main():
                     "name":stations[station]["name"],
                     "today_mm":today,"previous_day_mm":prev,"48h_mm":two})
         measured.sort(key=lambda x:x["48h_mm"] or 0,reverse=True)
+        previous = heights.get(date-dt.timedelta(days=1))
         print("EVENT",json.dumps({"date_utc":str(date),"daily_peak_m":round(level,3),
+              "previous_day_peak_m":round(previous,3) if previous is not None else None,
+              "change_between_daily_maxima_m":round(level-previous,3) if previous is not None else None,
               "rain_sites_reporting":len(measured),
               "top_rain_sites":measured[:5]},ensure_ascii=False),flush=True)
+    # Exploratory conditional frequencies: rain in TWO COMPLETE DAYS preceding
+    # the target daily max, avoiding look-ahead bias from rain later that day.
+    # A single reporting gauge is never assumed to represent the whole basin.
+    basin_codes = ["83051001","83004004","83050007","83148002","83075001"]
+    thresholds = (5.4,5.9,6.22)
+    rain_bins = ((0,25),(25,50),(50,100),(100,150),(150,250),(250,float("inf")))
+    counters = defaultdict(lambda: [0,0,0,0])
+    for date,level in heights.items():
+        individual = [rolling_rain(totals,c,date-dt.timedelta(days=1),2)
+                      for c in basin_codes if c in totals]
+        known = [v for v in individual if v is not None]
+        if len(known)<3: continue
+        rain_max = max(known)
+        for lo,hi in rain_bins:
+            if lo<=rain_max<hi:
+                item=counters[(lo,hi)]
+                item[0]+=1
+                for i,t in enumerate(thresholds):
+                    item[1+i]+=level>=t
+                break
+    for lo,hi in rain_bins:
+        counts=counters[(lo,hi)]
+        print("CONDITIONAL",json.dumps({
+            "max_48h_rain_mm_prior_to_day":str(lo)+"-"+(str(hi) if math.isfinite(hi) else "plus"),
+            "complete_days":counts[0],
+            "frequency_daily_peak_at_least_5_4m":round(counts[1]/counts[0],4) if counts[0] else None,
+            "frequency_daily_peak_at_least_5_9m":round(counts[2]/counts[0],4) if counts[0] else None,
+            "frequency_daily_peak_at_least_6_22m":round(counts[3]/counts[0],4) if counts[0] else None,
+            "counts":counts,
+            "definition":"RETROSPECTIVE ONLY: maximum of five selected rainfall gauges, complete previous two days; not a forecast"
+        },ensure_ascii=False),flush=True)
     # Explicit gaps and time resolution prevent unvalidated model output.
     result={"station":GAUGE,"height_days":len(heights),
             "weather_stations_considered":len(selected),
