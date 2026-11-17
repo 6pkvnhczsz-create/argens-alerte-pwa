@@ -51,6 +51,8 @@ async function ensureTables(db) {
   await db.prepare('CREATE TABLE IF NOT EXISTS forecast_shadow_rain (station_id TEXT NOT NULL, hour_utc TEXT NOT NULL, rain_mm REAL NOT NULL, inserted_at TEXT NOT NULL, PRIMARY KEY(station_id,hour_utc))').run();
   await db.prepare('CREATE INDEX IF NOT EXISTS forecast_shadow_rain_hour_idx ON forecast_shadow_rain(hour_utc)').run();
   await db.prepare('CREATE TABLE IF NOT EXISTS forecast_shadow_ingest (id INTEGER PRIMARY KEY CHECK(id=1), checked_at TEXT NOT NULL, accepted INTEGER NOT NULL, rejected INTEGER NOT NULL, error_text TEXT)').run();
+  await db.prepare('CREATE TABLE IF NOT EXISTS forecast_shadow_backfill_status (id INTEGER PRIMARY KEY CHECK(id=1), started_at TEXT, finished_at TEXT, imported INTEGER NOT NULL DEFAULT 0, unavailable INTEGER NOT NULL DEFAULT 0, error_text TEXT)').run();
+  await db.prepare('CREATE TABLE IF NOT EXISTS forecast_shadow_backfill_attempt (station_id TEXT NOT NULL, hour_utc TEXT NOT NULL, attempted_at TEXT NOT NULL, PRIMARY KEY(station_id,hour_utc))').run();
 }
 
 // Called by the separate admin Worker's hourly cron or an Access-protected manual test.
@@ -99,6 +101,85 @@ export async function syncForecastRain(env, nowMs = Date.now(), fetcher = fetch)
   await env.DB.prepare('INSERT INTO forecast_shadow_ingest(id,checked_at,accepted,rejected,error_text) VALUES(1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET checked_at=excluded.checked_at, accepted=excluded.accepted, rejected=excluded.rejected, error_text=excluded.error_text')
     .bind(checkedAt,accepted,rejected,firstError || null).run();
   return {status:accepted?'partial_or_ok':'no_valid_observations',accepted,rejected,error:firstError||null};
+}
+
+// Restore the gap between the immutable CSV archive and the start of live polling.
+// Each user-initiated job is capped to 55 upstream calls to respect the free 100 req/min API limit.
+// Failed observation hours are NOT treated as 0 mm; short-lived retries are suppressed.
+export async function backfillForecastRain(env, nowMs=Date.now(), fetcher=fetch) {
+  if(!env.DB||!env.METEO_FRANCE_OBS_API_KEY)return {status:'unavailable',error:'D1 oder Météo-France-Schlüssel fehlt'};
+  await ensureTables(env.DB);
+  const at=new Date(nowMs).toISOString(),retryTime=new Date(nowMs-30*60000).toISOString();
+  const allowedAt=new Date(nowMs-2*60000).toISOString();
+  const lock=await env.DB.prepare(
+    'INSERT INTO forecast_shadow_backfill_status(id,started_at,finished_at,imported,unavailable,error_text) VALUES(1,?,NULL,0,0,NULL) ON CONFLICT(id) DO UPDATE SET started_at=excluded.started_at, finished_at=NULL, imported=0, unavailable=0, error_text=NULL WHERE forecast_shadow_backfill_status.started_at < ?'
+  ).bind(at,allowedAt).run();
+  if((lock?.meta?.changes??1)===0)return {status:'cooldown',message:'Ein Nachladen wurde bereits innerhalb von zwei Minuten gestartet'};
+  let imported=0,unavailable=0,firstError=null,quotaReached=false;
+  try {
+    const lower=isoHour(nowMs-23*HOUR_MS),upper=isoHour(nowMs-HOUR_MS);
+    const [existing,attempts]=await Promise.all([
+      env.DB.prepare('SELECT station_id,hour_utc FROM forecast_shadow_rain WHERE hour_utc >= ? AND hour_utc <= ?').bind(lower,upper).all(),
+      env.DB.prepare('SELECT station_id,hour_utc FROM forecast_shadow_backfill_attempt WHERE attempted_at >= ?').bind(retryTime).all()
+    ]);
+    const known=new Set([...(existing.results||[]),...archivedRainRows(Date.parse(lower),Date.parse(upper))]
+      .map(x=>String(x.station_id)+'|'+x.hour_utc));
+    const recentlyTried=new Set((attempts.results||[]).map(x=>String(x.station_id)+'|'+x.hour_utc));
+    const jobs=[];
+    for(let ms=Date.parse(lower);ms<=Date.parse(upper);ms+=HOUR_MS){
+      // Requests older than the documented 24-hour retention may return nearest (wrong) hour.
+      if(nowMs-ms>23.75*HOUR_MS)continue;
+      const hour=isoHour(ms);
+      for(const [station] of RAIN_STATIONS){
+        const id=station+'|'+hour;
+        if(!known.has(id)&&!recentlyTried.has(id))jobs.push([station,hour]);
+      }
+    }
+    const selected=jobs.slice(0,55),remaining=Math.max(0,jobs.length-selected.length);
+    for(let i=0;i<selected.length&&!quotaReached;i+=5){
+      const results=await Promise.allSettled(selected.slice(i,i+5).map(async([station,hour])=>{
+        const u=new URL(API);
+        u.searchParams.set('id_station',station);
+        u.searchParams.set('date',meteoDate(hour));
+        u.searchParams.set('format','json');
+        const response=await fetcher(u.toString(),{
+          headers:{Accept:'application/json',apikey:env.METEO_FRANCE_OBS_API_KEY},
+          signal:AbortSignal.timeout(9500)
+        });
+        if(response.status===429)return {status:'rate_limit'};
+        if(!response.ok)return {status:'http_'+response.status,station,hour};
+        const datum=parseHourlyRain(await response.json(),station,hour);
+        // Hold off immediate repeated requests for truly missing/unpublished values.
+        if(!datum){
+          await env.DB.prepare('INSERT INTO forecast_shadow_backfill_attempt(station_id,hour_utc,attempted_at) VALUES(?,?,?) ON CONFLICT(station_id,hour_utc) DO UPDATE SET attempted_at=excluded.attempted_at')
+            .bind(station,hour,at).run();
+          return {status:'no_valid_rr1',station,hour};
+        }
+        await env.DB.prepare('INSERT INTO forecast_shadow_rain(station_id,hour_utc,rain_mm,inserted_at) VALUES(?,?,?,?) ON CONFLICT(station_id,hour_utc) DO UPDATE SET rain_mm=excluded.rain_mm,inserted_at=excluded.inserted_at')
+          .bind(datum.station_id,datum.hour_utc,datum.mm,at).run();
+        return {status:'imported'};
+      }));
+      for(const x of results){
+        const item=x.status==='fulfilled'?x.value:{status:'connection_failure',message:safeError(x.reason)};
+        if(item.status==='imported')imported++;
+        else{
+          unavailable++;
+          if(item.status==='rate_limit')quotaReached=true;
+          if(!firstError)firstError=item.status+(item.station?' · '+item.station+' / '+item.hour:'');
+        }
+      }
+    }
+    await env.DB.prepare('DELETE FROM forecast_shadow_backfill_attempt WHERE attempted_at < ?')
+      .bind(new Date(nowMs-2*24*HOUR_MS).toISOString()).run();
+    await env.DB.prepare('UPDATE forecast_shadow_backfill_status SET finished_at=?, imported=?, unavailable=?, error_text=? WHERE id=1')
+      .bind(new Date().toISOString(),imported,unavailable,firstError).run();
+    return {status:quotaReached?'rate_limited':'completed',imported,unavailable,remaining_unattempted:remaining,error:firstError};
+  }catch(error){
+    const msg=safeError(error);
+    await env.DB.prepare('UPDATE forecast_shadow_backfill_status SET finished_at=?, imported=?, unavailable=?, error_text=? WHERE id=1')
+      .bind(new Date().toISOString(),imported,unavailable,msg).run();
+    return {status:'error',imported,unavailable,error:msg};
+  }
 }
 
 // Lightweight, manual diagnostic: one request, no database writes and no secret disclosure.
@@ -241,10 +322,11 @@ async function getHydro(fetcher, nowMs) {
 export async function getForecastShadowStatus(env, nowMs=Date.now(), fetcher=fetch) {
   const stamp=new Date(nowMs).toISOString();
   const hydro=await getHydro(fetcher,nowMs);
-  let ingest=null, rainRows=[], dbError=null;
+  let ingest=null, backfill=null, rainRows=[], dbError=null;
   try {
     await ensureTables(env.DB);
     ingest=await env.DB.prepare('SELECT checked_at,accepted,rejected,error_text FROM forecast_shadow_ingest WHERE id=1').first();
+    backfill=await env.DB.prepare('SELECT started_at,finished_at,imported,unavailable,error_text FROM forecast_shadow_backfill_status WHERE id=1').first();
     const cutoff=isoHour(nowMs-239*HOUR_MS);
     const query=await env.DB.prepare('SELECT station_id,hour_utc,rain_mm FROM forecast_shadow_rain WHERE hour_utc >= ?').bind(cutoff).all();
     rainRows=query.results||[];
@@ -259,6 +341,7 @@ export async function getForecastShadowStatus(env, nowMs=Date.now(), fetcher=fet
   rain.api_key_configured=Boolean(env.METEO_FRANCE_OBS_API_KEY);
   rain.source='Météo-France DPObs (beobachtete Stundenwerte)';
   rain.last_ingest=ingest;
+  rain.last_backfill=backfill;
   rain.storage_error=dbError;
   const forecast=computeShadowForecast(combined.rows,hydro,nowMs,rain.ready&&!dbError);
   const {series:_internalSeries,...publicHydro}=hydro; // do not ship 500 raw samples to the browser
