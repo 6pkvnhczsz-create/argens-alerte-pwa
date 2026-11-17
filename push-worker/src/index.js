@@ -10,6 +10,7 @@ import { refreshEarlySignals, loadEarlySignals, fetchOfficialVigilance, fetchRai
 import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
 import { fetchPiafMetadata, fetchPiafFrame, fetchPiafLegend } from './piaf-map.mjs';
 import { DEFAULT_STATION, validStationCode, cachedStation } from './piaf-station.mjs';
+import {registerSelectedRainStation,readSelectedRainMeasurements} from './measured-rain.mjs';
 import {loadArgensObservedRain} from './observed-argens-rain.mjs';
 import { findLocalUpstream, recentUpstreamReading } from './upstream-topage.mjs';
 export class AdminPushService extends WorkerEntrypoint {
@@ -969,8 +970,13 @@ export default {
     return json(request,{ok:false,error:'Invalid hydrometric station'},400);
    try{
     const station=await cachedStation(code);
+    // Validate and register only the official Hub'Eau location. Watchlist is
+    // bounded; key for Météo-France stays exclusively in admin Worker.
+    try{await registerSelectedRainStation(env.DB,station)}catch(error){
+      console.warn('Local rain registry unavailable',String(error?.message||error).slice(0,90));
+    }
     const cache=globalThis.caches?.default;
-    const key=new Request('https://riviere-alerte.fr/__meteo_cache/station_rain_v1?station='+code);
+    const key=new Request('https://riviere-alerte.fr/__meteo_cache/station_rain_v2?station='+code);
     if(cache){
      const hit=await cache.match(key);
      if(hit){
@@ -982,18 +988,24 @@ export default {
     }
     const area={id:'home',name:station.name,lat:station.lat,lon:station.lon};
     const now=Date.now();
-    const [forecast,rain]=await Promise.all([
-     fetchRainForecast(area,{now}),fetchRainArea(area,{now})
+    const [forecast,estimatedRain,measuredRain]=await Promise.all([
+     fetchRainForecast(area,{now}),fetchRainArea(area,{now}),
+     readSelectedRainMeasurements(env.DB,station,now)
     ]);
+    const usingObserved=measuredRain?.status==='observed';
+    const rain=usingObserved?measuredRain:estimatedRain;
     const data={ok:true,station:{code:station.code,name:station.name,
       lat:station.lat,lon:station.lon},
      forecast:[forecast],rain:[rain],checkedAt:new Date(now).toISOString(),
      forecastSource:forecast.model==='open_meteo_best_match'?
       'Open-Meteo best-match model (fallback), forecast not measured rain':
       'Météo-France model through Open-Meteo, forecast, not measured rain',
-     rainSource:'Open-Meteo past-hour model estimates, not measured radar',
+     rainSource:usingObserved?
+      'Measured Météo-France rain at nearby stations, not a verified upstream catchment average':
+      'Open-Meteo model estimates of past rainfall, not real measurements',
+     rainMeasurementScope:usingObserved?'nearby_gauges_not_catchment':'model_estimate',
      informationalOnly:true,notForAlerts:true};
-    if(cache&&(forecast.status==='forecast'||rain.status==='estimated'))
+    if(cache&&(forecast.status==='forecast'||rain.status==='estimated'||rain.status==='observed'))
      await cache.put(key,new Response(JSON.stringify(data),{headers:{
       'Content-Type':'application/json','Cache-Control':'public, max-age=300'}}));
     return json(request,data);
