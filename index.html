@@ -26,7 +26,7 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 
 .level-glass{display:inline-flex;align-items:baseline;justify-content:center;gap:5px;padding:4px 23px 10px;border-radius:22px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.28);box-shadow:0 8px 24px rgba(5,32,36,.12);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 /* Alert colour is applied to the entire hero, not just the status chip. */
-.hero{background:linear-gradient(145deg,#546e7b,#344e60);transition:background .4s ease,box-shadow .4s ease}
+.hero{background:linear-gradient(145deg,#546e7b,#344e60);transition:box-shadow .12s ease}
 .hero[data-alert="green"]{background:linear-gradient(145deg,#166e48 0%,#16885b 55%,#249e71 100%);box-shadow:0 18px 35px #146f4733}
 .hero[data-alert="orange"]{background:linear-gradient(145deg,#a9570b 0%,#c87814 55%,#e39c2c 100%);box-shadow:0 18px 35px #9e610a35}
 .hero[data-alert="red"]{background:linear-gradient(145deg,#a72b3a 0%,#c93844 55%,#df5155 100%);box-shadow:0 18px 35px #9e1d3035}
@@ -894,7 +894,45 @@ function rememberHomeStation(code,name){
 let activeStation=storedHomeStation?.code||HOME_DEFAULT.code,loadSequence=0;
 window.argensHomeStationCode=activeStation;
 window.argensHomeStationName=storedHomeStation?.name||HOME_DEFAULT.name;
-if(storedHomeStation)stationTitle.textContent=storedHomeStation.name;let chartHours=1,chartReadings=[];document.querySelectorAll('[data-hours]').forEach(b=>b.addEventListener('click',()=>{chartHours=Number(b.dataset.hours);document.querySelectorAll('[data-hours]').forEach(x=>x.setAttribute('aria-pressed',String(Number(x.dataset.hours)===chartHours)));drawChart(chartReadings)}));
+if(storedHomeStation)stationTitle.textContent=storedHomeStation.name;let chartHours=1,chartReadings=[];
+// Synchronous single renderer for the entire Home tile and its threshold badges.
+// Saved changes use cached REAL observations, without waiting for another fetch.
+function homeAlertState(code,items=chartReadings,now=Date.now()){
+ const t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code);
+ const local=code==='Y531201001'||custom,last=items?.[0];
+ const age=last?.date instanceof Date?now-last.date.getTime():NaN;
+ const metres=last?.value/1000;
+ const stale=!Number.isFinite(age)||age>3*3600000||age< -15*60000||!Number.isFinite(metres);
+ const reference=last&&Array.isArray(items)?items.find(x=>{
+  const minutes=(last.date-x.date)/60000;
+  return minutes>=30&&minutes<=180;
+ }):null;
+ const riseRate=reference?(last.value-reference.value)/10/((last.date-reference.date)/3600000):null;
+ const validRise=Number.isFinite(riseRate)?riseRate:null;
+ const rapidRise=validRise!==null&&validRise>=RAPID_RISE_CM_PER_HOUR;
+ const band=metres>=t.red||(validRise!==null&&validRise>=50)?'red':
+  metres>=t.orange||rapidRise?'orange':'green';
+ return {band:stale||!local?'unknown':band,stale,local,rapidRise,metres,thresholds:t};
+}
+function updateHomeAlertFromReadings(code=activeStation){
+ if(code!==activeStation)return;
+ const state=homeAlertState(code);
+ const hero=document.querySelector('#overview .hero'),row=hero.querySelector('.threshold-row');
+ hero.dataset.alert=state.band;
+ hero.dataset.stale=String(state.stale);
+ row.hidden=!state.local;
+ document.querySelector('#thresholdNotice').hidden=state.local;
+ row.querySelectorAll('[data-threshold]').forEach(x=>
+  x.classList.toggle('is-current',state.band!=='unknown'&&x.dataset.threshold===state.band));
+ if(chartReadings.length){
+  status.className='threshold-message';
+  status.textContent=state.stale?'● Mesure ancienne · statut non fiable':
+   !state.local?'':state.rapidRise&&state.metres<state.thresholds.orange?
+    mapText('● Montée rapide (≥ 30 cm/h)','● Rapid rise (≥ 30 cm/h)'):'';
+ }
+ scheduleLevelConnector();
+}
+document.querySelectorAll('[data-hours]').forEach(b=>b.addEventListener('click',()=>{chartHours=Number(b.dataset.hours);document.querySelectorAll('[data-hours]').forEach(x=>x.setAttribute('aria-pressed',String(Number(x.dataset.hours)===chartHours)));drawChart(chartReadings)}));
 // Client-side service checks: reachability is not proof of scheduled push delivery.
 const healthState={river:'pending',riverAt:null,weather:'pending',push:'pending'};
 // Same freshness and baseline conditions as renderForecast, but a distinct
@@ -1195,16 +1233,10 @@ async function loadMeasurements(code,{silent=false}={}){
   footer.textContent=source==='vigicrues'?mapText('Source : Vigicrues (secours)','Source: Vigicrues (backup)'):mapText('Source : Hub’Eau','Source: Hub’Eau');
   const last=items[0],previous=items.find(x=>x.date<last.date);
   healthState.river='good';healthState.riverAt=last.date.getTime();renderSystemHealth();
-  // Compare to a reading 30–180 minutes earlier; avoid extrapolating from tiny intervals.
-  const reference=items.find(x=>{const minutes=(last.date-x.date)/60000;return minutes>=30&&minutes<=180});
-  const riseRate=reference?(last.value-reference.value)/10/((last.date-reference.date)/3600000):null;
-  const rapidRise=riseRate!==null&&riseRate>=RAPID_RISE_CM_PER_HOUR;
   level.textContent=(last.value/1000).toFixed(2).replace('.',',');
   document.querySelector('#stationUpdated').textContent=new Intl.DateTimeFormat('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}).format(last.date);readingTime.textContent='';
-  const age=Date.now()-last.date.getTime(),stale=age>3*60*60*1000||age< -15*60*1000;
   if(previous){const change=last.value-previous.value;delta.textContent=(change>0?'+':'')+(change/10).toFixed(1).replace('.',',')+' cm';period.textContent=mapText('Depuis la mesure précédente (','Since previous reading (')+Math.round((last.date-previous.date)/60000)+' min)';trend.textContent=change>0?'↗ Niveau en hausse':change<0?'↘ Niveau en baisse':'→ Niveau stable'}else{delta.textContent='—';trend.textContent='Une seule mesure disponible'}
-  const metres=last.value/1000,t=activeThresholds(code),custom=!!(personalThresholds&&personalThresholds.code===code);const band=metres>=t.red||(riseRate!==null&&riseRate>=50)?'red':metres>=t.orange||rapidRise?'orange':'green';const local=code==='Y531201001'||custom;document.querySelector('.threshold-row').hidden=!local;document.querySelector('#thresholdNotice').hidden=local;document.querySelector('.hero').dataset.alert=stale||!local?'unknown':band;document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.toggle('is-current',!stale&&local&&x.dataset.threshold===band));scheduleLevelConnector();status.className='threshold-message';status.textContent=stale?'● Mesure ancienne · statut non fiable':!local?'':rapidRise&&metres<t.orange?mapText('● Montée rapide (≥ 30 cm/h)','● Rapid rise (≥ 30 cm/h)'):'';
-  document.querySelector('.hero').dataset.stale=String(stale);
+  updateHomeAlertFromReadings(code);
   drawChart(chartReadings);
   renderThresholdLabels(code);renderAlertRules(code);
   renderForecast(chartReadings,code);
@@ -1816,6 +1848,8 @@ async function restorePersonalStation(){
   personalThresholds={code:settings.station_code,orange:Number(settings.orange_m),red:Number(settings.red_m)};
   if(storedHomeStation&&storedHomeStation.code!==settings.station_code){
    renderPersonalStation();renderThresholdLabels(activeStation);renderAlertRules(activeStation);
+   updateHomeAlertFromReadings(activeStation);
+   if(chartReadings.length)renderForecast(chartReadings,activeStation);
    return;
   }
   personalStation.code=settings.station_code;
@@ -1827,13 +1861,13 @@ async function restorePersonalStation(){
   document.dispatchEvent(new CustomEvent('argens-home-station-restored',{detail:{code:personalStation.code,name:personalStation.name}}));
   stationTitle.textContent=personalStation.name;
   if(activeStation!==personalStation.code)loadMeasurements(personalStation.code).catch(console.warn);
-  else{renderThresholdLabels(activeStation);renderAlertRules(activeStation)}
+  else{renderThresholdLabels(activeStation);renderAlertRules(activeStation);updateHomeAlertFromReadings(activeStation);if(chartReadings.length)renderForecast(chartReadings,activeStation)}
  }catch(e){console.warn('Station settings unavailable',e)}
 }
 document.querySelector('#savePersonalStation').addEventListener('click',async()=>{const el=document.querySelector('#personalStationMessage'),btn=document.querySelector('#savePersonalStation'),token=localStorage.getItem(accountTokenKey);if(!token){el.textContent=personalStationText('Veuillez vous connecter.','Please sign in.');return}const orange=Number(document.querySelector('#personalOrange').value),red=Number(document.querySelector('#personalRed').value);if(!Number.isFinite(orange)||!Number.isFinite(red)||orange<0||red>100||orange>=red){el.textContent=personalStationText('Les seuils doivent être valides et Orange inférieur à Rouge.','Enter valid thresholds with Orange below Red.');return}btn.disabled=true;try{const r=await fetch(PUSH_API_URL+'/user/station',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({station_code:personalStation.code,station_name:personalStation.name,orange_m:orange,red_m:red})});const d=await r.json();if(!r.ok)throw Error(d.error||'HTTP '+r.status);personalThresholds={code:personalStation.code,orange,red};window.argensHomeStationCode=personalStation.code;
 rememberHomeStation(personalStation.code,personalStation.name);
 document.dispatchEvent(new CustomEvent('argens-home-station-restored',{detail:{code:personalStation.code,name:personalStation.name}}));
-stationTitle.textContent=d.settings.station_name;if(activeStation!==personalStation.code){loadMeasurements(personalStation.code).catch(console.warn)}else{renderThresholdLabels(activeStation);renderAlertRules(activeStation)}el.textContent=personalStationText('Préférences enregistrées. Les alertes personnelles suivent désormais ces seuils.','Preferences saved. Personal alerts now follow these thresholds.');const homeTab=document.querySelector('[data-tab="overview"]');if(homeTab)homeTab.click()}catch(e){el.textContent=e.message}finally{btn.disabled=false}});
+stationTitle.textContent=d.settings.station_name;if(activeStation!==personalStation.code){loadMeasurements(personalStation.code).catch(console.warn)}else{renderThresholdLabels(activeStation);renderAlertRules(activeStation);updateHomeAlertFromReadings(activeStation);if(chartReadings.length)renderForecast(chartReadings,activeStation)}el.textContent=personalStationText('Préférences enregistrées. Les alertes personnelles suivent désormais ces seuils.','Preferences saved. Personal alerts now follow these thresholds.');const homeTab=document.querySelector('[data-tab="overview"]');if(homeTab)homeTab.click()}catch(e){el.textContent=e.message}finally{btn.disabled=false}});
 renderPersonalStation();
 document.querySelector('#personalStationIntro').addEventListener('click',event=>{if(!event.target.closest('#personalStationMapLink'))return;event.preventDefault();const mapTab=document.querySelector('[data-tab="Carte"]');if(mapTab)mapTab.click()});
 document.addEventListener('argens-station-selected',event=>{personalStation.code=event.detail.code;personalStation.name=event.detail.name;renderPersonalStation();document.querySelector('#personalStationMessage').textContent=personalStationText('Station enregistrée sur cet appareil. Enregistrez vos seuils pour activer les alertes associées.','Station saved on this device. Save thresholds to link it to personal alerts.')});
