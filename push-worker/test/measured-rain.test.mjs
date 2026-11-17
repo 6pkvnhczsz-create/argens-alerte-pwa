@@ -69,3 +69,16 @@ test('no leak of Météo-France key and no API request from public worker',()=>{
  assert.ok(worker.includes('registerSelectedRainStation(env.DB,station)'));
  assert.ok(worker.includes('nearby_gauges_not_catchment'));
 });
+
+test('missing one of six hours never presents a partial sum as the six-hour measurement',()=>{
+ const rows=measured(24).filter(row=>row.hour_utc!=='2026-11-17T13:00:00.000Z');
+ assert.equal(summarizeStationRain(hydro,near,rows,t),null);
+});
+test('incomplete 24-hour history may show complete 3h/6h, but never invent a 24h total',()=>{
+ const rows=measured(24).filter(row=>row.hour_utc!=='2026-11-16T22:00:00.000Z');
+ const result=summarizeStationRain(hydro,near,rows,t);
+ assert.ok(result);
+ assert.equal(result.last3hMm,3);
+ assert.equal(result.last6hMm,6);
+ assert.equal(result.last24hMm,null);
+});
