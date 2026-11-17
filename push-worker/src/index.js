@@ -10,6 +10,7 @@ import { refreshEarlySignals, loadEarlySignals, fetchOfficialVigilance, fetchRai
 import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
 import { fetchPiafMetadata, fetchPiafFrame, fetchPiafLegend } from './piaf-map.mjs';
 import { DEFAULT_STATION, validStationCode, cachedStation } from './piaf-station.mjs';
+import {loadArgensObservedRain} from './observed-argens-rain.mjs';
 import { findLocalUpstream, recentUpstreamReading } from './upstream-topage.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
@@ -1007,7 +1008,15 @@ export default {
   if(url.pathname==='/api/early-signals'&&request.method==='GET'){
    const origin=request.headers.get('Origin');
    if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
-   try{return json(request,await loadEarlySignals(env.DB))}
+   try{
+    const result=await loadEarlySignals(env.DB);
+    const observed=await loadArgensObservedRain(env.DB);
+    if(observed){
+      result.rain=[observed]; // a truthful station average, not invented area totals
+      result.rainSource='Météo-France DPObs hourly observations · station average, not catchment total';
+    }
+    return json(request,result);
+   }
    catch(error){return json(request,{ok:false,error:'Early indicators are not current'},503)}
   }
   // Only the exact repository main-branch GitHub Actions workflow may write
