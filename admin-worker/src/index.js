@@ -1,4 +1,4 @@
-import {FORECAST_SHADOW_PAGE, getForecastShadowStatus, syncForecastRain} from './forecast-shadow.js';
+import {FORECAST_SHADOW_PAGE, getForecastShadowStatus, syncForecastRain, probeForecastRain} from './forecast-shadow.js';
 // Separate Cloudflare Access-protected admin Worker for Argens Alerte.
 // Requires D1 binding DB and service binding PUSH_SERVICE to AdminPushService on argens-alerte-push.
 // IMPORTANT: Enable Cloudflare Access for ALL traffic before deployment.
@@ -12,6 +12,11 @@ export default {
  const url=new URL(request.url);
  if(request.method==='GET'&&url.pathname==='/')return new Response(PAGE.replace('</nav>','<a href="/forecast-shadow">Prognose-Test</a></nav>'),{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'}});
  if(request.method==='GET'&&url.pathname==='/forecast-shadow')return new Response(FORECAST_SHADOW_PAGE,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"}});
+ if(request.method==='POST'&&url.pathname==='/api/forecast-shadow/probe'){
+  if(request.headers.get('Origin')!==url.origin)return response({error:'Origin mismatch'},403);
+  try{return response(await probeForecastRain(env))}
+  catch(error){console.error('Forecast shadow probe failed',String(error));return response({error:'Météo-France-Verbindungstest derzeit nicht möglich'},503)}
+ }
  if(request.method==='GET'&&url.pathname==='/api/forecast-shadow'){
   try{return response(await getForecastShadowStatus(env))}
   catch(error){console.error('Forecast shadow status failed',String(error));return response({error:'Prognose-Test derzeit nicht erreichbar'},503)}
