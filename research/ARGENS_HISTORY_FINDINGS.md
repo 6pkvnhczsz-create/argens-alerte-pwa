@@ -59,3 +59,53 @@ Verglichen mit dem Pegeltagesmaximum D:
 - [HydroPortail historische Pegelschwellen Roquebrune](https://www.hydro.eaufrance.fr/sitehydro/Y5312010/seuils)
 
 **Produktive Warnmeldungen, Push und individuelle Schwellen wurden nicht verändert.**
+
+## Analyse weitergeführt: 2 Tage gegen 10 Tage Vorregen
+
+Erfolgreicher reproduzierbarer Lauf:
+[GitHub Actions 44074847812](https://github.com/6pkvnhczsz-create/argens-alerte-pwa/actions/runs/44074847812).
+Es werden die **vollständigen Vortage vor dem Pegeltag** berücksichtigt,
+also kein Regen am auszuwertenden Tag selbst. Aus fünf ausgewählten
+Wetterstationen wird jeweils die höchste Regenmenge für das Fenster
+gebildet; mindestens drei Stationen müssen vollständige Daten liefern.
+Nur Kalendertage mit Daten in **beiden** Fenstern werden verglichen.
+
+| Zeitraum | Auswertbare Kalendertage | Kalendertage mit Tagesmaximum >= 5,40 m | AUC Rangwert 2-Tages-Regen | AUC Rangwert 10-Tages-Regen |
+|---|---:|---:|---:|---:|
+| 2010–2018 (explorativ) | 3.159 | 15 | 0,9495 | 0,8963 |
+| 2019–2024 (zurückgehaltener Zeitraum) | 2.192 | 8 | 0,9152 | 0,9966 |
+
+**Interpretation:** Unter den auswertbaren 2019–2024-Kalendertagen
+trennte der Vorregen der letzten zehn Tage Tage mit Pegeltagesmaximum
+>=5,40m stärker von den übrigen Tagen als ein Zweitageswert.
+**Das ist noch kein zuverlässiger Hochwasservorhersage-Test:**
+nur acht positive *Kalendertage* im zurückgehaltenen Zeitraum;
+Hochwasserscheitel desselben Ereignisses sind seriell abhängig;
+Zehntagesregen kann nach einem Hochwasser hoch bleiben, ohne die erste
+Anstiegsphase vorhergesagt zu haben; Regen am Zieltag ist ausgeschlossen;
+keine Kalibrierung der Eintrittswahrscheinlichkeit, kein Vergleich
+mit einer Persistenz-/Pegelstandsbasislinie und keine Vorhersage
+von 6-Stunden-Pegeln. Das AUC-Maß beschreibt nur eine retrospektive
+Rangordnung mit diesen Beschränkungen. Es darf nicht als
+Trefferquote oder Warnzuverlässigkeit dargestellt werden.
+
+## Historische Minuten-/Stundenkurven: Quellenzugang
+
+Die amtliche `Données aux stations hydrométriques`-Datensatzbeschreibung
+veröffentlicht komplette historische instantane Wasserstände
+und Durchflüsse, nach Anfangsbuchstaben des Stationscodes gruppiert.
+Für Y531201001 lautet die Archivgruppe **Stations V–Z**.
+Automatische öffentliche HEAD-Zugriffsversuche am 17.11.2026
+gegen die ausgewiesene Quelle
+`https://bnum.din.gouv.fr/mdrive/index.php/s/KR94LCkdZDDKiC3`
+und ihren `/download`-Pfad lieferten jeweils HTTP 404.
+Dies belegt **keine** endgültige Nichtverfügbarkeit der Daten.
+Im HydroPortail lassen sich historische Messreihen auch per CSV
+exportieren (einfache Exportfunktion öffentlich zugänglich).
+Ein verifizierter hochaufgelöster CSV-Zeitverlauf wurde bisher
+**nicht** eingelesen, weshalb die 6-Stunden-Prognose noch
+nicht berechnet oder validiert werden kann.
+
+[Archiv-Metadatenprüfung](https://github.com/6pkvnhczsz-create/argens-alerte-pwa/actions/runs/44074643483).
+
+**Keine Änderungen an produktiven Alerts, Push-Meldungen und persönlichen Schwellen.**
