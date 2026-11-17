@@ -57,7 +57,7 @@ export function summarizeStationRain(station,nearby,rows,now=Date.now()){
     const hour=hourNow-k*HOUR;
     if((byHour.get(hourIso(hour))?.size||0)>=2){last=hour;break}
   }
-  if(last===null)return null;
+  if(last===null||now-last>90*60000)return null; // old hourly rain cannot be presented as recent measurement
   const sumHours=n=>{
     let amount=0,validHours=0;
     for(let i=0;i<n;i++){
