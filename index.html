@@ -554,13 +554,13 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
  <div class="section-title" id="forecastPageTitle">Prévisions · bassin de l’Argens</div>
  <section id="earlySignalsPanel" aria-label="Indicateurs de précocité Argens">
   <div class="forecast-stack">
-   <article class="flood-research-card" id="floodResearchCard" aria-label="Prévision de crue expérimentale">
+   <article class="flood-research-card" id="floodResearchCard" aria-label="Prévision de crue en développement">
     <div class="flood-research-head">
      <span class="flood-research-title"><span aria-hidden="true">🌊</span><span>Prévision de crue</span></span>
-     <span class="flood-research-tag">Expérimental</span>
+     <span class="flood-research-tag">En développement</span>
     </div>
-    <p class="flood-research-state">Pas encore de prévision fiable du niveau d’eau</p>
-    <p class="flood-research-explain">Modèle fondé sur les pluies et les crues historiques en cours de validation. Aucun effet sur les alertes.</p>
+    <p class="flood-research-state">Les prévisions sont actuellement en phase de test</p>
+    <p class="flood-research-explain">Modèle fondé sur les pluies et les crues historiques. En développement et non validé pour les décisions d’alerte. Les alertes existantes restent inchangées.</p>
    </article>
    <article class="panel forecast-card" id="rainForecastCard">
     <span class="forecast-card-icon" aria-hidden="true">🌦️</span>
@@ -786,6 +786,13 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 <script>
 const slider=document.querySelector('#slider'),level=document.querySelector('#level'),status=document.querySelector('#status'),delta=document.querySelector('#delta');
 const stationTitle=document.querySelector('#stationTitle');
+// The river title is its own line. Saved and official station labels may
+// already contain L’Argens à; always render the base place name exactly once.
+function setHomeStationHeading(code,name){
+ const isArgens=code==='Y531201001';
+ stationTitle.textContent=isArgens?'Roquebrune-sur-Argens':String(name||code);
+ document.querySelector('#stationRiverPrefix').hidden=!isArgens;
+}
 const trend=document.querySelector('#trend'),readingTime=document.querySelector('#readingTime'),period=document.querySelector('#deltaPeriod');
 const CUSTOM_DEFAULTS={orange:3,red:4.5};let personalThresholds=null;
 function activeThresholds(code){return personalThresholds&&personalThresholds.code===code?personalThresholds:CUSTOM_DEFAULTS}
@@ -898,7 +905,7 @@ function rememberHomeStation(code,name){
 let activeStation=storedHomeStation?.code||HOME_DEFAULT.code,loadSequence=0;
 window.argensHomeStationCode=activeStation;
 window.argensHomeStationName=storedHomeStation?.name||HOME_DEFAULT.name;
-if(storedHomeStation)stationTitle.textContent=storedHomeStation.name;let chartHours=1,chartReadings=[];
+if(storedHomeStation)setHomeStationHeading(storedHomeStation.code,storedHomeStation.name);let chartHours=1,chartReadings=[];
 // Synchronous single renderer for the entire Home tile and its threshold badges.
 // Saved changes use cached REAL observations, without waiting for another fetch.
 function homeAlertState(code,items=chartReadings,now=Date.now()){
@@ -1518,7 +1525,7 @@ async function ensureStationMap(lat,lon){
 }
 function selectMapStation(station,button,marker){
  const code=station.code_station;
- stationTitle.textContent=station.libelle_station||station.libelle_site||code;
+ setHomeStationHeading(code,station.libelle_station||station.libelle_site||code);
  renderAlertRules(code);
  message.textContent=mapText('Station sélectionnée : ','Selected station: ')+code+'. '+mapText('Chargement des mesures officielles…','Loading official readings…');
  loadMeasurements(code);
@@ -1706,11 +1713,11 @@ const translations={
 '📍 Trouver une station près de chez moi':'📍 Find a station near me','Entrez une commune française ou autorisez votre position. Les stations sont classées par distance à vol d’oiseau.':'Enter a French town or allow location access. Stations are sorted by straight-line distance.','Ville ou code postal':'Town or postal code','Rechercher':'Search','⌖ Ma position':'⌖ My location','Vue d’ensemble':'Overview','Évolution':'Change','Entre deux mesures':'Between two readings','Pluie':'Rainfall','Données à connecter':'Data not yet available','Tester les couleurs d’alerte (simulation uniquement)':'Preview warning colours (simulation only)','Déplacez le curseur pour prévisualiser les couleurs. Les données réelles restent distinctes. Aperçu uniquement : les seuils réels sont configurés séparément.':'Move the slider to preview the colours. Live readings remain separate. Preview only: actual thresholds are configured separately.','Aperçu : vert':'Preview: green',
 'Seuils indicatifs pour Roquebrune-sur-Argens : vert sous 3 m sauf montée rapide, orange de 3 à moins de 4,5 m ou hausse estimée d’au moins 30 cm/h, rouge dès 4,5 m. La vitesse est calculée entre deux mesures espacées de 30 à 180 minutes. Seuil de vitesse expérimental, à valider localement. Ces couleurs ne sont pas des niveaux de vigilance officiels. Prototype indépendant. Ne pas utiliser comme unique moyen d’alerte. Consultez Vigicrues et les consignes officielles en cas de danger.':'Indicative thresholds for Roquebrune-sur-Argens: green below 3 m unless the water rises rapidly; orange from 3 m to below 4.5 m or an estimated rise of at least 30 cm/h; red from 4.5 m. The rise rate is calculated using readings 30–180 minutes apart. The rapid-rise threshold is experimental and requires local validation. These colours are not official warning levels. This is an independent prototype. Do not rely on it as your only warning source. Consult Vigicrues and official safety instructions in an emergency.',
 'Notifications':'Notifications','🔔 Alertes sur votre iPhone':'🔔 Alerts on your iPhone','Recevez une notification orange entre 3 m et moins de 4,5 m, ou dès une hausse ≥ 30 cm/h. Notification rouge dès 4,5 m ou en cas de hausse ≥ 50 cm/h, même sous 4,5 m. Les hausses rapides déclenchent une alerte dès leur détection. Vous êtes également informé lors du retour à un niveau inférieur. Seuils indicatifs non officiels.':'Get an orange alert from 3 m to below 4.5 m, or when the level rises by ≥ 30 cm/h. Get a red alert at 4.5 m or for a rise of ≥ 50 cm/h, even below 4.5 m. Rapid rises trigger an alert as soon as detected. You are also notified when the level returns to a lower alert band. These thresholds are indicative and not official.','Vérification du service de notifications…':'Checking notification service…','Envoyer une notification test':'Send a test notification','Activer les notifications':'Enable notifications','Sur iPhone, ouvrez l’application depuis l’écran d’accueil. Les notifications sont envoyées par notre serveur Cloudflare. Les seuils sont indicatifs et non officiels.':'On iPhone, open the app from your Home Screen. Notifications are delivered through our Cloudflare server. Thresholds are indicative and not official.','Cette rubrique sera développée dans la prochaine étape.':'This section will be developed in a future update.','Accueil':'Home','Carte':'Map','Alertes':'Alerts','Messages d’alerte':'Alert messages','Prévisions':'Forecasts','Prévisions · bassin de l’Argens':'Forecasts · Argens basin',
-'Prévision de crue expérimentale':'Experimental flood forecast',
+'Prévision de crue en développement':'Flood forecast in development',
 'Prévision de crue':'Flood forecast',
-'Expérimental':'Experimental',
-'Pas encore de prévision fiable du niveau d’eau':'Reliable water-level forecast not yet available',
-'Modèle fondé sur les pluies et les crues historiques en cours de validation. Aucun effet sur les alertes.':'Rainfall and historical-flood model under validation. Alerts are unaffected.','Vigilance officielle, prévisions de pluie et niveaux observés en amont. Informations complémentaires aux alertes.':'Official vigilance, rainfall forecasts and upstream observations. Additional information alongside alerts.','Réglages':'Settings',
+'En développement':'In development',
+'Les prévisions sont actuellement en phase de test':'The forecasts are currently being tested',
+'Modèle fondé sur les pluies et les crues historiques. En développement et non validé pour les décisions d’alerte. Les alertes existantes restent inchangées.':'Model based on rainfall and historical floods. In development and not validated for alert decisions. Existing alerts remain unchanged.','Vigilance officielle, prévisions de pluie et niveaux observés en amont. Informations complémentaires aux alertes.':'Official vigilance, rainfall forecasts and upstream observations. Additional information alongside alerts.','Réglages':'Settings',
 'Depuis la mesure précédente':'Since previous reading','↗ Niveau en hausse':'↗ Water level rising','↘ Niveau en baisse':'↘ Water level falling','→ Niveau stable':'→ Water level stable','Une seule mesure disponible':'Only one reading available','● Mesure ancienne · statut non fiable':'● Outdated reading · status unreliable','● Seuils non définis pour cette station':'● Thresholds not defined for this station','● Rouge · à partir de 4,5 m':'● Red · 4.5 m or above','● Orange · montée rapide':'● Orange · rapid rise','● Orange · de 3 à 4,5 m':'● Orange · 3 to 4.5 m','● Vert · sous 3 m':'● Green · below 3 m','● Données indisponibles':'● Data unavailable','Aucune mesure vérifiée disponible':'No verified reading available',
 'Notifications activées sur cet iPhone':'Notifications enabled on this iPhone','Notifications activées pour cette station':'Notifications enabled for this station','Notifications Web Push non disponibles sur cet appareil ou dans ce navigateur.':'Web Push notifications are not available on this device or browser.','Service de notifications en cours de configuration. Les alertes ne sont pas encore actives.':'Notification service is being configured. Alerts are not active yet.','Notifications bloquées dans les réglages de l’appareil.':'Notifications are blocked in device settings.','Autorisation non accordée':'Permission not granted','Enregistrement impossible':'Registration failed','Envoi en cours…':'Sending…','Abonnement introuvable':'Subscription not found','Abonnement non enregistré sur le serveur':'Subscription not registered on the server','Veuillez attendre 15 minutes avant un nouvel essai':'Please wait 15 minutes before trying again','Erreur du serveur':'Server error','Test envoyé ✓':'Test sent ✓','Notification test envoyée au service Push. Vérifiez votre iPhone.':'Test notification sent to the push service. Check your iPhone.','Réessayer le test':'Retry test','Service de notifications indisponible.':'Notification service unavailable.',
 'Recherche des stations à proximité…':'Searching for nearby stations…','Choisissez une station (distance à vol d’oiseau).':'Choose a station (straight-line distance).','Aucune station trouvée à proximité.':'No nearby stations found.','Recherche indisponible pour le moment. Réessayez plus tard.':'Search is currently unavailable. Please try again later.','Recherche de la commune…':'Searching for town…','Lieu introuvable en France.':'Location not found in France.','Recherche de commune indisponible.':'Town search unavailable.','Géolocalisation non disponible.':'Geolocation unavailable.','Demande de position…':'Requesting your location…','Position non autorisée ou indisponible.':'Location access denied or unavailable.','Service de mesures temporairement indisponible.':'Water-level data service temporarily unavailable.','Aucune mesure de hauteur disponible pour cette station.':'No water-level readings available for this station.'
@@ -1865,7 +1872,7 @@ async function restorePersonalStation(){
   document.querySelector('#personalRed').value=settings.red_m;
   window.argensHomeStationCode=personalStation.code;renderPersonalStation();
   document.dispatchEvent(new CustomEvent('argens-home-station-restored',{detail:{code:personalStation.code,name:personalStation.name}}));
-  stationTitle.textContent=personalStation.name;
+  setHomeStationHeading(personalStation.code,personalStation.name);
   if(activeStation!==personalStation.code)loadMeasurements(personalStation.code).catch(console.warn);
   else{renderThresholdLabels(activeStation);renderAlertRules(activeStation);updateHomeAlertFromReadings(activeStation);if(chartReadings.length)renderForecast(chartReadings,activeStation)}
  }catch(e){console.warn('Station settings unavailable',e)}
@@ -1873,7 +1880,7 @@ async function restorePersonalStation(){
 document.querySelector('#savePersonalStation').addEventListener('click',async()=>{const el=document.querySelector('#personalStationMessage'),btn=document.querySelector('#savePersonalStation'),token=localStorage.getItem(accountTokenKey);if(!token){el.textContent=personalStationText('Veuillez vous connecter.','Please sign in.');return}const orange=Number(document.querySelector('#personalOrange').value),red=Number(document.querySelector('#personalRed').value);if(!Number.isFinite(orange)||!Number.isFinite(red)||orange<0||red>100||orange>=red){el.textContent=personalStationText('Les seuils doivent être valides et Orange inférieur à Rouge.','Enter valid thresholds with Orange below Red.');return}btn.disabled=true;try{const r=await fetch(PUSH_API_URL+'/user/station',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({station_code:personalStation.code,station_name:personalStation.name,orange_m:orange,red_m:red})});const d=await r.json();if(!r.ok)throw Error(d.error||'HTTP '+r.status);personalThresholds={code:personalStation.code,orange,red};window.argensHomeStationCode=personalStation.code;
 rememberHomeStation(personalStation.code,personalStation.name);
 document.dispatchEvent(new CustomEvent('argens-home-station-restored',{detail:{code:personalStation.code,name:personalStation.name}}));
-stationTitle.textContent=d.settings.station_name;if(activeStation!==personalStation.code){loadMeasurements(personalStation.code).catch(console.warn)}else{renderThresholdLabels(activeStation);renderAlertRules(activeStation);updateHomeAlertFromReadings(activeStation);if(chartReadings.length)renderForecast(chartReadings,activeStation)}el.textContent=personalStationText('Préférences enregistrées. Les alertes personnelles suivent désormais ces seuils.','Preferences saved. Personal alerts now follow these thresholds.');const homeTab=document.querySelector('[data-tab="overview"]');if(homeTab)homeTab.click()}catch(e){el.textContent=e.message}finally{btn.disabled=false}});
+setHomeStationHeading(personalStation.code,d.settings.station_name);if(activeStation!==personalStation.code){loadMeasurements(personalStation.code).catch(console.warn)}else{renderThresholdLabels(activeStation);renderAlertRules(activeStation);updateHomeAlertFromReadings(activeStation);if(chartReadings.length)renderForecast(chartReadings,activeStation)}el.textContent=personalStationText('Préférences enregistrées. Les alertes personnelles suivent désormais ces seuils.','Preferences saved. Personal alerts now follow these thresholds.');const homeTab=document.querySelector('[data-tab="overview"]');if(homeTab)homeTab.click()}catch(e){el.textContent=e.message}finally{btn.disabled=false}});
 renderPersonalStation();
 document.querySelector('#personalStationIntro').addEventListener('click',event=>{if(!event.target.closest('#personalStationMapLink'))return;event.preventDefault();const mapTab=document.querySelector('[data-tab="Carte"]');if(mapTab)mapTab.click()});
 document.addEventListener('argens-station-selected',event=>{personalStation.code=event.detail.code;personalStation.name=event.detail.name;renderPersonalStation();document.querySelector('#personalStationMessage').textContent=personalStationText('Station enregistrée sur cet appareil. Enregistrez vos seuils pour activer les alertes associées.','Station saved on this device. Save thresholds to link it to personal alerts.')});

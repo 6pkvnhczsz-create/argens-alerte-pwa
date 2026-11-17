@@ -67,6 +67,29 @@ assert.match(status.river,/1[,.]35/,'River reading must load');
 assert.equal(d.querySelector('#stationRiverPrefix').textContent,'L’Argens à');
 assert.equal(d.querySelector('#stationRiverPrefix').hidden,false,'Argens prefix appears on its own line at Roquebrune');
 assert.equal(d.querySelector('#stationTitle').textContent,'Roquebrune-sur-Argens');
+// Regression for official/saved station names that already include the river.
+// The complete visible heading must contain L’Argens only once.
+dom.window.setHomeStationHeading('Y531201001','L’Argens à Roquebrune-sur-Argens');
+assert.equal(d.querySelector('#stationTitle').textContent,'Roquebrune-sur-Argens',
+ 'Official compound river title must not duplicate L’Argens');
+assert.equal(d.querySelector('#stationRiverPrefix').hidden,false);
+dom.window.setHomeStationHeading('Y531201001',"L'Argens a Roquebrune-sur-Argens");
+assert.equal(d.querySelector('#stationTitle').textContent,'Roquebrune-sur-Argens',
+ 'Stored station title cannot duplicate the river either');
+dom.window.setHomeStationHeading('H123456789','La Seine à Paris');
+assert.equal(d.querySelector('#stationRiverPrefix').hidden,true,
+ 'Do not label a different French station as the Argens');
+assert.equal(d.querySelector('#stationTitle').textContent,'La Seine à Paris');
+dom.window.setHomeStationHeading('Y531201001','Roquebrune-sur-Argens');
+assert.equal(d.querySelector('#stationRiverPrefix').hidden,false);
+const german=readFileSync(new URL('../i18n-de.js',import.meta.url),'utf8');
+assert.ok(german.includes('"En développement": "In Entwicklung"'));
+assert.ok(german.includes('"Les prévisions sont actuellement en phase de test": "Die Hochwasserprognose wird derzeit getestet."'));
+assert.ok(german.includes('"Flood forecast in development": "Hochwasserprognose in Entwicklung"'));
+const flood=d.querySelector('#floodResearchCard');
+assert.equal(flood.querySelector('.flood-research-tag').textContent,'En développement');
+assert.match(flood.querySelector('.flood-research-state').textContent,/en phase de test/);
+assert.ok(!flood.textContent.includes('Expérimental'));
 assert.match(d.querySelector('style').textContent,/\.station-heading\{display:flex;flex-direction:column/,'River name and Roquebrune must be stacked');
 assert.equal(status.clicked_Carte.mapHidden,false,'Map tab not working');
 assert.equal(status.clicked_Alertes.alertHidden,false,'Alerts tab not working');
