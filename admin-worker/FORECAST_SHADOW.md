@@ -102,3 +102,15 @@ Die Cloudflare-JavaScript-Laufzeit kann das `joblib`-Objekt nicht direkt laden. 
 ### Zusätzliche Tests
 
 `node --test admin-worker/test/forecast-shadow.test.mjs` vergleicht Baumwerte mit golden predictions aus Python/scikit-learn (März und Oktober 2024) und testet Datenlücken, Zeitbezug, D1/Hub’Eau-Integration sowie das Blockieren der Modellzahl bei unbrauchbaren Eingaben.
+
+## 17.11.2026 – Lücke im letzten 24-Stunden-Fenster schließen
+
+Das Dashboard zeigte 11/11 frische Stationen und 10/11 mit ausreichender 10-Tage-Abdeckung, aber nur **8/20** verwertbare regionale Regenstunden der letzten 24 Stunden. Die ältere CSV-Starthilfe endet am 16.11. und die neue Live-Abfrage hat erst ab dem 17.11. Regenmessungen gespeichert. Deshalb sperrt das Prognosemodell korrekt seine Ausgabe, statt fehlenden Regen als 0 mm zu interpretieren.
+
+**Nachladen:** Der neue Admin-Knopf **„Fehlende Regenstunden nachladen“** ruft die Météo-France-Observations-API für fehlende, höchstens 23 Stunden und 45 Minuten alte Stundenwerte ab. Er lässt bestehende Archive und Live-Messwerte unverändert und nimmt maximal 55 API-Anfragen pro Klick vor. Eine 2-Minuten-Sperre verhindert parallele Wiederholungen; nicht erhältliche Stundenwerte erhalten einen 30-Minuten-Retry-Cooldown und werden nie als 0 mm gespeichert. Die Funktion arbeitet ausschließlich innerhalb der vorhandenen Access-geschützten Admin-Umgebung und benötigt keine neuen Secrets.
+
+Der bereits vorhandene stündliche Cron ruft nach den regulären 33 Messanfragen automatisch zusätzlich maximal 22 fehlende Messungen ab (maximal 55 zeitlich naheliegende Anfragen pro normalem Stundenlauf). Die dokumentierte Grenze der gezielten Observations-API beträgt 100 Requests/Minute; andernfalls bei HTTP 429 sofort abbrechen. Das manuelle Nachladen ist optional und kann die Nachfüllung beschleunigen. Es kann mehrere begrenzte Durchläufe brauchen, bis mindestens 20/24 Stunden eine gültige Gebiets-Mittelung aus mindestens sieben Stationen ermöglichen.
+
+**Keine automatische Hochwasserwarnung:** Nur die Regen-Datenlücke wird geschlossen; die experimentelle Schwellenprognose bleibt getrennt von allen Warnungen und lässt sich nur bei genügender Datenqualität berechnen. Die exakte Wirkung ist erst nach Cloudflare-Deployment und tatsächlichem API-Rücklauf verifiziert.
+
+Offizielle Quelle: https://www.data.gouv.fr/dataservices/api-donnees-dobservation (24 Stunden Aufbewahrungsfenster, 100 Anfragen/Minute); https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853639294/API+Cibl%C3%A9e+Obs+FR
