@@ -2465,6 +2465,12 @@ function renderEarlySignals(){
   earlyI18n('Estimations indisponibles','Rainfall estimates unavailable','Regenabschätzungen derzeit nicht verfügbar'));
  for(const x of rain)addRainRow(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
   [fmt(x.last3hMm)+' mm',fmt(x.last6hMm)+' mm']);
+ if(observed){
+  const sample=rain.find(x=>x.status==='observed');
+  const stamp=Date.parse(sample?.latestHour);
+  if(Number.isFinite(stamp))earlyText('earlyRainStatus',
+   earlyI18n('Précipitations mesurées jusqu’au ','Rain measured through ','Gemessener Regen bis ')+new Date(stamp).toLocaleString(locale));
+ }
  if(!rain.length)emptyRainList(rainNode);
  const gauges=(regional?d.upstream||[]:[]).filter(x=>Number.isFinite(x.levelM)&&Number.isFinite(Date.parse(x.observedAt))&&Date.parse(x.observedAt)-Date.now()<=15*60000);
  earlyText('earlyUpstreamStatus',gauges.length?
