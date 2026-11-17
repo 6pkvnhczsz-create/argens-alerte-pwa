@@ -97,6 +97,33 @@ export async function syncForecastRain(env, nowMs = Date.now(), fetcher = fetch)
   return {status:accepted?'partial_or_ok':'no_valid_observations',accepted,rejected,error:firstError||null};
 }
 
+// Lightweight, manual diagnostic: one request, no database writes and no secret disclosure.
+export async function probeForecastRain(env, nowMs=Date.now(), fetcher=fetch) {
+  if (!env.METEO_FRANCE_OBS_API_KEY) return {ok:false,configured:false,message:'Cloudflare-Secret METEO_FRANCE_OBS_API_KEY fehlt'};
+  const station='83075001'; // Les Mayons, chosen from historical training observations.
+  const hour=isoHour(nowMs-HOUR_MS);
+  const u=new URL(API);
+  u.searchParams.set('id_station',station);
+  u.searchParams.set('date',hour.replace('.000Z','Z'));
+  u.searchParams.set('format','json');
+  try {
+    const r=await fetcher(u.toString(),{
+      headers:{Accept:'application/json',apikey:env.METEO_FRANCE_OBS_API_KEY},
+      signal:AbortSignal.timeout(9500)
+    });
+    if (!r.ok) return {ok:false,configured:true,http_status:r.status,station,hour_utc:hour,
+      message:r.status===401?'API-Key ungültig oder abgelaufen':r.status===403?'Observations-API nicht freigeschaltet oder keine Berechtigung':r.status===429?'Anfragelimit der Météo-France-API erreicht':'Météo-France antwortet HTTP '+r.status};
+    const payload=await r.json();
+    const datum=parseHourlyRain(payload,station,hour);
+    return {ok:true,configured:true,http_status:200,station,hour_utc:hour,
+      reading_available:!!datum,rain_mm:datum?datum.mm:null,
+      message:datum?'API-Zugriff erfolgreich; gültige Regenmessung empfangen':'API-Zugriff erfolgreich; für Les Mayons fehlt ein gültiger Stunden-Regenwert – Station/Antwortformat prüfen'};
+  } catch(error) {
+    return {ok:false,configured:true,station,hour_utc:hour,
+      message:'API-Verbindungsfehler: '+safeError(error)};
+  }
+}
+
 export function summarizeCoverage(rows, nowMs) {
   const recentCutoff = nowMs-3*HOUR_MS;
   const names = new Map(RAIN_STATIONS);
@@ -164,7 +191,9 @@ export const FORECAST_SHADOW_PAGE = `<!doctype html><html lang="de"><meta charse
 <section><small>Experimentelle Modellprognose</small><strong id="prediction">Noch nicht verfügbar</strong><p class="muted" id="reason">Daten werden geprüft …</p><small>Keine amtliche Hochwasserwarnung. Die bisherige Warnlogik bleibt unverändert.</small></section>
 <div class="grid"><section><small>Letzter Pegel (Hub’Eau)</small><strong id="level">–</strong><small id="hydroTime">–</small></section><section><small>Aktuelle Regenstationen</small><strong id="stations">–</strong><small>Mindestens 7 erforderlich</small></section><section><small>10-Tage-Historie vollständig</small><strong id="history">–</strong><small>Mindestens 216 von 240 Stunden pro Station</small></section></div>
 <h2>Messdaten und Verfügbarkeit</h2><section><p id="api">Prüfe Météo-France …</p><p id="sync" class="muted"></p><div id="error"></div><table><thead><tr><th>Station</th><th>Letzter Regenwert (UTC)</th><th>10 Tage</th></tr></thead><tbody id="stationsTable"></tbody></table></section>
-<button id="refresh" type="button">↻ Aktualisieren</button><p class="muted" id="updated"></p></main><script>
+<button id="probe" type="button">Météo-France-Verbindung testen</button> <button id="refresh" type="button">↻ Aktualisieren</button><p id="probeStatus" class="muted" role="status">Der API-Schlüssel wird bei einem Verbindungstest geprüft.</p><p class="muted" id="updated"></p></main><script>
 const el=id=>document.getElementById(id);const stamp=v=>v?new Date(v).toLocaleString('de-DE',{timeZone:'Europe/Paris',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'–';
-async function update(){el('refresh').disabled=true;try{const res=await fetch('/api/forecast-shadow',{cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);const d=await res.json();el('prediction').textContent=d.prediction.forecast_peak_m==null?'Noch keine freigegebene Modellzahl':d.prediction.forecast_peak_m.toFixed(2)+' m';el('reason').textContent=d.prediction.reason||'Nur experimenteller Test';el('level').textContent=Number.isFinite(d.hydro.level_m)?d.hydro.level_m.toFixed(2)+' m':'–';el('hydroTime').textContent=d.hydro.observed_at_utc?stamp(d.hydro.observed_at_utc)+' · '+(d.hydro.ok?'aktuell':'nicht aktuell'):d.hydro.reason||'Nicht erreichbar';el('stations').textContent=d.rain.recent_stations+'/11';el('history').textContent=d.rain.complete_10d_stations+'/11';el('api').textContent=d.rain.api_key_configured?'Météo-France-API-Schlüssel eingerichtet':'Météo-France Observations-API: Secret fehlt';el('sync').textContent=d.rain.last_ingest?'Letzter Import: '+stamp(d.rain.last_ingest.checked_at)+' · '+d.rain.last_ingest.accepted+' übernommen / '+d.rain.last_ingest.rejected+' verworfen':'Noch kein automatischer Import durchgeführt';el('error').textContent=d.rain.storage_error||d.rain.last_ingest?.error_text||'';const body=el('stationsTable');body.replaceChildren();for(const s of d.rain.stations){const tr=document.createElement('tr');for(const value of [s.name,stamp(s.latest_utc)+(s.fresh?' ✓':''),s.hours_10d+'/240']){const td=document.createElement('td');td.textContent=value;tr.append(td)}body.append(tr)}el('updated').textContent='Abgerufen: '+stamp(d.issued_at_utc)}catch(e){el('error').textContent='Status nicht abrufbar: '+e.message}finally{el('refresh').disabled=false}}
-el('refresh').addEventListener('click',update);update();</script></html>`;
+async function update(){el('refresh').disabled=true;try{const res=await fetch('/api/forecast-shadow',{cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);const d=await res.json();el('prediction').textContent=d.prediction.forecast_peak_m==null?'Noch keine freigegebene Modellzahl':d.prediction.forecast_peak_m.toFixed(2)+' m';el('reason').textContent=d.prediction.reason||'Nur experimenteller Test';el('level').textContent=Number.isFinite(d.hydro.level_m)?d.hydro.level_m.toFixed(2)+' m':'–';el('hydroTime').textContent=d.hydro.observed_at_utc?stamp(d.hydro.observed_at_utc)+' · '+(d.hydro.ok?'aktuell':'nicht aktuell'):d.hydro.reason||'Nicht erreichbar';el('stations').textContent=d.rain.recent_stations+'/11';el('history').textContent=d.rain.complete_10d_stations+'/11';el('api').textContent=d.rain.api_key_configured?'Cloudflare-Secret vorhanden (Zugriff noch nicht geprüft)':'Météo-France Observations-API: Secret fehlt';el('sync').textContent=d.rain.last_ingest?'Letzter Import: '+stamp(d.rain.last_ingest.checked_at)+' · '+d.rain.last_ingest.accepted+' übernommen / '+d.rain.last_ingest.rejected+' verworfen':'Noch kein automatischer Import durchgeführt';el('error').textContent=d.rain.storage_error||d.rain.last_ingest?.error_text||'';const body=el('stationsTable');body.replaceChildren();for(const s of d.rain.stations){const tr=document.createElement('tr');for(const value of [s.name,stamp(s.latest_utc)+(s.fresh?' ✓':''),s.hours_10d+'/240']){const td=document.createElement('td');td.textContent=value;tr.append(td)}body.append(tr)}el('updated').textContent='Abgerufen: '+stamp(d.issued_at_utc)}catch(e){el('error').textContent='Status nicht abrufbar: '+e.message}finally{el('refresh').disabled=false}}
+el('refresh').addEventListener('click',update);
+el('probe').addEventListener('click',async()=>{const btn=el('probe');btn.disabled=true;el('probeStatus').textContent='Prüfe API-Verbindung …';try{const r=await fetch('/api/forecast-shadow/probe',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();el('probeStatus').textContent=(d.ok?'✓ ':'✕ ')+d.message+(d.reading_available?' · '+d.rain_mm+' mm':'');}catch(e){el('probeStatus').textContent='Verbindungstest fehlgeschlagen: '+e.message}finally{btn.disabled=false}});
+update();</script></html>`;
