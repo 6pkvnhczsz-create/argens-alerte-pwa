@@ -5,6 +5,7 @@ const source = readFileSync(new URL('../src/forecast-shadow.js',import.meta.url)
 const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk,getForecastShadowStatus} = await import('../src/forecast-shadow.js');
 const {archivedRainRows} = await import('../src/rain-archive-2026.js');
 const {FORECAST_SHADOW_PAGE} = await import('../src/forecast-shadow-page.js');
+const {shadowTreePredict,buildShadowFeatureVector,computeShadowForecast,MODEL_INFO}=await import('../src/forecast-shadow-model.js');
 
 test('accepts valid observed zero rain with UTC hour and quality 1',()=>{
   const hour='2026-11-17T10:00:00.000Z';
