@@ -129,3 +129,18 @@ Die Übergangslücke von historischem Météo-France-CSV zu laufendem Echtzeitim
 - **Deployment kontrollieren:** Ein GitHub-Merge allein bestätigt noch nicht, dass die neuen Cloudflare Cron Triggers aus `admin-worker/wrangler.jsonc` in der tatsächlichen Worker-Deployment-Konfiguration aktiv sind. Nach Veröffentlichung in Cloudflare unter dem Worker `argens-alerte-admin` die registrierten Cron Triggers kontrollieren. Bei fehlenden Triggern die Admin-Worker-Build-/Deploy-Konfiguration prüfen.
 
 Das Experiment ist nicht als zuverlässige Hochwasserwarnung validiert. Die öffentliche FR/EN-Seite, Push-Worker, Warnschwellen und bestehende Alarmregeln sind weiterhin unangetastet.
+
+## 17.11.2026 – Stündliche Pegelquelle / kurze Verzögerung (experimenteller Admin-Preview)
+
+Bei 21/24 vollständigen Regenstunden und 11/11 Wetterstationen sperrte die **strenge 60-Minuten-Prüfung** den Pegelwert von 15:00 Uhr im Admin-Screenshot um 16:02 Uhr (Alter 62 Minuten). Für die öffentliche Warnlogik bleibt die bestehende Frischeprüfung unverändert: **kein veralteter Messwert wird als „aktuell“ eingestuft**.
+
+Der separate, ausschließlich interne 6-h-Schattenmodell-Adapter darf nun eine **maximal 90 Minuten alte, eindeutig zeitgestempelte Originalbeobachtung von Hub’Eau** als verzögerte *experimentelle* Rechnung verwenden, falls alle übrigen Modellprüfungen erfüllt sind. Dabei:
+- Status `experimental_delayed`, UI **„Verzögerte Testrechnung“**, sichtbar: Alter des Pegelwerts und tatsächlicher Modell-Bezugszeitpunkt. Keine Prognose „sechs Stunden ab jetzt“, wenn der Bezugszeitpunkt älter ist.
+- Der gemessene Schwellenstatus bleibt bei veralteten Pegeln ausdrücklich **„unbekannt“**; nur die separate nicht-validierte Modellschätzung wird gezeigt.
+- Bei mehr als 90 Minuten, unklarer Quelle, fehlenden oder ungültigen Zeitstempeln bleibt die Modellzahl komplett gesperrt.
+- Keine Änderungen an Push, öffentlichen Alarmen, voreingestellten Warnschwellen, Schnellanstieg +40 cm/h, Regenimport, Météo-France-API, Cloudflare-Crons oder Cloudflare-Secrets.
+- Eine zeitlich noch zulässige Prognose kann trotzdem ausfallen, wenn Météo-France oder Hub’Eau am gewählten gemeinsamen Modell-Bezugszeitpunkt nicht genügend geprüfte Beobachtungen liefern.
+
+Prüfung: Unit-Test mit 62 Minuten verspätetem Pegelwert (Modellschätzung verzögert, gemessene Schwelle unbekannt) und 91 Minuten altem Wert (weiterhin blockiert).
+
+**Die geschätzte Höhe ist kein belastbarer Hochwasserschutzentscheid und niemals eine Entwarnung.** Für echte Gefahren maßgeblich bleiben gemessene Wasserstände, amtliche Informationen und die separaten bestehenden Warnregeln.
