@@ -265,7 +265,7 @@ parisNearby.dispatchEvent(new w.Event('toggle'));
 await new Promise(resolve=>setTimeout(resolve,140));
 assert.match(d.getElementById('nearbyGaugesRows').textContent,/Nearby unrelated river/,
  'Optional nearby gauges must be loaded for the new selected station, not cached Var');
-assert.match(d.getElementById('nearbyGaugesSubtitle').textContent,/connexion|not verified|keine bestätigten/);
+assert.match(d.getElementById('nearbyGaugesSubtitle').textContent,/sans liaison en amont confirmée|not verified|keine bestätigten/);
 assert.match(d.getElementById('forecastPageTitle').textContent,/Paris/);
 assert.equal(piafOverlays[piafOverlays.length-1].bounds[0][0],48.22,'Forecast now covers Paris latitude, not Argens');
 assert.equal(piafOverlays[piafOverlays.length-1].bounds[0][1],1.34,'Forecast now covers Paris longitude, not Argens');
