@@ -129,7 +129,12 @@ assert.equal(d.getElementById('piafForecastMap').hidden,false,'Official forecast
 assert.match(d.getElementById('piafForecastPanel').textContent,/🗺️/,'Map icon must replace film icon');
 assert.match(d.getElementById('piafForecastTitle').textContent,/jusqu’à|until|bis/,'Forecast heading includes last available model frame');
 assert.equal(d.getElementById('piafForecastStatus').hidden,true,'No redundant forecast-for time line after loading');
-assert.equal(d.getElementById('nearbyGaugesBlock').hidden,false,'Argens also shows surrounding gauges out to 40 km');
+assert.equal(d.getElementById('nearbyGaugesBlock').hidden,false,'Argens also provides nearby gauges out to 40 km');
+const nearbyBlock=d.getElementById('nearbyGaugesBlock');
+// Optional nearby gauges load on demand when the user expands the accordion.
+nearbyBlock.open=true;
+nearbyBlock.dispatchEvent(new w.Event('toggle'));
+await new Promise(resolve=>setTimeout(resolve,160));
 assert.match(d.getElementById('nearbyGaugesRows').textContent,/Nearby Var river/);
 assert.equal(d.getElementById('piafForecastControls').hidden,false,'Forecast time controls must appear');
 assert.equal(d.getElementById('piafSlider').max,'2');
