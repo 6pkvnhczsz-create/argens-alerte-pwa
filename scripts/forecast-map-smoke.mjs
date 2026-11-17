@@ -130,7 +130,7 @@ assert.match(d.getElementById('piafForecastPanel').textContent,/🗺️/,'Map ic
 assert.match(d.getElementById('piafForecastTitle').textContent,/jusqu’à|until|bis/,'Forecast heading includes last available model frame');
 assert.equal(d.getElementById('piafForecastStatus').hidden,true,'No redundant forecast-for time line after loading');
 assert.equal(d.getElementById('nearbyGaugesBlock').hidden,false,'Argens also shows surrounding gauges out to 40 km');
-assert.match(d.getElementById('nearbyGaugesRows').textContent,/Nearby Var river/);
+assert.equal(d.getElementById('nearbyGaugesBlock').open,false,'Nearby unverified gauges stay collapsed and unloaded by default');
 assert.equal(d.getElementById('piafForecastControls').hidden,false,'Forecast time controls must appear');
 assert.equal(d.getElementById('piafSlider').max,'2');
 assert.equal(piafOverlays.length>=1,true,'A valid PIAF forecast image should be requested');
@@ -209,14 +209,23 @@ assert.match(css,/#forecastPage \.forecast-card \.forecast-disclaimer,[\s\S]*?te
  'Long descriptions should be left-aligned instead of centered');
 assert.match(css,/#forecastPage #nearbyGaugesRows \.upstream-distance-row>[\s\S]*?@media\(max-width:410px\)/,
  'National station lists should support narrow phone breakpoints');
-assert.match(css, /\.piaf-custom-color-key\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/,
+assert.match(css, /\.piaf-custom-color-key\{grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/,
  'The six legend labels should form readable three-column rows on small screens');
 // Simulate an old station; it must disappear from the map even if still cached.
 model.upstream[0].observedAt=new Date(Date.now()-120*60000).toISOString();
 w.renderEarlySignals();
 await new Promise(resolve=>setTimeout(resolve,200));
-assert.equal(pins.length,5,'Outdated gauge must disappear while the reference pin remains');
-assert.equal(pins.filter(p=>/upstream-gauge-trend/.test(p.opts.icon.html)).length,4,'Only current station rates remain');
+assert.equal(pins.length,6,'Last known gauge remains visible with its observation timestamp');
+assert.match(pins[0].popup.textContent,/Ancienne mesure|Outdated reading|Veralteter Wert/,
+ 'Stale upstream values must not display a current rate');
+assert.match(d.querySelector('#earlyUpstreamRows .upstream-distance-info small').textContent,/Mesure|Measured|Messung/,
+ 'Every retained gauge reading must show its timestamp');
+const nearbyBlock=d.getElementById('nearbyGaugesBlock');
+nearbyBlock.open=true;
+nearbyBlock.dispatchEvent(new w.Event('toggle'));
+await new Promise(resolve=>setTimeout(resolve,160));
+assert.match(d.getElementById('nearbyGaugesRows').textContent,/Nearby Var river/,
+ 'Nearby gauge rows load when the user expands the optional details');
 for(const lang of ['de','en','fr']){
  d.querySelector('[data-lang="'+lang+'"]').click();
  await new Promise(resolve=>setTimeout(resolve,80));
@@ -247,7 +256,12 @@ assert.equal(d.getElementById('nationalUpstreamContainer').hidden,false,'Station
 assert.equal(d.getElementById('upstreamMap').hidden,true,'Legacy Argens upstream map is hidden');
 assert.match(d.getElementById('nationalUpstreamRows').textContent,/Seine upstream/,'Only genuinely connected readings are upstream');
 assert.doesNotMatch(d.getElementById('nationalUpstreamRows').textContent,/Nearby unrelated river/,'Nearby unrelated station is not called upstream');
-assert.match(d.getElementById('nearbyGaugesRows').textContent,/Nearby unrelated river/,'Up to 40km nearby gauge displayed separately');
+const parisNearby=d.getElementById('nearbyGaugesBlock');
+parisNearby.open=true;
+parisNearby.dispatchEvent(new w.Event('toggle'));
+await new Promise(resolve=>setTimeout(resolve,140));
+assert.match(d.getElementById('nearbyGaugesRows').textContent,/Nearby unrelated river/,
+ 'Optional nearby gauges must be loaded for the new selected station, not cached Var');
 assert.match(d.getElementById('nearbyGaugesSubtitle').textContent,/connexion|not verified|keine bestätigten/);
 assert.match(d.getElementById('forecastPageTitle').textContent,/Paris/);
 assert.equal(piafOverlays[piafOverlays.length-1].bounds[0][0],48.22,'Forecast now covers Paris latitude, not Argens');
