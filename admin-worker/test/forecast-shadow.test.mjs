@@ -150,3 +150,9 @@ test('risk and three thresholds remain strictly informational; model forecast is
   assert.ok(FORECAST_SHADOW_PAGE.includes('Nächste 6 Stunden'));
   assert.ok(FORECAST_SHADOW_PAGE.includes('Keine amtliche Warnung'));
 });
+
+test('admin page inline JavaScript parses without syntax errors',()=>{
+  const m=FORECAST_SHADOW_PAGE.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(m,'inline admin script exists');
+  assert.doesNotThrow(()=>new Function(m[1]));
+});
