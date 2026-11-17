@@ -311,7 +311,7 @@ test('page refreshes itself every minute and manual backfill is tucked under tec
  assert.ok(FORECAST_SHADOW_PAGE.includes('Automatische Nachholung alle 15 Minuten'));
  const positionDetails=FORECAST_SHADOW_PAGE.indexOf('<details id="stationDetails">');
  const positionManualButton=FORECAST_SHADOW_PAGE.indexOf('<button id="backfill"');
- const positionClosingDetails=FORECAST_SHADOW_PAGE.indexOf('</details>');
+ const positionClosingDetails=FORECAST_SHADOW_PAGE.indexOf('</details>',positionDetails);
  assert.ok(positionDetails<positionManualButton&&positionManualButton<positionClosingDetails);
 });
 
