@@ -43,8 +43,12 @@ test('rain gauge source rows for a different region do not contaminate selected 
 });
 test('null readings and impossible values never become a measured 0 mm',()=>{
  const rows=measured(24);
- for(const x of rows)if(x.hour_utc==='2026-11-17T16:00:00.000Z')x.rain_mm=null;
- assert.equal(summarizeStationRain(hydro,near,rows,t),null);
+ for(const x of rows)if(['2026-11-17T16:00:00.000Z','2026-11-17T15:00:00.000Z'].includes(x.hour_utc))x.rain_mm=null;
+ assert.equal(summarizeStationRain(hydro,near,rows,t),null); // next real reading is too old
+ const sparse=measured(24);
+ for(const x of sparse)if(x.hour_utc==='2026-11-17T16:00:00.000Z')x.rain_mm=null;
+ const previous=summarizeStationRain(hydro,near,sparse,t);
+ assert.equal(previous.latestHour,'2026-11-17T15:00:00.000Z'); // only genuine older values, never fabricated zero
 });
 test('selected station is registered from official coordinates and capped at 40 active targets',async()=>{
  const calls=[];
