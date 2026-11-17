@@ -3,7 +3,7 @@
   "main": "src/index.js",
   "compatibility_date": "2026-11-14",
   "workers_dev": true,
-  "triggers": {"crons": ["31 * * * *"]},
+  "triggers": {"crons": ["31 * * * *", "1,16,46 * * * *"]},
   "d1_databases": [
     {
       "binding": "DB",
