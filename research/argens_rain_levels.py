@@ -173,6 +173,49 @@ def antecedent_rain(totals, station, event_date, days, decay=None):
         return round(sum(row[0] for row in records),1)
     return round(sum(row[0]*decay**k for k,row in enumerate(records)),1)
 
+def auc_rank(pairs):
+    """Area under rank curve for historical discrimination, not calibration."""
+    positives=sorted(score for score,hit in pairs if hit)
+    negatives=sorted(score for score,hit in pairs if not hit)
+    if not positives or not negatives: return None
+    # Day-level observations are serially dependent; never treat as
+    # independent experiments or provide statistical confidence intervals.
+    from bisect import bisect_left,bisect_right
+    concordant=0.0
+    for score in positives:
+        below=bisect_left(negatives,score)
+        equal=bisect_right(negatives,score)-below
+        concordant+=below+0.5*equal
+    return round(concordant/(len(positives)*len(negatives)),4)
+
+def compare_antecedent_windows(heights,totals):
+    """Retrospective ranking for NEXT calendar-day crest >= 5.40 m.
+
+    Only fully observed past days are inputs (no peak-day leakage).
+    The 2019-2024 test period is withheld from choice of cutoffs/model.
+    """
+    codes=("83051001","83004004","83050007","83148002","83075001")
+    rows=[]
+    for day,level in sorted(heights.items()):
+        if day.year<2010 or day.year>2024: continue
+        result={"date":str(day),"level_m":level,"hit":level>=5.4}
+        for width in (2,5,10,14,30):
+            values=[antecedent_rain(totals,code,day,width)
+                    for code in codes]
+            values=[x for x in values if x is not None]
+            result[str(width)+"d"]=max(values) if len(values)>=3 else None
+        rows.append(result)
+    # Compare indicators solely on MATCHED calendar days to eliminate
+    # spurious differences from coverage.
+    paired=[row for row in rows if row["2d"] is not None and row["10d"] is not None]
+    for name,subset in (("train_2010_2018",[x for x in paired if int(x["date"][:4])<=2018]),
+                        ("heldout_2019_2024",[x for x in paired if int(x["date"][:4])>=2019])):
+        print("HOLDOUT",json.dumps({"period":name,"n_days":len(subset),
+          "n_days_at_least_5_4m":sum(x["hit"] for x in subset),
+          "rank_auc_2d":auc_rank([(x["2d"],x["hit"]) for x in subset]),
+          "rank_auc_10d":auc_rank([(x["10d"],x["hit"]) for x in subset]),
+          "interpretation":"Discrimination on complete PRIOR calendar days; not a 6h forecast, no fitted probabilities, serially dependent events, not operational."}),flush=True)
+
 def main():
     heights = load_heights()
     print("HEIGHT sample",len(heights),"range",
@@ -253,6 +296,7 @@ def main():
             "counts":counts,
             "definition":"RETROSPECTIVE ONLY: maximum of five selected rainfall gauges, complete previous two days; not a forecast"
         },ensure_ascii=False),flush=True)
+    compare_antecedent_windows(heights,totals)
     # Explicit gaps and time resolution prevent unvalidated model output.
     result={"station":GAUGE,"height_days":len(heights),
             "weather_stations_considered":len(selected),
