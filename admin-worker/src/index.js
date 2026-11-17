@@ -1,5 +1,6 @@
 import {FORECAST_SHADOW_PAGE, getForecastShadowStatus, syncForecastRain, probeForecastRain, backfillForecastRain} from './forecast-shadow.js';
 import {forecastCronPlan} from './forecast-shadow-schedule.js';
+import {syncSelectedStationRain} from './national-rain.js';
 import {runShadowComparisonCycle,getShadowComparisons} from './forecast-shadow-comparison.js';
 // Separate Cloudflare Access-protected admin Worker for Argens Alerte.
 // Requires D1 binding DB and service binding PUSH_SERVICE to AdminPushService on argens-alerte-push.
@@ -18,6 +19,12 @@ export default {
     const result=await backfillForecastRain(env,Date.now(),fetch,plan.backfillLimit);
     if(result.status==='error'||result.status==='rate_limited')console.error('Forecast rain backfill status',result.status,result.error||'');
    }catch(error){console.error('Forecast rain backfill failed',String(error))}
+   // Only the ADMIN Worker reads METEO_FRANCE_OBS_API_KEY. Collected observations
+   // in shared D1 are read publicly but cannot trigger flood warnings.
+   try{
+    const national=await syncSelectedStationRain(env,{maxCalls:25});
+    if(national.status==='rate_limited')console.warn('National observed rain rate limit hit');
+   }catch(error){console.error('National selected station rain unavailable',String(error))}
    if(plan.sync){
     try{await runShadowComparisonCycle(env)}catch(error){console.error('Forecast comparison hourly cycle failed',String(error))}
    }
