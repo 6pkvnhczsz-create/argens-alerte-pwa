@@ -114,3 +114,18 @@ Der bereits vorhandene stündliche Cron ruft nach den regulären 33 Messanfragen
 **Keine automatische Hochwasserwarnung:** Nur die Regen-Datenlücke wird geschlossen; die experimentelle Schwellenprognose bleibt getrennt von allen Warnungen und lässt sich nur bei genügender Datenqualität berechnen. Die exakte Wirkung ist erst nach Cloudflare-Deployment und tatsächlichem API-Rücklauf verifiziert.
 
 Offizielle Quelle: https://www.data.gouv.fr/dataservices/api-donnees-dobservation (24 Stunden Aufbewahrungsfenster, 100 Anfragen/Minute); https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853639294/API+Cibl%C3%A9e+Obs+FR
+
+## 17.11.2026 – Nachladen und Dashboard vollständig automatisiert
+
+Die Übergangslücke von historischem Météo-France-CSV zu laufendem Echtzeitimport wird **ohne manuelle Betätigung** geschlossen, soweit Météo-France die echten Stundenwerte im offiziellen 24h-Zeitfenster noch bereitstellt.
+
+**Cloudflare Cron Triggers (UTC):**
+- `31 * * * *`: bisheriger regulärer Import, maximal 33 Beobachtungen (3 abgeschlossene Stunden × 11 Stationen), danach maximal 22 fehlende Stundenwerte nachholen.
+- `1,16,46 * * * *`: zusätzlich drei reine Nachladeläufe je Stunde mit maximal 55 fehlenden Stundenwerten. Insgesamt wird also alle 15 Minuten ein möglicher Nachladeversuch angestoßen (01, 16, 31, 46 UTC).
+- Erfolgreich gespeicherte Werte und bereits im CSV-Snapshot vorhandene Stunden werden ausgelassen. Fehlende Werte werden nie als 0 mm gespeichert. Ein Retry-Cooldown von 30 Minuten für ungültige RR1-Antworten und die schon vorhandene parallele 2-Minuten-Sperre bleiben bestehen.
+- Die Obergrenze von 55 Anfragen pro Durchlauf (bzw. 33+22 beim normalen Import) hält reguläre Lastspitzen deutlich unter 100 API-Anfragen pro Minute. Externe 429-Fehler brechen Nachladung ab und werden im Admin vermerkt. Kein neuer Secret, kein zusätzlicher Dienst, kein separates ChatGPT-Reminder notwendig.
+- Die neue Berechnung im bestehenden `GET /api/forecast-shadow` erfolgt **bereits bei jedem Abruf aus den aktuell gespeicherten Daten**. Sobald die Feature-Anforderungen erfüllt sind, wird automatisch die experimentelle 6-h-Pegelzahl ausgegeben. Es wird keine Prognose aktiv an Nutzer gepusht.
+- Das Admin-Frontend ruft den Status selbständig jede Minute neu ab, solange die Seite sichtbar ist. Bei geschlossener Admin-Seite arbeitet der Cloudflare-Cron trotzdem weiter. Der manuelle Nachladebutton bleibt nur als Fehlerdiagnose unter den aufgeklappten technischen Details.
+- **Deployment kontrollieren:** Ein GitHub-Merge allein bestätigt noch nicht, dass die neuen Cloudflare Cron Triggers aus `admin-worker/wrangler.jsonc` in der tatsächlichen Worker-Deployment-Konfiguration aktiv sind. Nach Veröffentlichung in Cloudflare unter dem Worker `argens-alerte-admin` die registrierten Cron Triggers kontrollieren. Bei fehlenden Triggern die Admin-Worker-Build-/Deploy-Konfiguration prüfen.
+
+Das Experiment ist nicht als zuverlässige Hochwasserwarnung validiert. Die öffentliche FR/EN-Seite, Push-Worker, Warnschwellen und bestehende Alarmregeln sind weiterhin unangetastet.
