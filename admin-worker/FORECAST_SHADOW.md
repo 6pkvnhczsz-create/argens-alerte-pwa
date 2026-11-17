@@ -19,9 +19,10 @@ Die bestehenden Alarmregeln, +40 cm/h, Nutzerschwellen, D1-Nutzerkonten, Push-Wo
 
 1. PR prüfen, Tests ausführen, erst dann in `main` übernehmen. Workers Builds deployt den Admin-Worker anhand `admin-worker/wrangler.jsonc`.
 2. In Cloudflare bei **argens-alerte-admin** ein **verschlüsseltes Secret** `METEO_FRANCE_OBS_API_KEY` setzen. Der Schlüssel muss auf dem Météo-France-Portal für **API Données d'observation** freigeschaltet sein. Ein Schlüssel für die Vigilance-API ist nicht automatisch dazu berechtigt. Schlüssel nie in GitHub/Chat einfügen.
-3. Sicherstellen, dass der stündliche Cron-Trigger mit dem Admin-Worker ausgerollt ist. Ohne Secret zeichnet die Testansicht ausdrücklich „Secret fehlt“ und speichert keine neuen Messwerte.
-4. Die Seite `/forecast-shadow` hinter Cloudflare Access öffnen. Prüfen, ob `Letzter Import` und die Stationen erscheinen. Bei 401/403 im Import: API-Berechtigung/Konto prüfen; bei fehlendem `rr1` nicht automatisch auf null setzen.
-5. Es dauert nach der Aktivierung bis zu zehn Tage, bis eine volle zehntägige Historie live angesammelt wurde (sofern die Quellen berichten). Vorhandene lokale CSV-Archive wurden **nicht** ungeprüft als Live-Messungen importiert.
+3. Im Admin-Portal unter **Prognose-Test** auf **Météo-France-Verbindung testen** klicken. Der Test führt genau einen geschützten GET-Aufruf an die Observations-API aus und zeigt HTTP 401/403/429 gesondert an. HTTP 200 bestätigt zunächst nur den API-Zugriff; ein stündlicher RR1-Wert ist zusätzlich erforderlich, damit eine Messung vorliegt.
+4. Sicherstellen, dass der stündliche Cron-Trigger mit dem Admin-Worker ausgerollt ist. Ohne Secret zeichnet die Testansicht ausdrücklich „Secret fehlt“ und speichert keine neuen Messwerte.
+5. Die Seite `/forecast-shadow` hinter Cloudflare Access öffnen. Prüfen, ob `Letzter Import` und die Stationen erscheinen. Bei 401/403 im Import: API-Berechtigung/Konto prüfen; bei fehlendem `rr1` nicht automatisch auf null setzen.
+6. Es dauert nach der Aktivierung bis zu zehn Tage, bis eine volle zehntägige Historie live angesammelt wurde (sofern die Quellen berichten). Vorhandene lokale CSV-Archive wurden **nicht** ungeprüft als Live-Messungen importiert.
 
 ## Offene Punkte vor der *echten* Modellprognose
 
@@ -35,7 +36,7 @@ Die bestehenden Alarmregeln, +40 cm/h, Nutzerschwellen, D1-Nutzerkonten, Push-Wo
 
 - Nur im existierenden Cloudflare-Access-geschützten Admin-Worker.
 - Bei fehlenden/alten Messwerten ist `prediction.forecast_peak_m` immer `null`.
-- API-Token verbleibt ausschließlich als Cloudflare-Secret; Admin-API gibt nur `api_key_configured` zurück.
+- API-Token verbleibt ausschließlich als Cloudflare-Secret; Admin-API gibt nur `api_key_configured` zurück. Der POST-Endpunkt `/api/forecast-shadow/probe` prüft mit einer Anfrage die Zugriffsberechtigung, liefert ausschließlich zusammengefasste Status- und Messwerte und ist durch Cloudflare Access sowie Same-Origin geschützt.
 - Zugangskontrolle folgt dem bestehenden Admin-Worker; Cloudflare Access muss **vor** dem Worker sämtlichen Traffic schützen. Dieser Zweig ersetzt keine Access-Policy.
 
 ## Tests
