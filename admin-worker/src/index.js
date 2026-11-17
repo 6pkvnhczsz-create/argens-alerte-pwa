@@ -1,5 +1,6 @@
 import {FORECAST_SHADOW_PAGE, getForecastShadowStatus, syncForecastRain, probeForecastRain, backfillForecastRain} from './forecast-shadow.js';
 import {forecastCronPlan} from './forecast-shadow-schedule.js';
+import {syncSelectedStationRain} from './national-rain.js';
 import {runShadowComparisonCycle,getShadowComparisons} from './forecast-shadow-comparison.js';
 // Separate Cloudflare Access-protected admin Worker for Argens Alerte.
 // Requires D1 binding DB and service binding PUSH_SERVICE to AdminPushService on argens-alerte-push.
@@ -18,6 +19,10 @@ export default {
     const result=await backfillForecastRain(env,Date.now(),fetch,plan.backfillLimit);
     if(result.status==='error'||result.status==='rate_limited')console.error('Forecast rain backfill status',result.status,result.error||'');
    }catch(error){console.error('Forecast rain backfill failed',String(error))}
+   try{
+    const local=await syncSelectedStationRain(env,{maxCalls:25});
+    if(local.status==='rate_limited')console.warn('National measured rain rate limit reached');
+   }catch(error){console.error('National observed station rain unavailable',String(error))}
    if(plan.sync){
     try{await runShadowComparisonCycle(env)}catch(error){console.error('Forecast comparison hourly cycle failed',String(error))}
    }
