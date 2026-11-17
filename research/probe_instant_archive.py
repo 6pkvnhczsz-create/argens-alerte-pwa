@@ -24,4 +24,21 @@ def main():
     print("EXPECTED_STATION",STATION,
           "expected_archive_letter",STATION[0],
           "source_format","semicolon delimited CSV files, one year per folder")
+    archives=[item for item in source.get("resources",[])
+              if "Stations V-Z" in (item.get("title") or "")]
+    for archive in archives:
+        base=archive.get("url","")
+        for url in (base,base.rstrip("/")+"/download"):
+            try:
+                req=urllib.request.Request(url,method="HEAD",
+                     headers={"User-Agent":"RiviereAlerteResearch/0.2"})
+                with urllib.request.urlopen(req,timeout=20) as response:
+                    print("ARCHIVE_HEAD",json.dumps({"url":url,
+                        "status":response.status,"final":response.url,
+                        "content_type":response.headers.get("Content-Type"),
+                        "content_length":response.headers.get("Content-Length"),
+                        "accept_ranges":response.headers.get("Accept-Ranges")}))
+            except Exception as exc:
+                print("ARCHIVE_HEAD_ERROR",json.dumps({"url":url,
+                   "type":type(exc).__name__,"message":str(exc)[:300]}))
 if __name__=="__main__":main()
