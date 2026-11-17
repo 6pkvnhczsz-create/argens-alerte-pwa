@@ -15,6 +15,8 @@ const response = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}
 });
 const isoHour = ms => new Date(Math.floor(ms/HOUR_MS)*HOUR_MS).toISOString();
+// Météo-France expects YYYY-MM-DDTHH:mm:ssZ, *without* JavaScript's .000 milliseconds.
+export const meteoDate = hour => hour.replace(/\.000Z$/, 'Z');
 const safeError = error => String(error && error.message || error || 'Fehler').slice(0, 160);
 
 export function parseHourlyRain(payload, stationId, requestedHour) {
@@ -49,8 +51,8 @@ async function ensureTables(db) {
   await db.prepare('CREATE TABLE IF NOT EXISTS forecast_shadow_ingest (id INTEGER PRIMARY KEY CHECK(id=1), checked_at TEXT NOT NULL, accepted INTEGER NOT NULL, rejected INTEGER NOT NULL, error_text TEXT)').run();
 }
 
-// Called exclusively by the separate admin Worker's hourly cron.
-// Fetch current and previous two UTC hours to recover short upstream outages.
+// Called by the separate admin Worker's hourly cron or an Access-protected manual test.
+// Fetch only the last three completed UTC hours; the current hour can still be unpublished.
 export async function syncForecastRain(env, nowMs = Date.now(), fetcher = fetch) {
   if (!env.DB) return {status:'no_database'};
   await ensureTables(env.DB);
@@ -60,7 +62,7 @@ export async function syncForecastRain(env, nowMs = Date.now(), fetcher = fetch)
       .bind(checkedAt, 0, 0, 'Secret METEO_FRANCE_OBS_API_KEY fehlt').run();
     return {status:'key_missing',accepted:0};
   }
-  const requested = [0,1,2].map(offset => isoHour(nowMs-offset*HOUR_MS));
+  const requested = [1,2,3].map(offset => isoHour(nowMs-offset*HOUR_MS));
   const jobs = requested.flatMap(hour => RAIN_STATIONS.map(station => [station[0],hour]));
   let accepted = 0, rejected = 0, firstError = '';
   // Limit concurrency; official API is rate limited.
@@ -68,7 +70,7 @@ export async function syncForecastRain(env, nowMs = Date.now(), fetcher = fetch)
     const results = await Promise.allSettled(jobs.slice(i,i+5).map(async ([station,hour]) => {
       const u = new URL(API);
       u.searchParams.set('id_station',station);
-      u.searchParams.set('date',hour);
+      u.searchParams.set('date',meteoDate(hour));
       u.searchParams.set('format','json');
       const r = await fetcher(u.toString(),{
         headers:{Accept:'application/json',apikey:env.METEO_FRANCE_OBS_API_KEY},
@@ -77,16 +79,16 @@ export async function syncForecastRain(env, nowMs = Date.now(), fetcher = fetch)
       if (!r.ok) throw Error('Météo-France HTTP '+r.status);
       const body = await r.json();
       const datum = parseHourlyRain(body,station,hour);
-      if (!datum) return false;
+      if (!datum) return {ok:false,reason:'Kein gültiger RR1-Wert für '+station+' um '+hour};
       await env.DB.prepare('INSERT INTO forecast_shadow_rain(station_id,hour_utc,rain_mm,inserted_at) VALUES(?,?,?,?) ON CONFLICT(station_id,hour_utc) DO UPDATE SET rain_mm=excluded.rain_mm, inserted_at=excluded.inserted_at')
         .bind(datum.station_id,datum.hour_utc,datum.mm,checkedAt).run();
-      return true;
+      return {ok:true};
     }));
     for (const result of results) {
-      if (result.status==='fulfilled' && result.value) accepted++;
+      if (result.status==='fulfilled' && result.value?.ok) accepted++;
       else {
         rejected++;
-        if (!firstError && result.status==='rejected') firstError = safeError(result.reason);
+        if (!firstError) firstError = result.status==='rejected' ? safeError(result.reason) : (result.value?.reason||'Keine Messung');
       }
     }
   }
@@ -104,7 +106,7 @@ export async function probeForecastRain(env, nowMs=Date.now(), fetcher=fetch) {
   const hour=isoHour(nowMs-HOUR_MS);
   const u=new URL(API);
   u.searchParams.set('id_station',station);
-  u.searchParams.set('date',hour.replace('.000Z','Z'));
+  u.searchParams.set('date',meteoDate(hour));
   u.searchParams.set('format','json');
   try {
     const r=await fetcher(u.toString(),{
@@ -191,9 +193,11 @@ export const FORECAST_SHADOW_PAGE = `<!doctype html><html lang="de"><meta charse
 <section><small>Experimentelle Modellprognose</small><strong id="prediction">Noch nicht verfügbar</strong><p class="muted" id="reason">Daten werden geprüft …</p><small>Keine amtliche Hochwasserwarnung. Die bisherige Warnlogik bleibt unverändert.</small></section>
 <div class="grid"><section><small>Letzter Pegel (Hub’Eau)</small><strong id="level">–</strong><small id="hydroTime">–</small></section><section><small>Aktuelle Regenstationen</small><strong id="stations">–</strong><small>Mindestens 7 erforderlich</small></section><section><small>10-Tage-Historie vollständig</small><strong id="history">–</strong><small>Mindestens 216 von 240 Stunden pro Station</small></section></div>
 <h2>Messdaten und Verfügbarkeit</h2><section><p id="api">Prüfe Météo-France …</p><p id="sync" class="muted"></p><div id="error"></div><table><thead><tr><th>Station</th><th>Letzter Regenwert (UTC)</th><th>10 Tage</th></tr></thead><tbody id="stationsTable"></tbody></table></section>
-<button id="probe" type="button">Météo-France-Verbindung testen</button> <button id="refresh" type="button">↻ Aktualisieren</button><p id="probeStatus" class="muted" role="status">Der API-Schlüssel wird bei einem Verbindungstest geprüft.</p><p class="muted" id="updated"></p></main><script>
+<button id="probe" type="button">Météo-France-Verbindung testen</button> <button id="syncNow" type="button">Regenimport jetzt starten</button> <button id="refresh" type="button">↻ Aktualisieren</button><p id="probeStatus" class="muted" role="status">Der API-Schlüssel wird bei einem Verbindungstest geprüft.</p><p class="muted" id="updated"></p></main><script>
 const el=id=>document.getElementById(id);const stamp=v=>v?new Date(v).toLocaleString('de-DE',{timeZone:'Europe/Paris',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'–';
 async function update(){el('refresh').disabled=true;try{const res=await fetch('/api/forecast-shadow',{cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);const d=await res.json();el('prediction').textContent=d.prediction.forecast_peak_m==null?'Noch keine freigegebene Modellzahl':d.prediction.forecast_peak_m.toFixed(2)+' m';el('reason').textContent=d.prediction.reason||'Nur experimenteller Test';el('level').textContent=Number.isFinite(d.hydro.level_m)?d.hydro.level_m.toFixed(2)+' m':'–';el('hydroTime').textContent=d.hydro.observed_at_utc?stamp(d.hydro.observed_at_utc)+' · '+(d.hydro.ok?'aktuell':'nicht aktuell'):d.hydro.reason||'Nicht erreichbar';el('stations').textContent=d.rain.recent_stations+'/11';el('history').textContent=d.rain.complete_10d_stations+'/11';el('api').textContent=d.rain.api_key_configured?'Cloudflare-Secret vorhanden (Zugriff noch nicht geprüft)':'Météo-France Observations-API: Secret fehlt';el('sync').textContent=d.rain.last_ingest?'Letzter Import: '+stamp(d.rain.last_ingest.checked_at)+' · '+d.rain.last_ingest.accepted+' übernommen / '+d.rain.last_ingest.rejected+' verworfen':'Noch kein automatischer Import durchgeführt';el('error').textContent=d.rain.storage_error||d.rain.last_ingest?.error_text||'';const body=el('stationsTable');body.replaceChildren();for(const s of d.rain.stations){const tr=document.createElement('tr');for(const value of [s.name,stamp(s.latest_utc)+(s.fresh?' ✓':''),s.hours_10d+'/240']){const td=document.createElement('td');td.textContent=value;tr.append(td)}body.append(tr)}el('updated').textContent='Abgerufen: '+stamp(d.issued_at_utc)}catch(e){el('error').textContent='Status nicht abrufbar: '+e.message}finally{el('refresh').disabled=false}}
 el('refresh').addEventListener('click',update);
+el('syncNow').addEventListener('click',async()=>{const btn=el('syncNow');btn.disabled=true;el('probeStatus').textContent='Starte Import der letzten drei abgeschlossenen UTC-Stunden …';try{const r=await fetch('/api/forecast-shadow/sync-now',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const d=await r.json();if(!r.ok)throw Error(d.error||'HTTP '+r.status);el('probeStatus').textContent='Import angestoßen. Über „Aktualisieren“ lässt sich danach das Ergebnis prüfen.';}catch(e){el('probeStatus').textContent='Import nicht gestartet: '+e.message;}finally{btn.disabled=false}});
+
 el('probe').addEventListener('click',async()=>{const btn=el('probe');btn.disabled=true;el('probeStatus').textContent='Prüfe API-Verbindung …';try{const r=await fetch('/api/forecast-shadow/probe',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();el('probeStatus').textContent=(d.ok?'✓ ':'✕ ')+d.message+(d.reading_available?' · '+d.rain_mm+' mm':'');}catch(e){el('probeStatus').textContent='Verbindungstest fehlgeschlagen: '+e.message}finally{btn.disabled=false}});
 update();</script></html>`;

@@ -6,12 +6,22 @@ const PAGE="<!doctype html><html lang=\"de\"><meta charset=\"utf-8\"><meta name=
 const response=(obj,status=200)=>new Response(JSON.stringify(obj),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export default {
  async scheduled(_event,env,ctx){ctx.waitUntil(syncForecastRain(env).catch(error=>console.error('Forecast rain sync failed',String(error))))},
- async fetch(request,env){
+ async fetch(request,env,ctx){
  if(!request.headers.get('Cf-Access-Jwt-Assertion'))return response({error:'Cloudflare Access authentication required'},403);
  if(!env.DB||!env.PUSH_SERVICE)return response({error:'Admin bindings not configured'},503);
  const url=new URL(request.url);
  if(request.method==='GET'&&url.pathname==='/')return new Response(PAGE.replace('</nav>','<a href="/forecast-shadow">Prognose-Test</a></nav>'),{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'}});
  if(request.method==='GET'&&url.pathname==='/forecast-shadow')return new Response(FORECAST_SHADOW_PAGE,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"}});
+ if(request.method==='POST'&&url.pathname==='/api/forecast-shadow/sync-now'){
+  if(request.headers.get('Origin')!==url.origin)return response({error:'Origin mismatch'},403);
+  if(!env.METEO_FRANCE_OBS_API_KEY)return response({error:'Secret METEO_FRANCE_OBS_API_KEY fehlt'},503);
+  try{
+   const last=await env.DB.prepare('SELECT checked_at FROM forecast_shadow_ingest WHERE id=1').first();
+   if(last?.checked_at&&Number.isFinite(Date.parse(last.checked_at))&&Date.now()-Date.parse(last.checked_at)<120000)return response({error:'Letzter Import liegt weniger als zwei Minuten zurück. Bitte zunächst den Status aktualisieren.'},429);
+   ctx.waitUntil(syncForecastRain(env).catch(error=>console.error('Manual forecast rain sync failed',String(error))));
+   return response({queued:true,message:'Import angestoßen. Der Status wird nach Abschluss über Aktualisieren angezeigt.'},202);
+  }catch(error){console.error('Manual forecast rain sync scheduling failed',String(error));return response({error:'Import konnte nicht gestartet werden'},503)}
+ }
  if(request.method==='POST'&&url.pathname==='/api/forecast-shadow/probe'){
   if(request.headers.get('Origin')!==url.origin)return response({error:'Origin mismatch'},403);
   try{return response(await probeForecastRain(env))}

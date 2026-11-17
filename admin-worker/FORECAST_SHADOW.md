@@ -48,3 +48,11 @@ node --test admin-worker/test/forecast-shadow.test.mjs
 ```
 
 Quellen: https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853639294/API+Cibl%C3%A9e+Obs+FR ; https://www.data.gouv.fr/dataservices/api-donnees-dobservation
+
+## Importkorrektur 17.11.2026
+
+Der erste Test zeigte HTTP 400 bei allen 33 automatischen Anfragen, während der manuelle API-Test für Les Mayons erfolgreich war. Die Ursache war eine unterschiedliche Datumsformatierung: Der Cron verwendete ISO-Timestamps mit Millisekunden (`...:00.000Z`), der erfolgreiche Einzeltest ohne Millisekunden (`...:00Z`). Der Import verwendet nun einheitlich das von Météo-France dokumentierte Format `YYYY-MM-DDTHH:mm:ssZ` und ruft ausschließlich die drei bereits abgeschlossenen UTC-Stunden ab.
+
+Im Access-geschützten Admin-Bereich ist **Regenimport jetzt starten** verfügbar. Diese Aktion stößt den Import im Hintergrund des Workers an; das Ergebnis erscheint erst nach Abschluss beim Klick auf **Aktualisieren**. Höchstens ein manueller Import innerhalb von zwei Minuten. Ein grüner API-Einzeltest allein bestätigt noch nicht, dass alle elf Stationen stündliche RR1-Werte liefern. Fehlende Werte bleiben ausdrücklich fehlend und werden nicht als 0 mm eingetragen.
+
+Die Änderung ist auf Regenimport und Admin-Test beschränkt; keine Auswirkungen auf Warnschwellen oder Push-Benachrichtigungen.
