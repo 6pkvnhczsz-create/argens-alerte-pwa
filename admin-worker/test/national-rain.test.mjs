@@ -36,7 +36,7 @@ test('selected station registered in D1 is automatically populated from official
   ...Array.from({length:101},(_,i)=>String(i+10000).padStart(8,'0')+';Far '+i+';48.9;2.1')].join('\n');
  let calls=0,stored=0,mapping=null,secret='test_key_do_not_leak';
  const db={prepare(sql){
-  return {run:async()=>({success:true}),
+  return {run:async()=>({success:true}),first:async()=>null,
    bind(...values){
     return {
      first:async()=>null,
