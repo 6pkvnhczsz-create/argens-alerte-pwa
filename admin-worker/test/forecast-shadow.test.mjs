@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source = readFileSync(new URL('../src/forecast-shadow.js',import.meta.url),'utf8');
-const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk} = await import('../src/forecast-shadow.js');
+const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk,getForecastShadowStatus} = await import('../src/forecast-shadow.js');
 const {archivedRainRows} = await import('../src/rain-archive-2026.js');
 const {FORECAST_SHADOW_PAGE} = await import('../src/forecast-shadow-page.js');
 
@@ -204,4 +204,36 @@ test('model threshold crossing shown only as experimental, never official warnin
  assert.equal(risk.thresholds[2].observed_status,'below');
  assert.equal(risk.status,'experimental');
  assert.equal(risk.signals.length,1); // observed rainfall, not predicted rainfall
+});
+
+test('admin read API computes shadow forecast using real archive overlap, mocked D1 and Hub-Eau',async()=>{
+ const now=Date.parse('2026-11-17T14:22:00Z'),H=3600000;
+ const rows=[];
+ for(const [id] of RAIN_STATIONS)
+  for(let h=0;h<=19;h++)
+   rows.push({station_id:id,hour_utc:new Date(Date.parse('2026-11-16T19:00:00Z')+h*H).toISOString(),rain_mm:0.0});
+ const gauge=[];
+ for(let m=0;m<14*60;m+=15)
+  gauge.push({date_obs:new Date(Date.parse('2026-11-17T14:15:00Z')-m*60000).toISOString(),resultat_obs:1340});
+ const db={
+  prepare(sql){
+   const o={run:async()=>({success:true}),first:async()=>({checked_at:'2026-11-17T14:00:00Z',accepted:31,rejected:2,error_text:'einzelne Regenstunden fehlen'}),
+    all:async()=>({results:sql.includes('FROM forecast_shadow_rain')?rows:[]}),bind(){return o}};
+   return o;
+  }
+ };
+ const fakeFetch=async (url)=>{
+  assert.ok(String(url).includes('observations_tr'));
+  return new Response(JSON.stringify({data:gauge}),{status:200,headers:{'Content-Type':'application/json'}});
+ };
+ const out=await getForecastShadowStatus({DB:db,METEO_FRANCE_OBS_API_KEY:'example-key'},now,fakeFetch);
+ assert.equal(out.hydro.ok,true);
+ assert.equal(out.hydro.series,undefined); // never leak bulk raw series to browser
+ assert.ok(out.rain.ready);
+ assert.equal(out.prediction.status,'experimental');
+ assert.ok(Number.isFinite(out.prediction.forecast_peak_m));
+ assert.ok(out.prediction.forecast_peak_m>=1.34);
+ assert.equal(out.prediction.model.operational,false);
+ assert.equal(out.risk.status,'experimental');
+ assert.equal(out.risk.thresholds.length,3);
 });
