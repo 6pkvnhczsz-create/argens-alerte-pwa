@@ -5,6 +5,7 @@ const source = readFileSync(new URL('../src/forecast-shadow.js',import.meta.url)
 const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk,getForecastShadowStatus,backfillForecastRain} = await import('../src/forecast-shadow.js');
 const {archivedRainRows} = await import('../src/rain-archive-2026.js');
 const {FORECAST_SHADOW_PAGE} = await import('../src/forecast-shadow-page.js');
+const {forecastCronPlan,NORMAL_CRON,RECOVERY_CRON}=await import('../src/forecast-shadow-schedule.js');
 const {shadowTreePredict,buildShadowFeatureVector,computeShadowForecast,MODEL_INFO}=await import('../src/forecast-shadow-model.js');
 
 test('accepts valid observed zero rain with UTC hour and quality 1',()=>{
@@ -289,4 +290,26 @@ test('missing RR1 in backfill is recorded as missing rather than inserted as 0 m
  assert.equal(result.unavailable,55);
  assert.equal(rainWrites.length,0);
  assert.equal(attemptWrites.length,55);
+});
+
+test('scheduled automation runs hourly sync plus three additional bounded recovery jobs per hour',()=>{
+ const wrangler=JSON.parse(readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8'));
+ assert.deepEqual(wrangler.triggers.crons,[NORMAL_CRON,RECOVERY_CRON]);
+ assert.deepEqual(forecastCronPlan('31 * * * *'),{sync:true,backfillLimit:22});
+ assert.deepEqual(forecastCronPlan('1,16,46 * * * *'),{sync:false,backfillLimit:55});
+ assert.deepEqual(forecastCronPlan('some unapproved cron'),{sync:false,backfillLimit:0});
+ const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ assert.ok(src.includes('forecastCronPlan(event?.cron)'));
+ assert.ok(src.includes('backfillForecastRain(env,Date.now(),fetch,plan.backfillLimit)'));
+});
+test('page refreshes itself every minute and manual backfill is tucked under technical details',()=>{
+ const script=FORECAST_SHADOW_PAGE.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+ assert.ok(script);
+ assert.ok(script.includes("setInterval"));
+ assert.ok(script.includes('60*1000'));
+ assert.ok(FORECAST_SHADOW_PAGE.includes('Automatische Nachholung alle 15 Minuten'));
+ const positionDetails=FORECAST_SHADOW_PAGE.indexOf('<details id="stationDetails">');
+ const positionManualButton=FORECAST_SHADOW_PAGE.indexOf('<button id="backfill"');
+ const positionClosingDetails=FORECAST_SHADOW_PAGE.indexOf('</details>');
+ assert.ok(positionDetails<positionManualButton&&positionManualButton<positionClosingDetails);
 });
