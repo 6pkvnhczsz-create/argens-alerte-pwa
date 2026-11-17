@@ -82,6 +82,10 @@ assert.equal(d.querySelector('#stationRiverPrefix').hidden,true,
 assert.equal(d.querySelector('#stationTitle').textContent,'La Seine à Paris');
 dom.window.setHomeStationHeading('Y531201001','Roquebrune-sur-Argens');
 assert.equal(d.querySelector('#stationRiverPrefix').hidden,false);
+const german=readFileSync(new URL('../i18n-de.js',import.meta.url),'utf8');
+assert.ok(german.includes('"En développement": "In Entwicklung"'));
+assert.ok(german.includes('"Les prévisions sont actuellement en phase de test": "Die Hochwasserprognose wird derzeit getestet."'));
+assert.ok(german.includes('"Flood forecast in development": "Hochwasserprognose in Entwicklung"'));
 const flood=d.querySelector('#floodResearchCard');
 assert.equal(flood.querySelector('.flood-research-tag').textContent,'En développement');
 assert.match(flood.querySelector('.flood-research-state').textContent,/en phase de test/);
