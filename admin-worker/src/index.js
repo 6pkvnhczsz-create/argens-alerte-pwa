@@ -1,4 +1,4 @@
-import {FORECAST_SHADOW_PAGE, getForecastShadowStatus, syncForecastRain, probeForecastRain} from './forecast-shadow.js';
+import {FORECAST_SHADOW_PAGE, getForecastShadowStatus, syncForecastRain, probeForecastRain, backfillForecastRain} from './forecast-shadow.js';
 // Separate Cloudflare Access-protected admin Worker for Argens Alerte.
 // Requires D1 binding DB and service binding PUSH_SERVICE to AdminPushService on argens-alerte-push.
 // IMPORTANT: Enable Cloudflare Access for ALL traffic before deployment.
@@ -21,6 +21,14 @@ export default {
    ctx.waitUntil(syncForecastRain(env).catch(error=>console.error('Manual forecast rain sync failed',String(error))));
    return response({queued:true,message:'Import angestoßen. Der Status wird nach Abschluss über Aktualisieren angezeigt.'},202);
   }catch(error){console.error('Manual forecast rain sync scheduling failed',String(error));return response({error:'Import konnte nicht gestartet werden'},503)}
+ }
+ if(request.method==='POST'&&url.pathname==='/api/forecast-shadow/backfill'){
+  if(request.headers.get('Origin')!==url.origin)return response({error:'Origin mismatch'},403);
+  if(!env.METEO_FRANCE_OBS_API_KEY)return response({error:'Secret METEO_FRANCE_OBS_API_KEY fehlt'},503);
+  ctx.waitUntil(backfillForecastRain(env).then(result=>{
+    if(result.status==='error')console.error('Forecast rain backfill error',result.error);
+  }).catch(error=>console.error('Forecast rain backfill failed',String(error))));
+  return response({queued:true,message:'Fehlende Regenstunden werden in einem begrenzten Datenpaket nachgeladen. Danach Status aktualisieren.'},202);
  }
  if(request.method==='POST'&&url.pathname==='/api/forecast-shadow/probe'){
   if(request.headers.get('Origin')!==url.origin)return response({error:'Origin mismatch'},403);
