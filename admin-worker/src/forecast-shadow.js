@@ -1,4 +1,5 @@
 import {archivedRainRows} from './rain-archive-2026.js';
+import {computeShadowForecast} from './forecast-shadow-model.js';
 // Admin-only, fail-closed preparation for the 6-hour flood forecast shadow test.
 // This code does not send alerts, change thresholds, or expose predictions publicly.
 // Live precipitation is an observed Météo-France DPObs reading, NOT Open-Meteo model rain.
@@ -187,14 +188,15 @@ export function mergeRainHistory(liveRows,historyRows,nowMs) {
     return {mm:validHours>=Math.ceil(hours*.8)?Math.round(sum*10)/10:null,
       valid_hours:validHours,required_hours:Math.ceil(hours*.8),period_hours:hours};
   };
-  return {covered,rolling_24h:sumRolling(24),rolling_240h:sumRolling(240),
+  return {rows,covered,rolling_24h:sumRolling(24),rolling_240h:sumRolling(240),
     historical_sample_count:rows.filter(x=>x.source==='historic_csv').length,
     live_sample_count:rows.filter(x=>x.source!=='historic_csv').length};
 }
-export function summarizeSixHourRisk(hydro,rain) {
+export function summarizeSixHourRisk(hydro,rain,modelForecast=null) {
   const thresholds=CRITICAL_THRESHOLDS.map(x=>({
     ...x,observed_status:hydro.ok?(hydro.level_m>=x.metres?'reached':'below'):'unknown',
-    forecast_crossing:null,forecast_status:'not_calculated'
+    forecast_crossing:modelForecast?.status==='experimental'?modelForecast.peak_m>=x.metres:null,
+    forecast_status:modelForecast?.status==='experimental'?'experimental':'not_calculated'
   }));
   const blockedReason=!hydro.ok?(hydro.observed_at_utc&&hydro.age_minutes>60?
     'Der Pegel ist '+hydro.age_minutes+' Minuten alt; maximal 60 Minuten erlaubt.':(hydro.reason||'Aktueller Pegel fehlt.')):
@@ -206,19 +208,23 @@ export function summarizeSixHourRisk(hydro,rain) {
   if(hydro.ok&&rise!==null&&rise>=.4)signals.push('Schneller gemessener Pegelanstieg (≥ 40 cm/h)');
   if(rain.rolling_24h?.mm!==null&&rain24>=50)signals.push('Gemessener regionaler Regen ≥ 50 mm/24 h');
   if(hydro.ok&&hydro.level_m>=5.4)signals.push('Erste kritische Pegelschwelle bereits erreicht');
-  return {status:'not_calculated',label:'6-Stunden-Risiko noch nicht berechenbar',
-    reason:blockedReason,signals,thresholds,
+  const estimated=modelForecast?.status==='experimental';
+  const peak=estimated?modelForecast.peak_m:null;
+  const label=estimated?(peak>=5.40?'Testmodell: mögliche Überschreitung ab 5,40 m':'Testmodell: Schätzung unter 5,40 m (keine Entwarnung)'):'6-Stunden-Risiko noch nicht berechenbar';
+  return {status:estimated?'experimental':'not_calculated',label,
+    reason:estimated?'Experimentelle Modellschätzung, nicht als Warnentscheidung geeignet. Einzelne Hochwasser wurden deutlich überschätzt.':modelForecast?.reason||blockedReason,signals,thresholds,
     disclaimer:'Messsignale sind keine validierte 6-Stunden-Vorhersage und ändern keine Warnungen.'};
 }
 
 async function getHydro(fetcher, nowMs) {
   try {
-    const r=await fetcher('https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite='+STATION+'&grandeur_hydro=H&size=150&sort=desc&format=json',{
+    const r=await fetcher('https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite='+STATION+'&grandeur_hydro=H&size=500&sort=desc&format=json',{
       headers:{Accept:'application/json'},signal:AbortSignal.timeout(9500)
     });
     if(!r.ok) throw Error('Hub’Eau HTTP '+r.status);
     const data=await r.json();
     const valid=(Array.isArray(data.data)?data.data:[])
+      .filter(x=>x.resultat_obs!==null&&x.resultat_obs!==undefined&&x.resultat_obs!=='')
       .map(x=>({at:x.date_obs,metres:Number(x.resultat_obs)/1000}))
       .filter(x=>x.at&&Number.isFinite(Date.parse(x.at))&&Number.isFinite(x.metres)&&x.metres>=0&&x.metres<20)
       .sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
@@ -228,7 +234,7 @@ async function getHydro(fetcher, nowMs) {
     return {ok:age>=-15*60000 && age<=60*60000,level_m:latest.metres,
       observed_at_utc:latest.at,age_minutes:Math.round(age/60000),
       change_1h_m:old?Math.round((latest.metres-old.metres)*100)/100:null,
-      source:'Hub’Eau',reason:age>60*60000?'Pegel älter als 60 Minuten':null};
+      source:'Hub’Eau',series:valid.slice(0,500),reason:age>60*60000?'Pegel älter als 60 Minuten':null};
   } catch(e) {return {ok:false,reason:safeError(e)};}
 }
 
@@ -254,11 +260,20 @@ export async function getForecastShadowStatus(env, nowMs=Date.now(), fetcher=fet
   rain.source='Météo-France DPObs (beobachtete Stundenwerte)';
   rain.last_ingest=ingest;
   rain.storage_error=dbError;
+  const forecast=computeShadowForecast(combined.rows,hydro,nowMs,rain.ready&&!dbError);
+  const {series:_internalSeries,...publicHydro}=hydro; // do not ship 500 raw samples to the browser
+  const risk=summarizeSixHourRisk(hydro,rain,forecast);
   return {
     station:STATION,issued_at_utc:stamp,mode:'admin_shadow_only',horizon_hours:6,
-    hydro,rain,risk:summarizeSixHourRisk(hydro,rain),
-    prediction:{forecast_peak_m:null,status:'not_enabled',reason:!hydro.ok?(hydro.observed_at_utc&&hydro.age_minutes>60?'Pegelwert '+hydro.age_minutes+' Minuten alt – für die Testprognose sind maximal 60 Minuten erlaubt':(hydro.reason||'Aktuelle Pegelmessungen fehlen')):!rain.api_key_configured?'Météo-France Observations-API noch nicht eingerichtet':!rain.ready?'Für das trainierte Modell fehlen ausreichend 10-Tage-Regenmessungen':'Python-Modell noch nicht als validierter Live-Inferenzdienst angebunden'},
-    safety:'Keine Änderung an öffentlichen Warnungen, Push oder Pegelschwellen.'
+    hydro:publicHydro,rain,risk,
+    prediction:{
+      forecast_peak_m:forecast.peak_m,status:forecast.status,
+      reason:forecast.reason||forecast.warning||null,
+      reference_hour_utc:forecast.reference_hour_utc||null,
+      valid_until_utc:forecast.valid_until_utc||null,
+      model:forecast.model
+    },
+    safety:'Experimentell und ausschließlich intern. Keine Änderung an öffentlichen Warnungen, Push oder Pegelschwellen.'
   };
 }
 
