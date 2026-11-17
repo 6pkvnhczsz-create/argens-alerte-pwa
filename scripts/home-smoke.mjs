@@ -17,17 +17,20 @@ const hubeau={data:[
  {date_obs:date(125),resultat_obs:1300},
  {date_obs:date(185),resultat_obs:1280}
 ]};
-let calls=0;
+let calls=0,waterCalls=0;
 const dom=new JSDOM(page,{
  url:'https://riviere-alerte.fr/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,
  beforeParse(w){
   w.scrollTo=()=>{};
   w.matchMedia=()=>({matches:false,addListener(){},removeListener(){}});
   w.AbortSignal.timeout=()=>new w.AbortController().signal;
-  w.fetch=async url=>{
+  w.fetch=async (url,options={})=>{
    calls++;
    const str=String(url);
-   const obj=str.includes('observations_tr')?hubeau:
+   if(str.includes('observations_tr'))waterCalls++;
+   const obj=str.includes('/user/station')&&options.method==='PUT'?
+    {ok:true,settings:{station_name:'Roquebrune-sur-Argens'}}:
+    str.includes('observations_tr')?hubeau:
     str.includes('/api/early-signals')?{ok:false}:
     str.includes('/health')?{ok:true,pushConfigured:true}:
     str.includes('/api/radar-map/info')?{available:false}:
@@ -75,6 +78,32 @@ for(const code of ['en','de','fr']){
  assert.deepEqual(errors,[],'Language change caused browser errors: '+code);
 }
 assert.match(d.querySelector('#level').textContent,/1[,.]35/);
+
+// Regression: after a saved threshold change, recolor the WHOLE tile and the
+// selected chip in the same render, without a new 60-second water-level poll.
+dom.window.localStorage.setItem('argens-account-token-v1','smoke-test-token');
+const tile=d.querySelector('#overview .hero');
+async function assertSavedThresholdColor(orange,red,band){
+ const before=waterCalls;
+ d.querySelector('#personalOrange').value=String(orange);
+ d.querySelector('#personalRed').value=String(red);
+ d.querySelector('#savePersonalStation').click();
+ await new Promise(resolve=>setTimeout(resolve,45));
+ assert.equal(tile.dataset.alert,band,'The entire Home tile must recolor immediately after saving');
+ const current=tile.querySelectorAll('.threshold.is-current');
+ assert.equal(current.length,1,'Exactly one threshold chip must be highlighted');
+ assert.equal(current[0].dataset.threshold,band,'Highlighted chip must match full-tile background');
+ assert.equal(waterCalls,before,'Changing a threshold must not require a new Hub’Eau request');
+}
+await assertSavedThresholdColor(1.20,1.60,'orange');
+await assertSavedThresholdColor(0.80,1.00,'red');
+await assertSavedThresholdColor(1.60,1.90,'green');
+// Old measurement must not be shown as fresh even with artificially low thresholds.
+assert.equal(dom.window.homeAlertState('Y531201001',[
+ {value:1350,date:new Date(Date.now()-4*3600000)},
+ {value:1300,date:new Date(Date.now()-5*3600000)}]).band,'unknown');
+assert.deepEqual(errors.filter(x=>!x.includes('Not implemented:')).map(x=>x.split('\\n')[0]),[],
+ 'Threshold updates must not cause browser runtime errors');
 
 // Simulate responsive element geometry and assert there is a single correct
 // orthogonal SVG path to each actually active tile, with its exact color.
