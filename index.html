@@ -2444,9 +2444,24 @@ function renderEarlySignals(){
  for(const f of forecasts)addRainRow(forecastNode,titles[f.id]||f.name,icons[f.id]||'🌦️',
   [fmt(f.next6hMm)+' mm',fmt(f.next24hMm)+' mm']);
  if(!forecasts.length)emptyRainList(forecastNode);
- const rain=(d.rain||[]).filter(x=>x.status==='estimated'&&Number.isFinite(x.last3hMm)&&Number.isFinite(x.last6hMm));
+ const rain=(d.rain||[]).filter(x=>(x.status==='estimated'||x.status==='observed')&&Number.isFinite(x.last3hMm)&&Number.isFinite(x.last6hMm));
+ const observed=!regional&&rain.some(x=>x.status==='observed');
+ if(observed){
+  earlyText('earlyRainTitle',earlyI18n('Pluie mesurée · Météo-France','Measured rainfall · Météo-France','Gemessener Niederschlag · Météo-France'));
+  earlyText('earlyRainDisclaimer',earlyI18n(
+   'Moyenne des pluviomètres Météo-France proches (au moins deux). Mesures locales, pas le cumul du bassin versant en amont.',
+   'Average of nearby Météo-France rain gauges (at least two). Local measurements, not a total for the upstream river basin.',
+   'Durchschnitt von mindestens zwei nahen Météo-France-Regenstationen. Lokale Messungen, kein Niederschlag des gesamten Einzugsgebiets.'));
+ }else if(!regional){
+  earlyText('earlyRainTitle',earlyI18n('Pluie récente estimée · modèle','Recent rain · model estimate','Regen der letzten Stunden · Modellschätzung'));
+  earlyText('earlyRainDisclaimer',earlyI18n(
+   'Les observations locales ne sont pas encore suffisamment disponibles. Valeurs de remplacement estimées par Open-Meteo, pas des mesures.',
+   'Not enough local rain gauge data yet. Open-Meteo model estimates are shown instead, not measurements.',
+   'Noch nicht genügend lokale Regenmesswerte. Stattdessen Open-Meteo-Modellschätzung, keine Messung.'));
+ }
  earlyText('earlyRainStatus',rain.length?
-  earlyI18n('Estimations des dernières 3 et 6 heures','Estimated totals from the last 3 and 6 hours','Geschätzter Regen der letzten 3 und 6 Stunden'):
+  (observed?earlyI18n('Mesures des dernières 3 et 6 heures','Measured totals from the last 3 and 6 hours','Gemessener Regen der letzten 3 und 6 Stunden'):
+   earlyI18n('Estimations des dernières 3 et 6 heures','Estimated totals from the last 3 and 6 hours','Geschätzter Regen der letzten 3 und 6 Stunden')):
   earlyI18n('Estimations indisponibles','Rainfall estimates unavailable','Regenabschätzungen derzeit nicht verfügbar'));
  for(const x of rain)addRainRow(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
   [fmt(x.last3hMm)+' mm',fmt(x.last6hMm)+' mm']);
