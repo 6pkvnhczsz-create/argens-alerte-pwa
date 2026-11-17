@@ -122,7 +122,7 @@ test('history merges 11 stations with recent live values and excludes missing ar
   const combined=mergeRainHistory(live,archive,now);
   const coverage=summarizeCoverage(combined.covered,now);
   assert.equal(coverage.recent_stations,11);
-  assert.equal(coverage.complete_10d_stations,11);
+  assert.equal(coverage.complete_10d_stations,10); // Les Arcs has real gaps, never fabricate 0-mm hours.
   assert.equal(coverage.ready,true);
   assert.equal(combined.live_sample_count,11);
   assert.ok(combined.historical_sample_count>2300);
