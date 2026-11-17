@@ -2484,10 +2484,28 @@ function renderEarlySignals(){
  for(const f of forecasts)addRainRow(forecastNode,titles[f.id]||f.name,icons[f.id]||'🌦️',
   [fmt(f.next6hMm)+' mm',fmt(f.next24hMm)+' mm']);
  if(!forecasts.length)emptyRainList(forecastNode);
- const rain=(d.rain||[]).filter(x=>x.status==='estimated'&&Number.isFinite(x.last3hMm)&&Number.isFinite(x.last6hMm));
- earlyText('earlyRainStatus',rain.length?
-  earlyI18n('Estimations des dernières 3 et 6 heures','Estimated totals from the last 3 and 6 hours','Geschätzter Regen der letzten 3 und 6 Stunden'):
-  earlyI18n('Estimations indisponibles','Rainfall estimates unavailable','Regenabschätzungen derzeit nicht verfügbar'));
+ const rain=(d.rain||[]).filter(x=>(x.status==='estimated'||x.status==='observed')
+  &&Number.isFinite(x.last3hMm)&&Number.isFinite(x.last6hMm));
+ const observed=rain.find(x=>x.status==='observed'&&x.model==='meteo_france_dpobs');
+ if(observed){
+  earlyText('earlyRainTitle',earlyI18n('Pluie mesurée · Météo-France','Measured rainfall · Météo-France','Gemessener Niederschlag · Météo-France'));
+  earlyText('earlyRainDisclaimer',earlyI18n(
+   'Moyenne des cumuls horaires réellement mesurés dans '+observed.stationsUsed+' stations Météo-France du secteur Argens. Ce n’est pas un cumul de pluie sur tout le bassin versant.',
+   'Mean of real hourly rain totals from '+observed.stationsUsed+' Météo-France gauges around the Argens. Not a measured total for the whole river basin.',
+   'Durchschnitt der echten stündlichen Regenmessungen von '+observed.stationsUsed+' Météo-France-Stationen im Argens-Gebiet. Keine flächendeckende Einzugsgebietsmessung.'));
+  const stamp=Date.parse(observed.latestHour),ts=Number.isFinite(stamp)?
+   new Date(stamp).toLocaleString(locale,{timeZone:'Europe/Paris',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  earlyText('earlyRainStatus',earlyI18n('Dernière heure mesurée : ','Last measured hour: ','Letzte gemessene Stunde: ')+ts);
+ }else{
+  earlyText('earlyRainTitle',earlyI18n('Pluie récente estimée','Estimated recent rainfall','Regen der letzten Stunden (geschätzt)'));
+  earlyText('earlyRainStatus',rain.length?
+   earlyI18n('Estimations des dernières 3 et 6 heures','Estimated totals from the last 3 and 6 hours','Geschätzter Regen der letzten 3 und 6 Stunden'):
+   earlyI18n('Estimations indisponibles','Rainfall estimates unavailable','Regenabschätzungen derzeit nicht verfügbar'));
+  if(regional)earlyText('earlyRainDisclaimer',earlyI18n(
+   'Pas assez de relevés Météo-France complets pour les dernières heures. Estimations de repli Open-Meteo, pas des mesures.',
+   'Not enough complete Météo-France observations. Showing Open-Meteo model estimates instead, not measurements.',
+   'Noch nicht genügend vollständige Météo-France-Regenmessungen. Deshalb Open-Meteo-Modellschätzungen als Ersatz, keine Messwerte.'));
+ }
  for(const x of rain)addRainRow(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
   [fmt(x.last3hMm)+' mm',fmt(x.last6hMm)+' mm']);
  if(!rain.length)emptyRainList(rainNode);
