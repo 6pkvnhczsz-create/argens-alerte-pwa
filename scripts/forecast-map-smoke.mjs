@@ -241,6 +241,7 @@ for(const lang of ['de','en','fr']){
 }
 // A saved home station in another French area must move BOTH maps.
 w.argensHomeStationCode='H123456789';
+w.argensHomeStationName='Paris'; // Set both globals as the real station picker does.
 d.dispatchEvent(new w.CustomEvent('argens-station-selected',{detail:{code:'H123456789',name:'Paris'}}));
 await new Promise(resolve=>setTimeout(resolve,490));
 assert.equal(d.getElementById('rainForecastCard').hidden,false,'Selected station retains its own forecast section');
