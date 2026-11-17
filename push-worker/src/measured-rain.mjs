@@ -69,10 +69,10 @@ export function summarizeStationRain(station,nearby,rows,now=Date.now()){
     return {mm:Math.round(amount*10)/10,valid_hours:validHours,period_hours:n};
   };
   const h3=sumHours(3),h6=sumHours(6),h24=sumHours(24);
-  if(h3.valid_hours<3||h6.valid_hours<5)return null;
+  if(h3.valid_hours!==3||h6.valid_hours!==6)return null;
   return {
     id:'home',name:station.name,status:'observed',model:'meteo_france_dpobs',
-    last3hMm:h3.mm,last6hMm:h6.mm,last24hMm:h24.valid_hours>=20?h24.mm:null,
+    last3hMm:h3.mm,last6hMm:h6.mm,last24hMm:h24.valid_hours===24?h24.mm:null,
     latestHour:hourIso(last),stationsUsed:selected.length,source_station_ids:selected.map(x=>x.id),
     coverage:{h3:h3.valid_hours,h6:h6.valid_hours,h24:h24.valid_hours},
     description:'Gemessener Durchschnitt naher Météo-France-Wetterstationen, keine Einzugsgebietsmessung'
