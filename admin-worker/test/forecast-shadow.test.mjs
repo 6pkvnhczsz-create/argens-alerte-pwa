@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source = readFileSync(new URL('../src/forecast-shadow.js',import.meta.url),'utf8');
-const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk,getForecastShadowStatus,backfillForecastRain} = await import('../src/forecast-shadow.js');
+const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk,modelForecastColorTier,getForecastShadowStatus,backfillForecastRain} = await import('../src/forecast-shadow.js');
 const {archivedRainRows} = await import('../src/rain-archive-2026.js');
 const {FORECAST_SHADOW_PAGE} = await import('../src/forecast-shadow-page.js');
 const {verifyForecastAgainstObserved,summarizeComparisonRows,storeHourlyForecast,evaluateDueForecasts,getShadowComparisons,runShadowComparisonCycle}=await import('../src/forecast-shadow-comparison.js');
@@ -418,4 +418,27 @@ test('admin-only hourly scheduler and scorecard route are registered without tou
  assert.ok(FORECAST_SHADOW_PAGE.includes('AUTOMATISCHER PROGNOSEVERGLEICH'));
  assert.ok(FORECAST_SHADOW_PAGE.includes('Überprüfte Zeitfenster'));
  assert.ok(FORECAST_SHADOW_PAGE.includes('fetch(\'/api/forecast-shadow/comparisons\''));
+});
+
+test('forecast tile has exactly three model color tiers at property thresholds, not official warning colors',()=>{
+ const p=peak_m=>({status:'experimental',peak_m});
+ assert.equal(modelForecastColorTier(p(1.34)),'green');
+ assert.equal(modelForecastColorTier(p(5.39)),'green');
+ assert.equal(modelForecastColorTier(p(5.40)),'orange');
+ assert.equal(modelForecastColorTier(p(5.89)),'orange');
+ assert.equal(modelForecastColorTier(p(5.90)),'red');
+ assert.equal(modelForecastColorTier(p(6.22)),'red');
+ assert.equal(modelForecastColorTier({status:'experimental_delayed',peak_m:5.6}),'orange');
+ assert.equal(modelForecastColorTier({status:'unavailable',peak_m:7.1}),'neutral');
+ assert.equal(modelForecastColorTier({status:'experimental',peak_m:null}),'neutral');
+ assert.equal(modelForecastColorTier({status:'experimental',peak_m:NaN}),'neutral');
+ assert.equal(modelForecastColorTier({status:'experimental',peak_m:-1}),'neutral');
+ const risk=summarizeSixHourRisk({ok:true,level_m:1.34},{ready:true,rolling_24h:{mm:0}},p(5.9));
+ assert.equal(risk.color_tier,'red');
+ assert.equal(risk.thresholds[0].forecast_crossing,true);
+ assert.ok(FORECAST_SHADOW_PAGE.includes('hero--green'));
+ assert.ok(FORECAST_SHADOW_PAGE.includes('hero--orange'));
+ assert.ok(FORECAST_SHADOW_PAGE.includes('hero--red'));
+ assert.ok(FORECAST_SHADOW_PAGE.includes("color!=='neutral'"));
+ assert.ok(FORECAST_SHADOW_PAGE.includes('Keine amtliche Warnstufe'));
 });
