@@ -243,8 +243,12 @@ for(const lang of ['de','en','fr']){
 w.argensHomeStationCode='H123456789';
 d.dispatchEvent(new w.CustomEvent('argens-station-selected',{detail:{code:'H123456789',name:'Paris'}}));
 await new Promise(resolve=>setTimeout(resolve,490));
-assert.equal(d.getElementById('rainForecastCard').hidden,true,'Argens rain totals must not masquerade as Paris data');
-assert.equal(d.getElementById('recentRainCard').hidden,true,'Argens rain estimates must be hidden outside Argens');
+assert.equal(d.getElementById('rainForecastCard').hidden,false,'Selected station retains its own forecast section');
+assert.equal(d.getElementById('recentRainCard').hidden,false,'Selected station retains its own local rain section');
+assert.equal(d.querySelectorAll('#earlyForecastRows .rain-list-row').length,0,
+ 'If local station API has no forecast, old Argens regional rows must never leak into Paris');
+assert.equal(d.querySelectorAll('#earlyRainRows .rain-list-row').length,0,
+ 'If local station API has no observations, old Argens rainfall rows must not be reused');
 assert.equal(d.getElementById('homeOfficialPanel').hidden,false,'Official warning panel remains present for a non-Var station');
 assert.match(d.getElementById('earlyOfficialTitle').textContent,/Paris \(75\)/,'Department follows selected home station');
 assert.doesNotMatch(d.getElementById('earlyOfficialTitle').textContent,/Var \(83\)/);
