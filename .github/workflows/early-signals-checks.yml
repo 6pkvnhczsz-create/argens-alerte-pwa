@@ -5,6 +5,8 @@ on:
     paths:
       - 'push-worker/src/early-signals.mjs'
       - 'push-worker/src/index.js'
+      - 'push-worker/src/measured-rain.mjs'
+      - 'push-worker/test/measured-rain.test.mjs'
       - 'push-worker/test/early-signals.test.mjs'
       - 'index.html'
       - '.github/workflows/early-signals-checks.yml'
@@ -20,4 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check official warnings, rainfall, upstream trends and untouched alert thresholds
-        run: node --test push-worker/test/early-signals.test.mjs push-worker/test/water-sources.test.mjs
+        run: |
+          node --check push-worker/src/measured-rain.mjs
+          node --check push-worker/src/index.js
+          node --test push-worker/test/early-signals.test.mjs push-worker/test/water-sources.test.mjs push-worker/test/measured-rain.test.mjs
