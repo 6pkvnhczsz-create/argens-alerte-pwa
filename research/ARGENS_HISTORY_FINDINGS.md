@@ -95,7 +95,7 @@ Die amtliche `Données aux stations hydrométriques`-Datensatzbeschreibung
 veröffentlicht komplette historische instantane Wasserstände
 und Durchflüsse, nach Anfangsbuchstaben des Stationscodes gruppiert.
 Für Y531201001 lautet die Archivgruppe **Stations V–Z**.
-Automatische öffentliche HEAD-Zugriffsversuche am 17.11.2026
+Automatische öffentliche HEAD- und auf 128 Bytes begrenzte GET-Zugriffsversuche am 17.11.2026
 gegen die ausgewiesene Quelle
 `https://bnum.din.gouv.fr/mdrive/index.php/s/KR94LCkdZDDKiC3`
 und ihren `/download`-Pfad lieferten jeweils HTTP 404.
@@ -106,6 +106,6 @@ Ein verifizierter hochaufgelöster CSV-Zeitverlauf wurde bisher
 **nicht** eingelesen, weshalb die 6-Stunden-Prognose noch
 nicht berechnet oder validiert werden kann.
 
-[Archiv-Metadatenprüfung](https://github.com/6pkvnhczsz-create/argens-alerte-pwa/actions/runs/44074643483).
+[Archiv-Metadatenprüfung und begrenzter GET-Test](https://github.com/6pkvnhczsz-create/argens-alerte-pwa/actions/runs/44075265409).
 
 **Keine Änderungen an produktiven Alerts, Push-Meldungen und persönlichen Schwellen.**
