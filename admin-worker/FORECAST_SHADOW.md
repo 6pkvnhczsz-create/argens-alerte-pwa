@@ -144,3 +144,23 @@ Der separate, ausschließlich interne 6-h-Schattenmodell-Adapter darf nun eine *
 Prüfung: Unit-Test mit 62 Minuten verspätetem Pegelwert (Modellschätzung verzögert, gemessene Schwelle unbekannt) und 91 Minuten altem Wert (weiterhin blockiert).
 
 **Die geschätzte Höhe ist kein belastbarer Hochwasserschutzentscheid und niemals eine Entwarnung.** Für echte Gefahren maßgeblich bleiben gemessene Wasserstände, amtliche Informationen und die separaten bestehenden Warnregeln.
+
+## 17.11.2026 – Automatischer Soll-Ist-Vergleich des 6-Stunden-Testmodells
+
+**Ziel:** Das Schattenmodell wird in der Praxis gemessen, ohne Warnungen, Nutzer oder Push zu beeinflussen.
+
+- Beim bestehenden stündlichen Admin-Cron (Minute 31 UTC, **keine neue Cloudflare-Cron-Konfiguration erforderlich**) wird eine gerade berechnete 6-Stunden-Modellprognose **einmalig und unveränderlich** in der bestehenden D1-Datenbank gespeichert. Pro UTC-Ausgabestunde höchstens ein Datensatz, auch bei Wiederholungen.
+- Gespeichert werden Ausgabezeit, Modell-Bezugszeit, ursprüngliches Prognoseende, Modellversion, geschätzter Höchststand und Datenstatus. Stündliche Live-Prognosen, die wegen fehlender Daten nicht berechenbar sind, werden **nicht als gültige Prognose erfunden**.
+- Frühestens 30 Minuten nach Ablauf des ursprünglichen Prognosezeitraums untersucht der Auswerter die Originalbeobachtungen der Station **Y531201001** über Hub’Eau. Nur Pegelwerte **nach tatsächlicher Ausgabezeit und vor dem ursprünglichen Prognoseende** werden berücksichtigt; das ist wichtig, wenn das Modell den Bezugszeitpunkt vor der Ausgabestunde hat.
+- Die gemessene Höchststandszahl wird **nur** akzeptiert, wenn mindestens acht gültige Messpunkte vorliegen, der erste binnen 30 Minuten nach Ausgabe, der letzte binnen 30 Minuten vor dem Ende, und keine Lücke zwischen Messungen größer als 45 Minuten ist. Ansonsten bleibt die Bewertung offen und wird automatisch erneut versucht. Nicht ausreichend überprüfbare Zeitfenster werden nach 36 Stunden als **Messlücken** ausgewiesen und zählen nicht als Erfolg oder Fehler.
+- Die Auswertung berechnet absolute Abweichungen in **Metern** und tabelliert Schwellen-Ereignisfenster für **5,40 m**, **5,90 m**, **6,22 m** getrennt nach erkannt / übersehen / Fehlprognose / korrekt darunter. Da die stündlichen 6h-Fenster überlappen, sind Trefferzahlen **keine unabhängigen Hochwasserereignisse**, keine kalibrierten Wahrscheinlichkeiten und keine ausreichende Sicherheitsvalidierung.
+- Das separate Access-geschützte Admin-API `GET /api/forecast-shadow/comparisons` zeigt die letzten 30 Tage (bis 750 Zeilen) und die letzten zwölf Datensätze. Die neue Sektion im deutschsprachigen Admin-Portal aktualisiert sich mit der bestehenden Seite automatisch jede Minute und lässt ältere Ergebnisse bei Bedarf aufklappen.
+- Vergleiche werden automatisch über den vorhandenen Cron ausgeführt, **auch wenn das Admin-Portal geschlossen ist**. Das Datenbank-Log beginnt erst ab aktiviertem Deployment der Funktion; Prognosen aus früheren Stunden werden nicht nachträglich rekonstruiert.
+- Es werden **keine** Push-Nachrichten ausgelöst und keine Warnungen, Warnschwellen, Regenfrühwarnungen, amtlichen Informationen oder öffentlichen FR/EN-Seiten verändert. Die interne Prognose bleibt experimentell und darf nie als Entwarnung gelten.
+
+### Betrieb und Prüfung
+
+- Pull Request mit `node --test admin-worker/test/forecast-shadow.test.mjs` und Syntaxprüfungen testen.
+- Nach tatsächlichem Cloudflare-Deployment die Admin-Sektion **Automatischer Prognosevergleich** aufrufen. Die Statistik zeigt zunächst 0 ausgewertete Zeitfenster. Nach stündlichen Ausgaben erscheinen Zeilen mit „Ausstehend“; frühestens nach Ablauf des sechs-Stunden-Fensters und zusätzlich 30 Minuten können erste qualitätsgeprüfte Abweichungen erscheinen.
+- Wenn die Cron-Triggers beim Deployment nicht aktiviert sind, werden auch keine automatischen Prognosen archiviert. GitHub-Merge allein bestätigt kein Cloudflare-Deployment.
+- Die D1-Tabelle `forecast_shadow_comparison` ist exklusiv für das interne Testmodell. Vor weiterer öffentlicher Verwendung müssten verschiedene voneinander unabhängige Hochwasserereignisse, Fehlalarme und verpasste Warnungen nach einem vorher festgelegten Protokoll bewertet werden.

@@ -321,6 +321,9 @@ async function getHydro(fetcher, nowMs) {
   } catch(e) {return {ok:false,reason:safeError(e)};}
 }
 
+// Internal reader for the admin-only forecast evaluation job; raw series never exposed in the UI.
+export const getForecastGaugeSeries=(fetcher=fetch,nowMs=Date.now())=>getHydro(fetcher,nowMs);
+
 export async function getForecastShadowStatus(env, nowMs=Date.now(), fetcher=fetch) {
   const stamp=new Date(nowMs).toISOString();
   const hydro=await getHydro(fetcher,nowMs);
