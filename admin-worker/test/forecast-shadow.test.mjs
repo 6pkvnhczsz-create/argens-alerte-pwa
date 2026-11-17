@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source = readFileSync(new URL('../src/forecast-shadow.js',import.meta.url),'utf8');
-const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain} = await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
+const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate} = await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
 
 test('accepts valid observed zero rain with UTC hour and quality 1',()=>{
   const hour='2026-11-17T10:00:00.000Z';
@@ -60,4 +60,43 @@ test('manual probe verifies hourly rain and never confuses missing reading with 
   assert.equal(missing.ok,true);
   assert.equal(missing.reading_available,false);
   assert.equal(missing.rain_mm,null);
+});
+
+test('Météo-France timestamp omits JS milliseconds',()=>{
+  assert.equal(meteoDate('2026-11-17T12:00:00.000Z'),'2026-11-17T12:00:00Z');
+});
+test('automatic import fetches 3 completed hours without milliseconds and stores true zero values',async()=>{
+  const now=Date.parse('2026-11-17T13:31:00Z');
+  const queries=[];const rows=[];
+  const fakeDb={
+    prepare(sql){
+      return {
+        run:async()=>({success:true}),
+        bind(...params){
+          return {run:async()=>{
+            if(sql.startsWith('INSERT INTO forecast_shadow_rain('))rows.push(params);
+            return {success:true};
+          }};
+        }
+      };
+    }
+  };
+  const fakeFetch=async(url,options)=>{
+    const u=new URL(url), station=u.searchParams.get('id_station'), date=u.searchParams.get('date');
+    queries.push({station,date});
+    assert.equal(options.headers.apikey,'example-key');
+    // Simulate upstream 400 for the *old* milliseconds format.
+    if(/\.000Z$/.test(date))return new Response('invalid date',{status:400});
+    assert.match(date,/^2026-11-17T(10|11|12):00:00Z$/);
+    return new Response(JSON.stringify([{geo_id_insee:station,validity_time:date,rr1:0}]),{
+      status:200,headers:{'Content-Type':'application/json'}
+    });
+  };
+  const result=await syncForecastRain({DB:fakeDb,METEO_FRANCE_OBS_API_KEY:'example-key'},now,fakeFetch);
+  assert.equal(result.accepted,33);
+  assert.equal(result.rejected,0);
+  assert.equal(queries.length,33);
+  assert.equal(rows.length,33);
+  assert.ok(rows.every(row=>row[2]===0));
+  assert.ok(!JSON.stringify(result).includes('example-key'));
 });
