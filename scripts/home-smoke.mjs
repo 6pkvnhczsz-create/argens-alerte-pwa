@@ -64,6 +64,10 @@ for(const name of ['Carte','Alertes','Prévisions','Réglages','overview']){
 console.log(JSON.stringify(status,null,2));
 assert.deepEqual(errors.filter(x=>!x.includes('Not implemented:')).map(x=>x.split('\n')[0]),[],'Browser runtime errors on homepage');
 assert.match(status.river,/1[,.]35/,'River reading must load');
+assert.equal(d.querySelector('#stationRiverPrefix').textContent,'L’Argens à');
+assert.equal(d.querySelector('#stationRiverPrefix').hidden,false,'Argens prefix appears on its own line at Roquebrune');
+assert.equal(d.querySelector('#stationTitle').textContent,'Roquebrune-sur-Argens');
+assert.match(d.querySelector('style').textContent,/\.station-heading\{display:flex;flex-direction:column/,'River name and Roquebrune must be stacked');
 assert.equal(status.clicked_Carte.mapHidden,false,'Map tab not working');
 assert.equal(status.clicked_Alertes.alertHidden,false,'Alerts tab not working');
 assert.equal(status.clicked_Prévisions.forecastHidden,false,'Forecast tab not working');
