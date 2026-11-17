@@ -15,6 +15,8 @@ const response = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}
 });
 const isoHour = ms => new Date(Math.floor(ms/HOUR_MS)*HOUR_MS).toISOString();
+// Météo-France expects YYYY-MM-DDTHH:mm:ssZ, *without* JavaScript's .000 milliseconds.
+export const meteoDate = hour => hour.replace(/\.000Z$/, 'Z');
 const safeError = error => String(error && error.message || error || 'Fehler').slice(0, 160);
 
 export function parseHourlyRain(payload, stationId, requestedHour) {
@@ -49,8 +51,8 @@ async function ensureTables(db) {
   await db.prepare('CREATE TABLE IF NOT EXISTS forecast_shadow_ingest (id INTEGER PRIMARY KEY CHECK(id=1), checked_at TEXT NOT NULL, accepted INTEGER NOT NULL, rejected INTEGER NOT NULL, error_text TEXT)').run();
 }
 
-// Called exclusively by the separate admin Worker's hourly cron.
-// Fetch current and previous two UTC hours to recover short upstream outages.
+// Called by the separate admin Worker's hourly cron or an Access-protected manual test.
+// Fetch only the last three completed UTC hours; the current hour can still be unpublished.
 export async function syncForecastRain(env, nowMs = Date.now(), fetcher = fetch) {
   if (!env.DB) return {status:'no_database'};
   await ensureTables(env.DB);
@@ -60,7 +62,7 @@ export async function syncForecastRain(env, nowMs = Date.now(), fetcher = fetch)
       .bind(checkedAt, 0, 0, 'Secret METEO_FRANCE_OBS_API_KEY fehlt').run();
     return {status:'key_missing',accepted:0};
   }
-  const requested = [0,1,2].map(offset => isoHour(nowMs-offset*HOUR_MS));
+  const requested = [1,2,3].map(offset => isoHour(nowMs-offset*HOUR_MS));
   const jobs = requested.flatMap(hour => RAIN_STATIONS.map(station => [station[0],hour]));
   let accepted = 0, rejected = 0, firstError = '';
   // Limit concurrency; official API is rate limited.
@@ -68,7 +70,7 @@ export async function syncForecastRain(env, nowMs = Date.now(), fetcher = fetch)
     const results = await Promise.allSettled(jobs.slice(i,i+5).map(async ([station,hour]) => {
       const u = new URL(API);
       u.searchParams.set('id_station',station);
-      u.searchParams.set('date',hour);
+      u.searchParams.set('date',meteoDate(hour));
       u.searchParams.set('format','json');
       const r = await fetcher(u.toString(),{
         headers:{Accept:'application/json',apikey:env.METEO_FRANCE_OBS_API_KEY},
@@ -77,16 +79,16 @@ export async function syncForecastRain(env, nowMs = Date.now(), fetcher = fetch)
       if (!r.ok) throw Error('Météo-France HTTP '+r.status);
       const body = await r.json();
       const datum = parseHourlyRain(body,station,hour);
-      if (!datum) return false;
+      if (!datum) return {ok:false,reason:'Kein gültiger RR1-Wert für '+station+' um '+hour};
       await env.DB.prepare('INSERT INTO forecast_shadow_rain(station_id,hour_utc,rain_mm,inserted_at) VALUES(?,?,?,?) ON CONFLICT(station_id,hour_utc) DO UPDATE SET rain_mm=excluded.rain_mm, inserted_at=excluded.inserted_at')
         .bind(datum.station_id,datum.hour_utc,datum.mm,checkedAt).run();
-      return true;
+      return {ok:true};
     }));
     for (const result of results) {
-      if (result.status==='fulfilled' && result.value) accepted++;
+      if (result.status==='fulfilled' && result.value?.ok) accepted++;
       else {
         rejected++;
-        if (!firstError && result.status==='rejected') firstError = safeError(result.reason);
+        if (!firstError) firstError = result.status==='rejected' ? safeError(result.reason) : (result.value?.reason||'Keine Messung');
       }
     }
   }
@@ -104,7 +106,7 @@ export async function probeForecastRain(env, nowMs=Date.now(), fetcher=fetch) {
   const hour=isoHour(nowMs-HOUR_MS);
   const u=new URL(API);
   u.searchParams.set('id_station',station);
-  u.searchParams.set('date',hour.replace('.000Z','Z'));
+  u.searchParams.set('date',meteoDate(hour));
   u.searchParams.set('format','json');
   try {
     const r=await fetcher(u.toString(),{
