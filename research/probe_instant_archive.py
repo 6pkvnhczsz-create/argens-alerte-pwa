@@ -41,4 +41,22 @@ def main():
             except Exception as exc:
                 print("ARCHIVE_HEAD_ERROR",json.dumps({"url":url,
                    "type":type(exc).__name__,"message":str(exc)[:300]}))
+            # HEAD may be unsupported by the host; probe a tiny bounded GET.
+            # Never read the actual possibly multi-gigabyte TAR into memory.
+            try:
+                req=urllib.request.Request(url,headers={
+                    "User-Agent":"RiviereAlerteResearch/0.2",
+                    "Range":"bytes=0-127",
+                })
+                with urllib.request.urlopen(req,timeout=20) as response:
+                    signature=response.read(128)
+                    print("ARCHIVE_GET_PROBE",json.dumps({"url":url,
+                        "status":response.status,"final":response.url,
+                        "content_type":response.headers.get("Content-Type"),
+                        "content_length":response.headers.get("Content-Length"),
+                        "accept_ranges":response.headers.get("Accept-Ranges"),
+                        "first_128_ascii":signature.decode("utf-8",errors="replace")[:128]}))
+            except Exception as exc:
+                print("ARCHIVE_GET_ERROR",json.dumps({"url":url,
+                    "type":type(exc).__name__,"message":str(exc)[:300]}))
 if __name__=="__main__":main()
