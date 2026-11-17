@@ -409,7 +409,7 @@ test('local rainfall follows the selected gauge coordinates and remains informat
  const backend=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
  assert.match(backend,/\/api\/rain\/station/);
  assert.match(backend,/await cachedStation\(code\)/);
- assert.match(page,/payload\.station\?\.code===station/);
+ assert.match(page,/local\.station\?\.code===station/);
  assert.match(page,/document\.addEventListener\('argens-station-selected',rainHomeChanged\)/);
  assert.doesNotMatch(national,/\['rainForecastCard','recentRainCard'/);
 });
