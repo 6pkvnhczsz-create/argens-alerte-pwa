@@ -160,6 +160,19 @@ def rolling_rain(totals, station, date, days):
     if any(row is None or row[1]<18 for row in rows): return None
     return round(sum(row[0] for row in rows), 1)
 
+def antecedent_rain(totals, station, event_date, days, decay=None):
+    """Only COMPLETE days strictly before the reference event date.
+
+    None means missing coverage, never assumed 0. When decay is provided,
+    day D-1 has weight 1 and previous days decrease exponentially.
+    """
+    records = [totals[station].get(event_date-dt.timedelta(days=k))
+               for k in range(1,days+1)]
+    if any(row is None or row[1]<18 for row in records): return None
+    if decay is None:
+        return round(sum(row[0] for row in records),1)
+    return round(sum(row[0]*decay**k for k,row in enumerate(records)),1)
+
 def main():
     heights = load_heights()
     print("HEIGHT sample",len(heights),"range",
@@ -187,11 +200,28 @@ def main():
                     "today_mm":today,"previous_day_mm":prev,"48h_mm":two})
         measured.sort(key=lambda x:x["48h_mm"] or 0,reverse=True)
         previous = heights.get(date-dt.timedelta(days=1))
+        # Test multiple prior-wetness windows (independent of rainfall on
+        # flood day). This is exploratory input for future cross-validation.
+        antecedents={}
+        for days in (3,5,7,10,14,30):
+            readings={code:antecedent_rain(totals,code,date,days)
+                      for code in selected}
+            valid=[(code,value) for code,value in readings.items() if value is not None]
+            antecedents[str(days)+"d"]={
+                "stations_reporting":len(valid),
+                "highest_mm":max((v for _,v in valid),default=None),
+                "median_mm":round(statistics.median(v for _,v in valid),1) if valid else None}
+        api10={code:antecedent_rain(totals,code,date,10,decay=0.85)
+               for code in selected}
+        valid_api10=[v for v in api10.values() if v is not None]
         print("EVENT",json.dumps({"date_utc":str(date),"daily_peak_m":round(level,3),
               "previous_day_peak_m":round(previous,3) if previous is not None else None,
               "change_between_daily_maxima_m":round(level-previous,3) if previous is not None else None,
               "rain_sites_reporting":len(measured),
-              "top_rain_sites":measured[:5]},ensure_ascii=False),flush=True)
+              "top_rain_sites":measured[:5],
+              "antecedent_rain_before_flood_day":antecedents,
+              "weighted_api10_decay_0_85_max_mm":max(valid_api10,default=None),
+              "antecedent_note":"No rainfall from peak day included; site maxima are not catchment averages"},ensure_ascii=False),flush=True)
     # Exploratory conditional frequencies: rain in TWO COMPLETE DAYS preceding
     # the target daily max, avoiding look-ahead bias from rain later that day.
     # A single reporting gauge is never assumed to represent the whole basin.
