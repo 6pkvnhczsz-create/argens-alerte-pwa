@@ -5,6 +5,7 @@ const source = readFileSync(new URL('../src/forecast-shadow.js',import.meta.url)
 const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk,getForecastShadowStatus,backfillForecastRain} = await import('../src/forecast-shadow.js');
 const {archivedRainRows} = await import('../src/rain-archive-2026.js');
 const {FORECAST_SHADOW_PAGE} = await import('../src/forecast-shadow-page.js');
+const {verifyForecastAgainstObserved,summarizeComparisonRows,storeHourlyForecast,evaluateDueForecasts,getShadowComparisons,runShadowComparisonCycle}=await import('../src/forecast-shadow-comparison.js');
 const {forecastCronPlan,NORMAL_CRON,RECOVERY_CRON}=await import('../src/forecast-shadow-schedule.js');
 const {shadowTreePredict,buildShadowFeatureVector,computeShadowForecast,MODEL_INFO}=await import('../src/forecast-shadow-model.js');
 
@@ -345,4 +346,76 @@ test('observations older than 90 minutes never create an admin shadow estimate',
  old.observed_at_utc='2026-11-17T14:00:00Z';
  old.source='unverified';
  assert.equal(computeShadowForecast([],old,Date.parse('2026-11-17T15:02:00Z'),true).status,'unavailable');
+});
+
+test('six-hour audit uses only observed points AFTER forecast issuance, not already-known pre-forecast peak',()=>{
+ const issue='2026-11-17T16:31:00.000Z',end='2026-11-17T22:00:00.000Z';
+ const forecast={issued_at_utc:issue,valid_until_utc:end,forecast_peak_m:3.50};
+ const series=[{at:'2026-11-17T16:20:00.000Z',metres:7.90}];
+ for(let at=Date.parse('2026-11-17T16:45:00Z');at<=Date.parse(end);at+=15*60000)
+  series.push({at:new Date(at).toISOString(),metres:at===Date.parse('2026-11-17T21:15:00Z')?3.7:3.4});
+ const result=verifyForecastAgainstObserved(forecast,series,Date.parse('2026-11-17T22:40:00Z'));
+ assert.equal(result.status,'evaluated');
+ assert.equal(result.actual_peak_m,3.7);
+ assert.equal(result.absolute_error_m,0.2);
+ assert.equal(result.actual_peak_at_utc,'2026-11-17T21:15:00.000Z');
+ assert.ok(result.observed_points>=20);
+});
+test('scorecard does not claim a successful verification for large observation gaps or unelapsed windows',()=>{
+ const snapshot={issued_at_utc:'2026-11-17T16:31:00Z',valid_until_utc:'2026-11-17T22:00:00Z',forecast_peak_m:3.5};
+ const samples=[
+ {at:'2026-11-17T16:45:00Z',metres:3.5},{at:'2026-11-17T17:00:00Z',metres:3.8},
+ {at:'2026-11-17T17:15:00Z',metres:3.4},{at:'2026-11-17T17:30:00Z',metres:3.4},
+ {at:'2026-11-17T20:15:00Z',metres:3.4},{at:'2026-11-17T21:15:00Z',metres:3.4},
+ {at:'2026-11-17T21:30:00Z',metres:3.4},{at:'2026-11-17T22:00:00Z',metres:3.4}];
+ assert.equal(verifyForecastAgainstObserved(snapshot,samples,Date.parse('2026-11-17T22:40:00Z')).status,'insufficient');
+ assert.equal(verifyForecastAgainstObserved(snapshot,samples,Date.parse('2026-11-17T22:20:00Z')).status,'pending');
+ assert.equal(verifyForecastAgainstObserved({...snapshot,issued_at_utc:'2026-11-17T22:31:00Z'},samples,Date.parse('2026-11-17T22:40:00Z')).status,'invalid');
+});
+test('forecast comparison summary excludes pending and incomplete windows from accuracy and threshold counts',()=>{
+ const rows=[
+ {eval_status:'evaluated',forecast_peak_m:5.50,actual_peak_m:5.80},
+ {eval_status:'evaluated',forecast_peak_m:5.30,actual_peak_m:5.45},
+ {eval_status:'evaluated',forecast_peak_m:5.50,actual_peak_m:5.10},
+ {eval_status:'pending',forecast_peak_m:6.9,actual_peak_m:null},
+ {eval_status:'insufficient',forecast_peak_m:6.2,actual_peak_m:null}
+ ];
+ const out=summarizeComparisonRows(rows);
+ assert.equal(out.evaluated_windows,3);
+ assert.equal(out.pending_windows,1);
+ assert.equal(out.insufficient_windows,1);
+ assert.equal(out.mean_absolute_error_m,0.283);
+ assert.equal(out.thresholds[0].hit,1);
+ assert.equal(out.thresholds[0].miss,1);
+ assert.equal(out.thresholds[0].false_alarm,1);
+ assert.equal(out.thresholds[0].correct_below,0);
+ assert.equal(out.thresholds[2].hit,0);
+});
+test('hourly forecast snapshots preserve the issued model value immutably',async()=>{
+ const now=Date.parse('2026-11-17T16:31:00Z'),writes=[];
+ const db={prepare(sql){const statement={
+  run:async()=>({success:true}),bind(...values){return {run:async()=>{
+   if(sql.includes('INSERT INTO forecast_shadow_comparison'))writes.push(values);
+   return {meta:{changes:1}};
+  }};}};return statement;}};
+ const status=async()=>({issued_at_utc:'2026-11-17T16:31:00Z',
+  hydro:{level_m:1.34},prediction:{status:'experimental',forecast_peak_m:1.55,
+   reference_hour_utc:'2026-11-17T16:00:00Z',valid_until_utc:'2026-11-17T22:00:00Z',
+   model:{version:'shadow-tree-test-v1'}}});
+ const saved=await storeHourlyForecast({DB:db},now,status);
+ assert.equal(saved.status,'recorded');
+ assert.equal(saved.issue_hour_utc,'2026-11-17T16:00:00.000Z');
+ assert.equal(writes.length,1);
+ assert.equal(writes[0][5],1.55);
+ assert.equal(writes[0][4],'shadow-tree-test-v1');
+ assert.equal((await storeHourlyForecast({DB:db},now,async()=>({prediction:{status:'unavailable'}}))).status,'no_valid_forecast');
+});
+test('admin-only hourly scheduler and scorecard route are registered without touching warnings',()=>{
+ const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ assert.ok(src.includes('runShadowComparisonCycle(env)'));
+ assert.ok(src.includes("url.pathname==='/api/forecast-shadow/comparisons'"));
+ assert.ok(!src.includes('runShadowComparisonCycle(env.PUSH_SERVICE'));
+ assert.ok(FORECAST_SHADOW_PAGE.includes('AUTOMATISCHER PROGNOSEVERGLEICH'));
+ assert.ok(FORECAST_SHADOW_PAGE.includes('Überprüfte Zeitfenster'));
+ assert.ok(FORECAST_SHADOW_PAGE.includes('fetch(\'/api/forecast-shadow/comparisons\''));
 });
