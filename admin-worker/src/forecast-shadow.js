@@ -158,7 +158,7 @@ export function mergeRainHistory(liveRows,historyRows,nowMs) {
   const keys=new Set(RAIN_STATIONS.map(x=>x[0]));
   const merged=new Map();
   for(const row of [...historyRows,...liveRows]){
-    if(!keys.has(String(row.station_id)))continue;
+    if(!keys.has(String(row.station_id))||row.rain_mm===null||row.rain_mm===undefined||row.rain_mm==='')continue;
     const ms=Date.parse(row.hour_utc),v=Number(row.rain_mm);
     if(!Number.isFinite(ms)||ms<startMs||ms>endMs||ms%HOUR_MS!==0||!Number.isFinite(v)||v<0||v>400)continue;
     const id=String(row.station_id);
