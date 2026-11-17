@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source = readFileSync(new URL('../src/forecast-shadow.js',import.meta.url),'utf8');
-const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk,getForecastShadowStatus} = await import('../src/forecast-shadow.js');
+const {parseHourlyRain,summarizeCoverage,RAIN_STATIONS,probeForecastRain,syncForecastRain,meteoDate,mergeRainHistory,summarizeSixHourRisk,getForecastShadowStatus,backfillForecastRain} = await import('../src/forecast-shadow.js');
 const {archivedRainRows} = await import('../src/rain-archive-2026.js');
 const {FORECAST_SHADOW_PAGE} = await import('../src/forecast-shadow-page.js');
 const {shadowTreePredict,buildShadowFeatureVector,computeShadowForecast,MODEL_INFO}=await import('../src/forecast-shadow-model.js');
@@ -237,4 +237,56 @@ test('admin read API computes shadow forecast using real archive overlap, mocked
  assert.equal(out.prediction.model.operational,false);
  assert.equal(out.risk.status,'experimental');
  assert.equal(out.risk.thresholds.length,3);
+});
+
+test('24-hour gap backfill requests at most 55 absent measurements without touching archived hours',async()=>{
+ const now=Date.parse('2026-11-17T14:41:00Z'),calls=[],writes=[];
+ const db={
+  prepare(sql){
+   const obj={
+    bind(...values){
+     return {run:async()=>{
+       if(sql.includes('INSERT INTO forecast_shadow_rain('))writes.push(values);
+       return {meta:{changes:1}};
+     },all:async()=>({results:[]})};
+    },
+    run:async()=>({meta:{changes:1}})
+   };
+   return obj;
+  }
+ };
+ const fetcher=async(url,options)=>{
+  const u=new URL(url),date=u.searchParams.get('date'),station=u.searchParams.get('id_station');
+  assert.equal(options.headers.apikey,'example-secret');
+  assert.match(date,/^2026-11-(16|17)T\d\d:00:00Z$/);
+  assert.equal(date.endsWith('.000Z'),false);
+  calls.push({date,station});
+  return new Response(JSON.stringify([{geo_id_insee:station,validity_time:date,rr1:0,q_rr1:1}]),{status:200});
+ };
+ const x=await backfillForecastRain({DB:db,METEO_FRANCE_OBS_API_KEY:'example-secret'},now,fetcher);
+ assert.equal(x.status,'completed');
+ assert.equal(x.imported,55);
+ assert.equal(x.unavailable,0);
+ assert.equal(calls.length,55);
+ assert.equal(writes.length,55);
+ assert.ok(calls.every(x=>x.date>='2026-11-16T20:00:00Z'));
+ assert.ok(calls.every(x=>x.date<='2026-11-17T13:00:00Z'));
+ assert.ok(writes.every(row=>row[2]===0));
+ assert.ok(!JSON.stringify(x).includes('example-secret'));
+});
+test('backfill refuses parallel calls during cooldown and does not make external requests',async()=>{
+ let called=0;
+ const db={prepare(){const obj={bind(){return {run:async()=>({meta:{changes:0}})}},run:async()=>({})};return obj}};
+ const result=await backfillForecastRain({DB:db,METEO_FRANCE_OBS_API_KEY:'secret'},Date.parse('2026-11-17T14:41:00Z'),async()=>{called++;return new Response('[]')});
+ assert.equal(result.status,'cooldown');
+ assert.equal(called,0);
+});
+test('missing RR1 in backfill is recorded as missing rather than inserted as 0 mm',async()=>{
+ const now=Date.parse('2026-11-17T14:41:00Z'),rainWrites=[],attemptWrites=[];
+ const db={prepare(sql){return {bind(...params){return {run:async()=>{if(sql.includes('INSERT INTO forecast_shadow_rain('))rainWrites.push(params);if(sql.includes('INSERT INTO forecast_shadow_backfill_attempt('))attemptWrites.push(params);return {meta:{changes:1}}},all:async()=>({results:[]})}},run:async()=>({meta:{changes:1}})}}};
+ const result=await backfillForecastRain({DB:db,METEO_FRANCE_OBS_API_KEY:'secret'},now,async()=>new Response(JSON.stringify([{geo_id_insee:'wrong',validity_time:'2026-11-16T20:00:00Z',rr1:0}]),{status:200}));
+ assert.equal(result.imported,0);
+ assert.equal(result.unavailable,55);
+ assert.equal(rainWrites.length,0);
+ assert.equal(attemptWrites.length,55);
 });
