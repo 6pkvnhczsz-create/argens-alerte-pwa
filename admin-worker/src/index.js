@@ -1,5 +1,6 @@
 import {FORECAST_SHADOW_PAGE, getForecastShadowStatus, syncForecastRain, probeForecastRain, backfillForecastRain} from './forecast-shadow.js';
 import {forecastCronPlan} from './forecast-shadow-schedule.js';
+import {runShadowComparisonCycle,getShadowComparisons} from './forecast-shadow-comparison.js';
 // Separate Cloudflare Access-protected admin Worker for Argens Alerte.
 // Requires D1 binding DB and service binding PUSH_SERVICE to AdminPushService on argens-alerte-push.
 // IMPORTANT: Enable Cloudflare Access for ALL traffic before deployment.
@@ -17,6 +18,9 @@ export default {
     const result=await backfillForecastRain(env,Date.now(),fetch,plan.backfillLimit);
     if(result.status==='error'||result.status==='rate_limited')console.error('Forecast rain backfill status',result.status,result.error||'');
    }catch(error){console.error('Forecast rain backfill failed',String(error))}
+   if(plan.sync){
+    try{await runShadowComparisonCycle(env)}catch(error){console.error('Forecast comparison hourly cycle failed',String(error))}
+   }
   })());
  },
  async fetch(request,env,ctx){
@@ -47,6 +51,10 @@ export default {
   if(request.headers.get('Origin')!==url.origin)return response({error:'Origin mismatch'},403);
   try{return response(await probeForecastRain(env))}
   catch(error){console.error('Forecast shadow probe failed',String(error));return response({error:'Météo-France-Verbindungstest derzeit nicht möglich'},503)}
+ }
+ if(request.method==='GET'&&url.pathname==='/api/forecast-shadow/comparisons'){
+  try{return response(await getShadowComparisons(env))}
+  catch(error){console.error('Forecast comparisons currently unavailable',String(error));return response({error:'Prognosevergleich zurzeit nicht erreichbar'},503)}
  }
  if(request.method==='GET'&&url.pathname==='/api/forecast-shadow'){
   try{return response(await getForecastShadowStatus(env))}
