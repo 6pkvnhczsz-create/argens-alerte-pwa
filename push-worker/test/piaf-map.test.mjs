@@ -69,3 +69,31 @@ test('official PIAF legend is requested for exactly the displayed layer/style',a
   fetchImpl:async()=>new Response('<Error>Bad legend</Error>',{headers:{'Content-Type':'text/xml'},status:200})
  }),/not PNG/);
 });
+
+test('PIAF WMS switches to the public official gateway and OAuth2 when legacy/key access fails',async()=>{
+ const {fetchPiafMetadata}=await import('../src/piaf-map.mjs');
+ const used=[];
+ const env={METEO_FRANCE_PIAF_API_KEY:'test-key-not-for-public-wms',
+  METEO_FRANCE_BASIC:'test-client-credentials'};
+ const fetchImpl=async(url,options)=>{
+  const name=String(url);
+  if(name.endsWith('/token'))return new Response(JSON.stringify({
+   access_token:'test-only-valid-meteo-france-access-token',expires_in:3600
+  }),{headers:{'Content-Type':'application/json'}});
+  const gateway=name.includes('public-api.meteofrance.fr')?'public':'legacy';
+  const auth=options.headers.Authorization?'oauth':'key';
+  used.push(gateway+'_'+auth);
+  if(gateway==='legacy')return new Response('missing route',{status:404});
+  if(auth==='key')return new Response('key not authorized',{status:401});
+  return new Response(xml,{headers:{'Content-Type':'application/xml'}});
+ };
+ const data=await fetchPiafMetadata(env,{now,fetchImpl});
+ assert.equal(data.source,'Météo-France PIAF');
+ assert.equal(data.authMethod,'oauth');
+ assert.match(data.wmsBase,/^https:\/\/public-api\.meteofrance\.fr\/public\/piaf\//);
+ assert.ok(used.includes('legacy_key'));
+ assert.ok(used.includes('public_oauth'));
+ assert.ok(!JSON.stringify(data).includes('test-client-credentials'));
+ const map=new URL(buildPiafMapUrl(data,data.frames[0]));
+ assert.equal(map.hostname,'public-api.meteofrance.fr');
+});
