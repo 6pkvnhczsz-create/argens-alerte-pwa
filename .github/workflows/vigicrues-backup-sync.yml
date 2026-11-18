@@ -14,6 +14,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/vigicrues-backup-sync.yml'
+      - 'scripts/sync_vigicrues_backup.py'
+      - 'push-worker/src/vigicrues-snapshot.mjs'
+      - 'push-worker/src/early-signals.mjs'
+      - 'push-worker/src/index.js'
 
 permissions:
   contents: read
@@ -25,7 +29,7 @@ concurrency:
 
 jobs:
   sync-backup:
-    name: Sync all active stations to Cloudflare
+    name: Sync active and permanent upstream stations to Cloudflare
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
