@@ -809,45 +809,51 @@ export default {
    const key=new Request('https://riviere-alerte.fr/__hydro_cache/argens_latest_v1');
    if(cache){
     const hit=await cache.match(key),saved=hit?await hit.json().catch(()=>null):null;
-    if(saved?.ok===true&&Array.isArray(saved.upstream))return json(request,saved);
+    if(saved?.ok===true&&Array.isArray(saved.upstream)&&Number.isFinite(Date.parse(saved.checkedAt))&&
+       Date.now()-Date.parse(saved.checkedAt)>=0&&Date.now()-Date.parse(saved.checkedAt)<90000)
+     return json(request,saved);
    }
    const now=Date.now();
    const rows=await Promise.all(UPSTREAM_STATIONS.map(async station=>{
-    const asReading=(points,source)=>{
-     const readings=points.filter(p=>Number.isFinite(p.mm)&&Number.isFinite(p.time)&&
+    const asReading=(points,source,transport=null)=>{
+     const readings=points.filter(p=>Number.isFinite(p?.mm)&&Number.isFinite(p?.time)&&
       p.mm>=-5000&&p.mm<=30000&&p.time<=now+15*60000).sort((a,b)=>b.time-a.time);
      if(!readings.length)return null;
-     const latest=readings[0],recent=now-latest.time<=90*60000;
+     const latest=readings[0],recent=now-latest.time>=-15*60000&&now-latest.time<=90*60000;
      const baseline=recent?readings.find(x=>latest.time-x.time>=30*60000&&latest.time-x.time<=180*60000):null;
      const trend=baseline?(latest.mm-baseline.mm)/10/((latest.time-baseline.time)/3600000):null;
      return {...station,status:recent?'current':'last_known',levelM:Math.round(latest.mm/10)/100,
       trendCmH:Number.isFinite(trend)?Math.round(trend*10)/10:null,
-      observedAt:new Date(latest.time).toISOString(),source};
+      observedAt:new Date(latest.time).toISOString(),source,transport};
     };
+    let primary=null;
     try{
      const query=new URLSearchParams({code_entite:station.code,grandeur_hydro:'H',size:'65',sort:'desc',format:'json'});
      const response=await fetch('https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?'+query,{
-      headers:{Accept:'application/json'},signal:AbortSignal.timeout(7000),cf:{cacheTtl:0}});
+      headers:{Accept:'application/json'},signal:AbortSignal.timeout(6500),cf:{cacheTtl:0}});
      if(!response.ok)throw Error('Hub Eau HTTP '+response.status);
+     const type=String(response.headers?.get?.('content-type')||'').toLowerCase();
+     if(type.includes('text/html'))throw Error('Hub Eau maintenance HTML');
      const payload=await response.json();
-     const points=(Array.isArray(payload?.data)?payload.data:[]).map(row=>({
-      mm:Number(row?.resultat_obs),time:Date.parse(row?.date_obs)}))
-      .filter((p,i)=>payload.data[i]?.resultat_obs!==null&&payload.data[i]?.resultat_obs!==''&&
-       payload.data[i]?.resultat_obs!==undefined);
-     const first=asReading(points,'hubeau');
-     if(first)return first;
-     throw Error('No usable Hub Eau height');
+     const points=(Array.isArray(payload?.data)?payload.data:[])
+      .filter(row=>row?.resultat_obs!==null&&row?.resultat_obs!==''&&row?.resultat_obs!==undefined)
+      .map(row=>({mm:Number(row.resultat_obs),time:Date.parse(row.date_obs)}));
+     primary=asReading(points,'hubeau');
+     if(primary?.status==='current')return primary;
     }catch{
-     // Vigicrues is genuinely independent transport and still official.
-     // Reuse the existing validated parser; reduce each trial's deadline.
-     try{
-      const backup=await readVigicruesObservations(station.code,{
-       limit:65,fetchImpl:(url,opts)=>fetch(url,{...opts,
-        signal:AbortSignal.timeout(3200)})
-      });
-      return asReading(backup.points,'vigicrues');
-     }catch{return null}
+     // The primary API can return HTTP 200 with a maintenance HTML document.
     }
+    try{
+     // Use exactly the already operational Roquebrune GitHub Actions -> D1
+     // snapshot transport for all five permanent upstream backup stations.
+     // Direct Vigicrues remains a tertiary fallback if a snapshot is missing.
+     const backup=await bestVigicruesBackup(env,station.code,65);
+     const secondary=asReading(backup.points,'vigicrues',backup.transport||'direct');
+     if(secondary&&(!primary||Date.parse(secondary.observedAt)>=Date.parse(primary.observedAt)))
+      return secondary;
+    }catch{}
+    // Never fabricate a current reading; expose a dated last-known value only.
+    return primary;
    }));
    const upstream=rows.filter(Boolean),result={ok:upstream.length>0,upstream,
     checkedAt:new Date(now).toISOString(),source:upstream.some(x=>x.source==='vigicrues')?
