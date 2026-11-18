@@ -51,7 +51,12 @@ async function readJson(url, fetchImpl=fetch) {
   cf:{cacheTtl:0}
  });
  if(!response.ok)throw Error('HTTP '+response.status);
- return response.json();
+ const type=String(response.headers?.get?.('content-type')||'').toLowerCase();
+ // Upstream can return its HTML maintenance page with HTTP 200.
+ // Classify it before any JSON parser error escapes to the admin monitor.
+ if(type.includes('text/html'))throw Error('Upstream maintenance: HTML instead of JSON');
+ try{return await response.json()}
+ catch{throw Error('Upstream returned non-JSON data (possibly maintenance HTML)')}
 }
 export async function readHubObservations(code,{limit=100,fetchImpl=fetch}={}) {
  if(!validHydroStation(code))throw Error('Invalid station code');
