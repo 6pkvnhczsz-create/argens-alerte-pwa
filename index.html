@@ -2237,7 +2237,13 @@ function renderUpstreamOrderedList(items,locale,fmt){
  }
 }
 function upstreamTrend(g,fmt){
- const rate=Number(g.trendCmH);
+ const observed=Date.parse(g.observedAt);
+ if(!Number.isFinite(g.trendCmH)||!Number.isFinite(observed)||Date.now()-observed>90*60000){
+  const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
+  const time=Number.isFinite(observed)?new Date(observed).toLocaleTimeString(locale,{timeZone:'Europe/Paris',hour:'2-digit',minute:'2-digit'}):'—';
+  return {direction:'',value:'',label:earlyI18n('Valeur de : ','Reading at: ','Wert von: ')+time+' · '+fmt(g.levelM)+' m',className:'trend-flat'};
+ }
+ const rate=g.trendCmH;
  const direction=rate>0?'↑':rate<0?'↓':'→';
  const value=(rate>0?'+':'')+fmt(rate);
  return {direction,value,label:direction+' '+value+' cm/h',className:rate>0?'trend-up':rate<0?'trend-down':'trend-flat'};
@@ -2672,7 +2678,8 @@ function renderEarlySignals(){
 // Old values remain visible with their measurement time; they never trigger warnings.
 async function refreshMissingUpstreamReadings(existing){
  const request=++upstreamFallbackRequest;
- const missing=UPSTREAM_CONFLUENCE_ORDER.filter(code=>!existing.some(g=>g.code===code));
+ const missing=UPSTREAM_CONFLUENCE_ORDER.filter(code=>!existing.some(g=>g.code===code&&
+  Number.isFinite(Date.parse(g.observedAt))&&Date.now()-Date.parse(g.observedAt)<20*60000));
  if(!missing.length)return;
  // Independent Worker read: even an expired early-signals weather snapshot must
  // not hide the latest real gauge readings. Direct Hub'Eau is the backup.
@@ -2711,7 +2718,12 @@ async function refreshMissingUpstreamReadings(existing){
    'Keine Messwerte abrufbar (Dienst nicht erreichbar oder keine Historie)'));
   return;
  }
- const merged=[...existing,...added];
+ const byCode=new Map(existing.map(g=>[g.code,g]));
+ for(const g of added){
+  const prior=byCode.get(g.code);
+  if(!prior||Date.parse(g.observedAt)>Date.parse(prior.observedAt))byCode.set(g.code,g);
+ }
+ const merged=UPSTREAM_CONFLUENCE_ORDER.map(code=>byCode.get(code)).filter(Boolean);
  upstreamKnownReadings=merged;
  upstreamDisplayedGauges=merged;
  earlyText('earlyUpstreamStatus',earlyI18n('Dernières mesures disponibles : ',
