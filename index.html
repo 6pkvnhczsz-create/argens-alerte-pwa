@@ -2222,8 +2222,26 @@ let upstreamFallbackRequest=0;
 function renderUpstreamOrderedList(items,locale,fmt){
  const panel=document.getElementById('earlyUpstreamRows');
  panel.replaceChildren();
- panel.hidden=items.length===0;
- for(const {g,point,rank} of items){
+ panel.hidden=false;
+ const ordered=UPSTREAM_CONFLUENCE_ORDER.map((code,i)=>{
+  const matched=items.find(x=>x.g?.code===code);
+  return matched?{...matched,rank:i+1,code}:{g:null,point:null,rank:i+1,code};
+ });
+ for(const {g,point,rank,code} of ordered){
+  if(!g){
+   const node=document.createElement('div');node.className='upstream-distance-row';
+   const marker=document.createElement('span');marker.className='upstream-distance-rank';marker.textContent=String(rank);
+   const details=document.createElement('span');details.className='upstream-distance-info';
+   const name=document.createElement('strong');name.textContent=upstreamConfluenceNote(code);
+   const id=document.createElement('small');id.textContent=code;
+   details.append(name,id);
+   const value=document.createElement('span');value.className='upstream-distance-values';
+   const height=document.createElement('strong');height.textContent='—';
+   const note=document.createElement('small');note.textContent=earlyI18n(
+    'Mesure indisponible','Reading unavailable','Messwert nicht verfügbar');
+   value.append(height,note);node.append(marker,details,value);panel.append(node);
+   continue;
+  }
   const mapped=Boolean(point&&rank);
   const node=document.createElement(mapped?'button':'div');
   if(mapped)node.type='button';
@@ -2357,7 +2375,9 @@ async function updateUpstreamMap(){
   if(upstreamMapMarkers)upstreamMapMarkers.clearLayers();
   upstreamMarkerByCode.clear();
   renderUpstreamOrderedList([],locale,fmt);
-  earlyText('upstreamMapMessage',earlyI18n('Aucune mesure récente disponible','No recent upstream readings available','Keine aktuellen Messwerte flussaufwärtsliegender Pegel'));
+  earlyText('upstreamMapMessage',earlyI18n(
+   'Aucune hauteur vérifiable actuellement disponible','No verifiable gauge heights available',
+   'Derzeit keine verifizierbaren Pegelstände abrufbar'));
   return;
  }
  // Show verified observations immediately; no invented map coordinates.
