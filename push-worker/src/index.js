@@ -9,7 +9,7 @@ import { translateFeedbackRecord } from './feedback-translation.mjs';
 import { refreshEarlySignals, loadEarlySignals, fetchOfficialVigilance, fetchRainArea, fetchRainForecast, RAIN_AREAS, EARLY_SIGNALS_STATION, UPSTREAM_STATIONS } from './early-signals.mjs';
 import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
 import { fetchPiafMetadata, fetchPiafFrame, fetchPiafLegend } from './piaf-map.mjs';
-import { DEFAULT_STATION, validStationCode, cachedStation } from './piaf-station.mjs';
+import { DEFAULT_STATION, DEFAULT_BOUNDS, validStationCode, cachedStation } from './piaf-station.mjs';
 import {registerSelectedRainStation,readSelectedRainMeasurements} from './measured-rain.mjs';
 import {loadArgensObservedRain} from './observed-argens-rain.mjs';
 import {fetchLongRangeForecast} from './long-range-forecast.mjs';
@@ -111,6 +111,17 @@ export class AdminPushService extends WorkerEntrypoint {
 }
 const STATION='Y531201001';
 const ALLOWED_ORIGINS=new Set(['https://6pkvnhczsz-create.github.io','https://riviere-alerte.fr','https://www.riviere-alerte.fr']);
+// Public weather visualizations can use the bundled, known Argens reference
+// when Hub'Eau metadata is temporarily unavailable. This is NOT a water-level
+// measurement and never supplies data or thresholds to flood alerts.
+async function informationalStation(code){
+ if(code===DEFAULT_STATION)return {
+  code,name:'Roquebrune-sur-Argens',river:'Argens',department:'83',
+  departmentName:'Var',lat:43.4497,lon:6.6331,bounds:[...DEFAULT_BOUNDS],
+  locationSource:'bundled_reference'
+ };
+ return cachedStation(code); // All other selected stations still require official metadata.
+}
 const API='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr';
 const encoder=new TextEncoder();
 const b64url=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -804,7 +815,7 @@ export default {
    if(!validStationCode(code)||[...url.searchParams].length>1)
     return json(request,{error:'Invalid hydrometric station'},400);
    try{
-    const [info,station]=await Promise.all([cachedPiafMetadata(env),cachedStation(code)]);
+    const [info,station]=await Promise.all([cachedPiafMetadata(env),informationalStation(code)]);
     return json(request,{ok:true,available:true,...info,bounds:station.bounds,
      station:{code:station.code,name:station.name,lat:station.lat,lon:station.lon,river:station.river}});
    }
@@ -854,7 +865,7 @@ export default {
       names.some(name=>!['time','run','station'].includes(name))||new Set(names).size!==names.length)
     return json(request,{error:'Invalid PIAF time or station'},400);
    try{
-    const [info,station]=await Promise.all([cachedPiafMetadata(env),cachedStation(code)]);
+    const [info,station]=await Promise.all([cachedPiafMetadata(env),informationalStation(code)]);
     if(run&&run!==info.referenceTime)return json(request,{error:'PIAF model run changed'},409);
     if(!info.frames.includes(time))return json(request,{error:'PIAF frame not listed in current model'},404);
     const cache=globalThis.caches?.default;
@@ -947,7 +958,7 @@ export default {
    if(!validStationCode(code)||[...url.searchParams].length>1)
     return json(request,{error:'Invalid hydrometric station'},400);
    try{
-    const station=await cachedStation(code);
+    const station=await informationalStation(code);
     if(!station.department)return json(request,{ok:false,status:'unavailable',
      station:code,reason:'department_unverified',periods:[]},503);
     const cache=globalThis.caches?.default;
@@ -982,7 +993,7 @@ export default {
       url.searchParams.get('station')!==code)
     return json(request,{ok:false,error:'Invalid hydrometric station'},400);
    try{
-    const station=await cachedStation(code);
+    const station=await informationalStation(code);
     const cache=globalThis.caches?.default;
     const key=new Request('https://riviere-alerte.fr/__meteo_cache/long_range_v1?station='+code);
     if(cache){
@@ -1056,7 +1067,7 @@ export default {
       url.searchParams.get('station')!==code)
     return json(request,{ok:false,error:'Invalid hydrometric station'},400);
    try{
-    const station=await cachedStation(code);
+    const station=await informationalStation(code);
     // Validate and register only the official Hub'Eau location. Watchlist is
     // bounded; key for Météo-France stays exclusively in admin Worker.
     try{await registerSelectedRainStation(env.DB,station)}catch(error){
