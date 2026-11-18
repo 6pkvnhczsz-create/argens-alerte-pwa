@@ -7,7 +7,7 @@ const dates=Array.from({length:10},(_,i)=>new Date(Date.parse('2026-11-18T12:00:
 const data=()=>({
  timezone:'Europe/Paris',
  daily:{
-  time:dates,
+  time:[...dates],
   weather_code:[0,1,2,3,61,63,65,80,95,71],
   temperature_2m_max:[13,12,14,17,15,14,11,10,9,6],
   temperature_2m_min:[6,5,8,7,9,7,5,3,2,-1],
