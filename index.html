@@ -2140,7 +2140,29 @@ async function loadOfficialRadarMap(){
 // Georeferenced upstream stations: locations are verified against the official
 // Hub'Eau station registry; real-time levels and trends still come exclusively
 // from the existing validated early-signals API, not this coordinate request.
-let upstreamDisplayedGauges=[],upstreamKnownReadings=[],upstreamMapInstance=null,upstreamMapMarkers=null,upstreamMapUpdateId=0;
+// Retain only genuine, timestamped observations in the device's last-known cache.
+const UPSTREAM_LAST_KNOWN_KEY='riviere-alerte-upstream-latest-v1';
+function validLastKnownGauge(g){
+ const age=Date.now()-Date.parse(g?.observedAt);
+ return UPSTREAM_CONFLUENCE_ORDER.includes(g?.code)&&Number.isFinite(g?.levelM)&&
+  g.levelM>=-5&&g.levelM<=30&&Number.isFinite(age)&&age>=-15*60000&&age<=30*24*3600000;
+}
+function loadCachedUpstreamGauges(){
+ try{
+  const rows=JSON.parse(localStorage.getItem(UPSTREAM_LAST_KNOWN_KEY)||'[]');
+  return Array.isArray(rows)?rows.filter(validLastKnownGauge).map(g=>({
+   code:g.code,name:String(g.name||g.code).slice(0,100),levelM:g.levelM,
+   observedAt:g.observedAt,trendCmH:null,status:'last_known'})):[];
+ }catch{return []}
+}
+function saveCachedUpstreamGauges(rows){
+ try{
+  const safe=rows.filter(validLastKnownGauge).map(g=>({
+   code:g.code,name:g.name,levelM:g.levelM,observedAt:g.observedAt}));
+  localStorage.setItem(UPSTREAM_LAST_KNOWN_KEY,JSON.stringify(safe));
+ }catch{}
+}
+let upstreamDisplayedGauges=[],upstreamKnownReadings=loadCachedUpstreamGauges(),upstreamMapInstance=null,upstreamMapMarkers=null,upstreamMapUpdateId=0;
 const upstreamStationPositions=new Map(),upstreamPositionRequests=new Map(),upstreamPositionFailures=new Map();
 const UPSTREAM_POSITION_API='https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations';
 async function officialUpstreamPosition(code){
@@ -2725,6 +2747,7 @@ async function refreshMissingUpstreamReadings(existing){
  }
  const merged=UPSTREAM_CONFLUENCE_ORDER.map(code=>byCode.get(code)).filter(Boolean);
  upstreamKnownReadings=merged;
+ saveCachedUpstreamGauges(merged);
  upstreamDisplayedGauges=merged;
  earlyText('earlyUpstreamStatus',earlyI18n('Dernières mesures disponibles : ',
   'Latest available readings: ','Letzte vorhandene Messwerte: ')+merged.length);
