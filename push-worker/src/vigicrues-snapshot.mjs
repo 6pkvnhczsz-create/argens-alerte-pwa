@@ -2,6 +2,7 @@
 // GitHub OIDC signature and repository/workflow provenance are mandatory.
 // The snapshot is only a fallback to Hub'Eau; stale/unverified data is never used.
 import { assertFresh, validHydroStation } from './water-sources.mjs';
+import { UPSTREAM_STATIONS } from './early-signals.mjs';
 
 const ISSUER='https://token.actions.githubusercontent.com';
 const JWKS='https://token.actions.githubusercontent.com/.well-known/jwks';
@@ -11,6 +12,13 @@ const OWNER_ID='355805597';
 const WORKFLOW_REF='6pkvnhczsz-create/argens-alerte-pwa/.github/workflows/vigicrues-backup-sync.yml@refs/heads/main';
 const ALLOWED_EVENTS=new Set(['schedule','workflow_dispatch','push']);
 export const HOME_STATION='Y531201001';
+// Keep the already working home-station backup unchanged and continuously
+// snapshot the five river-upstream display stations too, even when no subscriber
+// has selected those stations as a personal home station.
+export const MANDATORY_BACKUP_STATIONS=Object.freeze([
+ HOME_STATION,...UPSTREAM_STATIONS.map(station=>station.code)
+]);
+const MANDATORY_STATION_SET=new Set(MANDATORY_BACKUP_STATIONS);
 const MAX_INGEST_BYTES=50000;
 export const MAX_STORE_AGE_MS=75*60*1000; // Old workflow runs are not proof of a live backup.
 const FUTURE_TOLERANCE_MS=15*60*1000;
@@ -61,12 +69,12 @@ async function ensureTables(db){
 }
 async function allActiveStationCodes(db){
  const response=await db.prepare("SELECT DISTINCT p.station_code AS station_code FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE u.status='active' ORDER BY p.station_code").all();
- const candidates=[HOME_STATION,...(response.results||[]).map(x=>x.station_code)];
+ const candidates=[...MANDATORY_BACKUP_STATIONS,...(response.results||[]).map(x=>x.station_code)];
  return [...new Set(candidates.filter(isUsableStation))].sort();
 }
 export async function isActiveBackupStation(db,station){
  if(!isUsableStation(station))return false;
- if(station===HOME_STATION)return true; // The primary monitoring station always has a backup.
+ if(MANDATORY_STATION_SET.has(station))return true; // Built-in home and upstream gauges always eligible.
  const row=await db.prepare("SELECT 1 AS present FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE p.station_code=? AND u.status='active' LIMIT 1").bind(station).first();
  return !!row;
 }
@@ -75,10 +83,13 @@ export async function activeBackupStationCodes(db,{now=Date.now()}={}){
  const codes=await allActiveStationCodes(db);
  // When a user switches stations, keep their old snapshot for at most 30 days.
  // It can never be used without an active subscriber.
- await db.prepare("DELETE FROM vigicrues_backup_snapshots WHERE station_code != ? AND received_ms < ? AND station_code NOT IN (SELECT p.station_code FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE u.status='active')")
-  .bind(HOME_STATION,now-INACTIVE_RETAIN_MS).run();
- await db.prepare("DELETE FROM vigicrues_backup_failures WHERE checked_ms < ? AND station_code NOT IN (SELECT p.station_code FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE u.status='active')")
-  .bind(now-INACTIVE_RETAIN_MS).run();
+ // Preserve the permanent backup stations; cleanup only genuinely inactive,
+ // unregistered stations. All SQL values are constant valid station codes.
+ const mandatoryPlaceholders=MANDATORY_BACKUP_STATIONS.map(()=>'?').join(',');
+ await db.prepare("DELETE FROM vigicrues_backup_snapshots WHERE received_ms < ? AND station_code NOT IN ("+mandatoryPlaceholders+") AND station_code NOT IN (SELECT p.station_code FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE u.status='active')")
+  .bind(now-INACTIVE_RETAIN_MS,...MANDATORY_BACKUP_STATIONS).run();
+ await db.prepare("DELETE FROM vigicrues_backup_failures WHERE checked_ms < ? AND station_code NOT IN ("+mandatoryPlaceholders+") AND station_code NOT IN (SELECT p.station_code FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE u.status='active')")
+  .bind(now-INACTIVE_RETAIN_MS,...MANDATORY_BACKUP_STATIONS).run();
  const recent=(await db.prepare("SELECT station_code FROM vigicrues_backup_failures WHERE (reason='stale' AND checked_ms > ?) OR (reason!='stale' AND checked_ms > ?)")
   .bind(now-30*60*1000,now-NOT_AVAILABLE_RECHECK_MS).all()).results||[];
  const deferred=new Set(recent.map(r=>r.station_code));
@@ -122,7 +133,7 @@ export async function ingestSnapshot(db,payload,{runId='',now=Date.now()}={}){
 export async function storedVigicruesObservations(db,code,{limit=100,now=Date.now()}={}){
  if(!isUsableStation(code))throw Error('Invalid backup station');
  if(!db)throw Error('Backup storage unavailable');
- if(!await isActiveBackupStation(db,code))throw Error('Station has no active subscribers');
+ if(!await isActiveBackupStation(db,code))throw Error('Station has neither active subscribers nor permanent backup coverage');
  const row=await db.prepare('SELECT latest_ms,received_ms,readings_json FROM vigicrues_backup_snapshots WHERE station_code=?').bind(code).first();
  if(!row)throw Error('No GitHub backup snapshot received');
  if(!Number.isSafeInteger(row.received_ms)||row.received_ms>now+FUTURE_TOLERANCE_MS||now-row.received_ms>MAX_STORE_AGE_MS)throw Error('GitHub backup delivery outdated');
