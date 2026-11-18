@@ -2684,6 +2684,10 @@ function renderEarlySignals(){
   earlyI18n('Dernières mesures disponibles : ','Latest available readings: ','Letzte vorhandene Messwerte: ')+gauges.length:
   earlyI18n('Recherche des dernières mesures…','Checking latest available readings…','Letzte vorhandene Messwerte werden geprüft…'));
  upstreamDisplayedGauges=gauges;
+ if(argens&&gauges.length){
+  upstreamKnownReadings=gauges;
+  saveCachedUpstreamGauges(gauges);
+ }
  if(argens)refreshMissingUpstreamReadings(gauges);
  if(currentRainStation()!=='Y531201001'){
   document.getElementById('upstreamMap').hidden=true;
