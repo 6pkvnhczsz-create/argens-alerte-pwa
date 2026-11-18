@@ -574,13 +574,6 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <p class="flood-research-state">Les prévisions sont actuellement en phase de test</p>
     <p class="flood-research-explain">Modèle fondé sur les pluies et les crues historiques. En développement et non validé pour les décisions d’alerte. Les alertes existantes restent inchangées.</p>
    </article>
-   <article class="panel forecast-card" id="rainForecastCard">
-    <span class="forecast-card-icon" aria-hidden="true">🌦️</span>
-    <strong id="earlyForecastTitle">Pluie prévue · Météo-France</strong>
-    <p id="earlyForecastStatus" class="note" role="status">Chargement…</p>
-    <div id="earlyForecastRows" class="forecast-compact-list" aria-label="Prévisions de pluie pour 6 et 24 heures"></div>
-    <p id="earlyForecastDisclaimer" class="note forecast-disclaimer">Prévision des modèles AROME/ARPEGE via Open-Meteo, pas une mesure radar ni une prévision de crue.</p>
-   </article>
    <article class="panel forecast-card long-range-card" id="longRangeForecastCard">
     <details id="longRangeDetails">
      <summary id="longRangeSummary">🌤️ Tendance météo · 10 jours</summary>
@@ -592,6 +585,13 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
       Aucune prévision de crue ou alerte officielle.
      </p>
     </details>
+   </article>
+   <article class="panel forecast-card" id="rainForecastCard">
+    <span class="forecast-card-icon" aria-hidden="true">🌦️</span>
+    <strong id="earlyForecastTitle">Pluie prévue · Météo-France</strong>
+    <p id="earlyForecastStatus" class="note" role="status">Chargement…</p>
+    <div id="earlyForecastRows" class="forecast-compact-list" aria-label="Prévisions de pluie pour 6 et 24 heures"></div>
+    <p id="earlyForecastDisclaimer" class="note forecast-disclaimer">Prévision des modèles AROME/ARPEGE via Open-Meteo, pas une mesure radar ni une prévision de crue.</p>
    </article>
 
    <article class="panel forecast-card" id="recentRainCard">
@@ -2598,7 +2598,8 @@ function renderEarlySignals(){
   upstreamDisplayedGauges=[];
   document.getElementById('upstreamMap').hidden=true;
   document.getElementById('earlyUpstreamRows').hidden=true;
-  earlyText('upstreamMapMessage',unavailable);
+  earlyText('upstreamMapMessage',argens?earlyI18n('Recherche des dernières mesures disponibles…','Checking latest available readings…','Prüfe die letzten verfügbaren Pegelmesswerte…'):unavailable);
+  if(argens)void refreshMissingUpstreamReadings([]);
   healthState.weather=localRainLoading?'pending':'bad';renderSystemHealth();
   return;
  }
@@ -2666,29 +2667,50 @@ async function refreshMissingUpstreamReadings(existing){
  const request=++upstreamFallbackRequest;
  const missing=UPSTREAM_CONFLUENCE_ORDER.filter(code=>!existing.some(g=>g.code===code));
  if(!missing.length)return;
- const results=await Promise.all(missing.map(async code=>{
+ // Independent Worker read: even an expired early-signals weather snapshot must
+ // not hide the latest real gauge readings. Direct Hub'Eau is the backup.
+ let workerReadings=[];
+ try{
+  const response=await fetch('https://argens-alerte-push.p-hammerschmidt.workers.dev/api/upstream/argens',{
+   cache:'no-store',signal:AbortSignal.timeout(15000)});
+  if(response.ok){
+   const payload=await response.json();
+   workerReadings=(Array.isArray(payload?.upstream)?payload.upstream:[]).filter(g=>
+    missing.includes(g.code)&&Number.isFinite(g.levelM)&&Number.isFinite(Date.parse(g.observedAt))&&
+    Date.parse(g.observedAt)<=Date.now()+15*60000);
+  }
+ }catch{}
+ const stillMissing=missing.filter(code=>!workerReadings.some(g=>g.code===code));
+ const direct=await Promise.all(stillMissing.map(async code=>{
   try{
    const url='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?'+new URLSearchParams({code_entite:code,grandeur_hydro:'H',size:'1',sort:'desc',format:'json'});
    const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(10000)});
    if(!response.ok)return null;
    const payload=await response.json();
-   const obs=(payload.data||[]).find(x=>x.resultat_obs!==null&&x.resultat_obs!==''&&Number.isFinite(Number(x.resultat_obs))&&Number.isFinite(Date.parse(x.date_obs)));
+   const obs=(Array.isArray(payload.data)?payload.data:[]).find(x=>x.resultat_obs!==null&&x.resultat_obs!==''&&Number.isFinite(Number(x.resultat_obs))&&Number.isFinite(Date.parse(x.date_obs)));
    if(!obs)return null;
    const levelM=Number(obs.resultat_obs)/1000;
    if(levelM< -5||levelM>30||Date.parse(obs.date_obs)>Date.now()+15*60000)return null;
-   return {code,name:obs.libelle_station||obs.libelle_entite||code,levelM,trendCmH:null,observedAt:obs.date_obs,status:'last_known'};
+   return {code,name:obs.libelle_station||obs.libelle_entite||code,
+    levelM,trendCmH:null,observedAt:obs.date_obs,status:'last_known'};
   }catch{return null}
  }));
  if(request!==upstreamFallbackRequest||window.argensHomeStationCode!=='Y531201001')return;
- const added=results.filter(Boolean);
+ const added=[...workerReadings,...direct.filter(Boolean)];
  if(!added.length){
-  if(!existing.length)earlyText('earlyUpstreamStatus',earlyI18n('Aucune mesure disponible (service indisponible ou historique vide)','No readings available (service unavailable or empty history)','Keine Messwerte abrufbar (Dienst nicht erreichbar oder keine Historie)'));
+  if(!existing.length)earlyText('earlyUpstreamStatus',earlyI18n(
+   'Aucune mesure disponible (service indisponible ou historique vide)',
+   'No readings available (service unavailable or empty history)',
+   'Keine Messwerte abrufbar (Dienst nicht erreichbar oder keine Historie)'));
   return;
  }
  const merged=[...existing,...added];
  upstreamDisplayedGauges=merged;
- earlyText('earlyUpstreamStatus',earlyI18n('Dernières mesures disponibles : ','Latest available readings: ','Letzte vorhandene Messwerte: ')+merged.length);
- if(!document.getElementById('forecastPage').classList.contains('hidden'))requestAnimationFrame(()=>updateUpstreamMap());
+ earlyText('earlyUpstreamStatus',earlyI18n('Dernières mesures disponibles : ',
+  'Latest available readings: ','Letzte vorhandene Messwerte: ')+merged.length);
+ if(!document.getElementById('forecastPage').classList.contains('hidden'))
+  requestAnimationFrame(()=>updateUpstreamMap());
+
 }
 
  earlyText('earlyRadarStatus',radar?.status==='catalogue_only'?
