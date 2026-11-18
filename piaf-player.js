@@ -257,7 +257,11 @@
   try{
    const response=await fetch(API+'/metadata?station='+encodeURIComponent(requestedCode),
     {cache:'no-store',signal:AbortSignal.timeout(18000)});
-   if(!response.ok)throw Error('No official PIAF forecast');
+   if(!response.ok){
+    const detail=await response.json().catch(()=>null);
+    const reason=String(detail?.reason||'http_'+response.status);
+    throw Error(/^(?:access_not_configured|hydrometry_register_unavailable|model_run_stale|upstream_or_catalogue_unavailable|response_not_xml|http_\d{3})$/.test(reason)?reason:'api_unavailable');
+   }
    const d=await response.json(),frames=d.frames;
    if(d.available!==true||d.source!=='Météo-France PIAF'||d.kind!=='forecast_5min'||
       !Array.isArray(frames)||frames.length<1||frames.length>37||
@@ -296,8 +300,12 @@
    model=null;pause();cancelPrefetch();slider.disabled=true;play.disabled=true;
    controls.hidden=true;mapNode.hidden=true;timeBadge.hidden=true;
    labels();id('piafForecastStatus').hidden=false;
+   const reason=String(error?.message||'');
+   const safe=/^(?:access_not_configured|hydrometry_register_unavailable|model_run_stale|upstream_or_catalogue_unavailable|response_not_xml|http_\d{3}|api_unavailable|Incomplete or outdated PIAF metadata)$/.test(reason)?reason:
+    String(error?.name||'')==='TimeoutError'?'request_timeout':'connection_failed';
    text('piafForecastStatus',lang('Prévision PIAF momentanément indisponible.',
-    'PIAF forecast temporarily unavailable.','PIAF-Regenprognose derzeit nicht verfügbar.'));
+    'PIAF forecast temporarily unavailable.','PIAF-Regenprognose derzeit nicht verfügbar.')+
+    ' · '+lang('Diagnostic : ','Diagnostic: ','Fehlercode: ')+safe);
    status('');
   }finally{loading=false}
  }
