@@ -2302,7 +2302,9 @@ function renderUpstreamOrderedList(items,locale,fmt){
   const observed=Date.parse(g.observedAt);
   const observedLabel=Number.isFinite(observed)?new Date(observed).toLocaleString(locale,{timeZone:'Europe/Paris',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
   const stale=Number.isFinite(observed)&&Date.now()-observed>90*60000;
-  subtitle.textContent=upstreamConfluenceNote(g.code)+' · '+earlyI18n('Mesure : ','Measured: ','Messung: ')+observedLabel+(point?'':earlyI18n(' · position indisponible',' · location unavailable',' · Position nicht verfügbar'));
+  subtitle.textContent=upstreamConfluenceNote(g.code)+' · '+earlyI18n('Mesure : ','Measured: ','Messung: ')+observedLabel+
+    (g.source==='vigicrues'?earlyI18n(' · Vigicrues (secours)',' · Vigicrues (backup)',' · Vigicrues (Backup)'):'')+
+    (point?'':earlyI18n(' · position indisponible',' · location unavailable',' · Position nicht verfügbar'));
   details.append(title,subtitle);
   const level=document.createElement('span');level.className='upstream-distance-values';
   const height=document.createElement('strong');height.textContent=fmt(g.levelM)+' m';
@@ -2351,6 +2353,11 @@ function buildUpstreamPopup(g,fmt,locale){
  const location=document.createElement('small');location.textContent=upstreamConfluenceNote(g.code);
  const stationCode=document.createElement('small');stationCode.textContent=earlyI18n('Code station : ','Station code: ','Stationscode: ')+g.code;
  extra.append(toggle,timestamp,location,stationCode);
+ if(g.source==='vigicrues'){
+  const source=document.createElement('small');
+  source.textContent=earlyI18n('Source : Vigicrues (secours)','Source: Vigicrues (backup)','Quelle: Vigicrues (Backup)');
+  extra.append(source);
+ }
  bubble.append(name,summary,extra);
  return bubble;
 }
