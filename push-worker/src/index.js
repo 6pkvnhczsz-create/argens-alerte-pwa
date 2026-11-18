@@ -692,28 +692,45 @@ export default {
    }
    const now=Date.now();
    const rows=await Promise.all(UPSTREAM_STATIONS.map(async station=>{
-    try{
-     const query=new URLSearchParams({code_entite:station.code,grandeur_hydro:'H',size:'65',sort:'desc',format:'json'});
-     const response=await fetch('https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?'+query,{
-      headers:{Accept:'application/json'},signal:AbortSignal.timeout(11000),cf:{cacheTtl:0}});
-     if(!response.ok)return null;
-     const payload=await response.json();
-     const readings=(Array.isArray(payload?.data)?payload.data:[]).map(row=>{
-      if(row?.resultat_obs==null||row.resultat_obs==='')return null;
-      const mm=Number(row.resultat_obs),time=Date.parse(row.date_obs);
-      return Number.isFinite(mm)&&Number.isFinite(time)&&mm>=-5000&&mm<=30000&&time<=now+15*60000?{mm,time}:null;
-     }).filter(Boolean).sort((a,b)=>b.time-a.time);
+    const asReading=(points,source)=>{
+     const readings=points.filter(p=>Number.isFinite(p.mm)&&Number.isFinite(p.time)&&
+      p.mm>=-5000&&p.mm<=30000&&p.time<=now+15*60000).sort((a,b)=>b.time-a.time);
      if(!readings.length)return null;
      const latest=readings[0],recent=now-latest.time<=90*60000;
      const baseline=recent?readings.find(x=>latest.time-x.time>=30*60000&&latest.time-x.time<=180*60000):null;
      const trend=baseline?(latest.mm-baseline.mm)/10/((latest.time-baseline.time)/3600000):null;
      return {...station,status:recent?'current':'last_known',levelM:Math.round(latest.mm/10)/100,
       trendCmH:Number.isFinite(trend)?Math.round(trend*10)/10:null,
-      observedAt:new Date(latest.time).toISOString(),source:'hubeau'};
-    }catch{return null}
+      observedAt:new Date(latest.time).toISOString(),source};
+    };
+    try{
+     const query=new URLSearchParams({code_entite:station.code,grandeur_hydro:'H',size:'65',sort:'desc',format:'json'});
+     const response=await fetch('https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?'+query,{
+      headers:{Accept:'application/json'},signal:AbortSignal.timeout(7000),cf:{cacheTtl:0}});
+     if(!response.ok)throw Error('Hub Eau HTTP '+response.status);
+     const payload=await response.json();
+     const points=(Array.isArray(payload?.data)?payload.data:[]).map(row=>({
+      mm:Number(row?.resultat_obs),time:Date.parse(row?.date_obs)}))
+      .filter((p,i)=>payload.data[i]?.resultat_obs!==null&&payload.data[i]?.resultat_obs!==''&&
+       payload.data[i]?.resultat_obs!==undefined);
+     const first=asReading(points,'hubeau');
+     if(first)return first;
+     throw Error('No usable Hub Eau height');
+    }catch{
+     // Vigicrues is genuinely independent transport and still official.
+     // Reuse the existing validated parser; reduce each trial's deadline.
+     try{
+      const backup=await readVigicruesObservations(station.code,{
+       limit:65,fetchImpl:(url,opts)=>fetch(url,{...opts,
+        signal:AbortSignal.timeout(3200)})
+      });
+      return asReading(backup.points,'vigicrues');
+     }catch{return null}
+    }
    }));
    const upstream=rows.filter(Boolean),result={ok:upstream.length>0,upstream,
-    checkedAt:new Date(now).toISOString(),source:'hubeau',informationalOnly:true,notForAlerts:true};
+    checkedAt:new Date(now).toISOString(),source:upstream.some(x=>x.source==='vigicrues')?
+     'hubeau_vigicrues_backup':'hubeau',informationalOnly:true,notForAlerts:true};
    if(cache&&upstream.length)await cache.put(key,new Response(JSON.stringify(result),{
     headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=60'}})).catch(()=>{});
    return json(request,result,upstream.length?200:503);
