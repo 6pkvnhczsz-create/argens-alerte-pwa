@@ -2628,6 +2628,8 @@ function renderEarlySignals(){
   for(const id of ['earlyForecastStatus','earlyRainStatus','earlyUpstreamStatus','earlyRadarStatus'])earlyText(id,unavailable);
   earlyText('earlySignalsChecked','');
   upstreamDisplayedGauges=argens?upstreamKnownReadings:[];
+  if(argens&&upstreamKnownReadings.length)earlyText('earlyUpstreamStatus',earlyI18n(
+   'Dernières mesures enregistrées : ','Last saved readings: ','Zuletzt gespeicherte Messwerte: ')+upstreamKnownReadings.length);
   document.getElementById('upstreamMap').hidden=true;
   document.getElementById('earlyUpstreamRows').hidden=true;
   earlyText('upstreamMapMessage',argens?earlyI18n('Recherche des dernières mesures disponibles…','Checking latest available readings…','Prüfe die letzten verfügbaren Pegelmesswerte…'):unavailable);
