@@ -2054,7 +2054,7 @@ setLanguage(lang);
 
 /* Information only. These supplementary signals never change risk colors or Push. */
 let earlySignalsSnapshot=null,localRainSnapshot=null,earlySignalsRequest=0,localRainLoading=false;
-let longRangeSnapshot=null,longRangeStation='',longRangeRequest=0,longRangeLoading=false,longRangeLoadedMs=0;
+let longRangeSnapshot=null,longRangeStation='',longRangeRequest=0,longRangeLoading=false,longRangeLoadedMs=0,longRangeFailure='';
 let localRainStationCode='';
 const LOCAL_RAIN_DEFAULT='Y531201001';
 const currentRainStation=()=>window.argensHomeStationCode||LOCAL_RAIN_DEFAULT;
@@ -2493,7 +2493,8 @@ function renderLongRangeForecast(){
   earlyText('longRangeStatus',waiting?earlyI18n(
    'Chargement des 10 jours…','Loading 10-day forecast…','Lade 10-Tage-Vorhersage…'):
    earlyI18n('Prévisions temporairement indisponibles',
-   'Long-range forecast temporarily unavailable','Langzeitvorhersage derzeit nicht verfügbar'));
+   'Long-range forecast temporarily unavailable','Langzeitvorhersage derzeit nicht verfügbar')+
+   (!waiting&&longRangeFailure?' · '+longRangeFailure:''));
   return;
  }
  const upd=new Date(forecast.checkedAt);
@@ -2595,7 +2596,7 @@ async function loadLongRangeForecast(station){
  if(station===longRangeStation&&longRangeLoading)return;
  if(station===longRangeStation&&longRangeSnapshot&&Date.now()-longRangeLoadedMs<30*60000)return;
  const sequence=++longRangeRequest;
- longRangeStation=station;longRangeSnapshot=null;longRangeLoading=true;
+ longRangeStation=station;longRangeSnapshot=null;longRangeLoading=true;longRangeFailure='';
  renderLongRangeForecast();
  // Independent requests: either successful source can populate the 10 days.
  // A failed or not-yet-deployed Worker cannot block a direct Open-Meteo result.
@@ -2614,7 +2615,12 @@ async function loadLongRangeForecast(station){
   longRangeSnapshot=data;
   longRangeLoadedMs=Date.now();
  }catch(error){
-  if(sequence===longRangeRequest&&station===currentRainStation())longRangeSnapshot=null;
+  if(sequence===longRangeRequest&&station===currentRainStation()){
+   longRangeSnapshot=null;
+   // Only safe network status/error metadata; never credentials or response bodies.
+   const errors=Array.isArray(error?.errors)?error.errors:[error];
+   longRangeFailure=errors.map(e=>String(e?.message||'unreachable').slice(0,65)).join(' / ').slice(0,145);
+  }
  }finally{
   if(sequence===longRangeRequest&&station===currentRainStation()){
    longRangeLoading=false;
