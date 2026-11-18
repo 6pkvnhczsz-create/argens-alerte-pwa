@@ -546,9 +546,11 @@ test('public source diagnostics isolate official vigilance, PIAF, search and ups
 test('public Worker deployment fingerprint is safe and upstream backup uses independent Vigicrues data',()=>{
  const worker=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
  assert.match(worker,/url\.pathname==='\/api\/diagnostics\/version'/);
- assert.match(worker,/weather-data-repair-2026-11-18-v1/);
+ assert.match(worker,/hydrometry-failover-2026-11-18-v2/);
  assert.match(worker,/upstreamBackup:'vigicrues'/);
- assert.match(worker,/readVigicruesObservations\(station\.code/);
+ assert.match(worker,/permanentBackupStations:6/);
+ assert.match(worker,/upstreamSignedSnapshots:true/);
+ assert.match(worker,/bestVigicruesBackup\(env,station\.code/);
  assert.match(worker,/informationalStation\(code\)/);
  assert.match(worker,/department:'83'/);
  // The alert scheduling and existing risk calculations have not changed.
