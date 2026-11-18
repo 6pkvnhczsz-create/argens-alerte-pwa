@@ -2839,10 +2839,12 @@ function renderEarlySignals(){
   if(argens&&upstreamKnownReadings.length)earlyText('earlyUpstreamStatus',earlyI18n(
    'Dernières mesures enregistrées : ','Last saved readings: ','Zuletzt gespeicherte Messwerte: ')+upstreamKnownReadings.length);
   document.getElementById('upstreamMap').hidden=true;
-  document.getElementById('earlyUpstreamRows').hidden=true;
+  document.getElementById('earlyUpstreamRows').hidden=!argens;
   earlyText('upstreamMapMessage',argens?earlyI18n('Recherche des dernières mesures disponibles…','Checking latest available readings…','Prüfe die letzten verfügbaren Pegelmesswerte…'):unavailable);
   if(argens){
-   if(upstreamKnownReadings.length&&!document.getElementById('forecastPage').classList.contains('hidden'))requestAnimationFrame(()=>updateUpstreamMap());
+   // Show known upstream stations with placeholders even when rain signals fail.
+   if(!document.getElementById('forecastPage').classList.contains('hidden'))
+    requestAnimationFrame(()=>updateUpstreamMap());
    void refreshMissingUpstreamReadings(upstreamKnownReadings);
   }
   healthState.weather=localRainLoading?'pending':'bad';renderSystemHealth();
@@ -2902,11 +2904,8 @@ function renderEarlySignals(){
  if(currentRainStation()!=='Y531201001'){
   document.getElementById('upstreamMap').hidden=true;
   document.getElementById('earlyUpstreamRows').hidden=true;
- }else if(!gauges.length){
-  document.getElementById('upstreamMap').hidden=true;
-  document.getElementById('earlyUpstreamRows').hidden=true;
-  earlyText('upstreamMapMessage',earlyI18n('Recherche des dernières mesures par station…','Checking last available readings for each gauge…','Prüfe die letzten verfügbaren Messwerte jeder Station…'));
  }else if(!document.getElementById('forecastPage').classList.contains('hidden')){
+  // Show all five known stations, including when measurements are unavailable.
   requestAnimationFrame(()=>updateUpstreamMap());
  }
  const radar=regional?d.radar:null;
