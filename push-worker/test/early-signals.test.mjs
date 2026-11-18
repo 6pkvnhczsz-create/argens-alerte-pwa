@@ -496,3 +496,24 @@ test('Argens gauges remain individually visible and use concurrent independent r
  const renderer=page.indexOf('function renderEarlySignals(){');
  assert.ok(loader>0&&loader<renderer,'Independent gauge function must be in shared scope');
 });
+
+test('public Worker deployment fingerprint is safe and upstream backup uses independent Vigicrues data',()=>{
+ const worker=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ assert.match(worker,/url\.pathname==='\/api\/diagnostics\/version'/);
+ assert.match(worker,/weather-data-repair-2026-11-18-v1/);
+ assert.match(worker,/upstreamBackup:'vigicrues'/);
+ assert.match(worker,/readVigicruesObservations\(station\.code/);
+ assert.match(worker,/informationalStation\(code\)/);
+ assert.match(worker,/department:'83'/);
+ // The alert scheduling and existing risk calculations have not changed.
+ assert.match(worker,/ctx\.waitUntil\(scheduledCheck\(env\)/);
+ assert.match(worker,/ctx\.waitUntil\(checkPersonalStations\(env\)/);
+});
+
+test('station search uses official IGN and independent communes fallback, not retired BAN endpoint',()=>{
+ const page=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
+ assert.match(page,/https:\/\/data\.geopf\.fr\/geocodage\/search/);
+ assert.match(page,/https:\/\/geo\.api\.gouv\.fr\/communes/);
+ assert.doesNotMatch(page,/api-adresse\.data\.gouv\.fr/);
+ assert.match(page,/Hub’Eau station register is not responding/);
+});
