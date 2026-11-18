@@ -176,7 +176,7 @@ export function parseMeteoVigilance(data,{now=Date.now(),department='83',departm
   updatedAt:new Date(published).toISOString(),periods,
   link:department==='83'?OFFICIAL_LINK:'https://vigilance.meteofrance.fr/fr'};
 }
-async function fetchMeteoToken(basic,fetchImpl,now){
+export async function fetchMeteoToken(basic,fetchImpl,now){
  if(cachedToken?.basic===basic&&cachedToken?.until>now+120000)return cachedToken.value;
  let response;
  try{response=await fetchImpl(METEO_TOKEN,{
