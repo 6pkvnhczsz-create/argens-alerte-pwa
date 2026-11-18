@@ -566,6 +566,12 @@ export default {
  async fetch(request,env,ctx){
   const url=new URL(request.url);
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors(request)});
+  // Public, read-only deployment fingerprint. No secrets, account data or DB access.
+  // If absent in production, the new push Worker has not been deployed.
+  if(url.pathname==='/api/diagnostics/version'&&request.method==='GET')
+   return json(request,{ok:true,service:'argens-alerte-push',
+    version:'weather-data-repair-2026-11-18-v1',
+    upstreamBackup:'vigicrues',piafGatewayFallback:true,knownArgensStation:true});
   if(url.pathname.startsWith('/auth/')||url.pathname==='/user/station'){try{return await accountRoute(request,env,url)}catch(e){console.error('Auth error',String(e));return json(request,{error:'Authentication unavailable'},500)}}
   if(url.pathname==='/devices/link'&&request.method==='POST'){
    if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
