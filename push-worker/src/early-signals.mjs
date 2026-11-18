@@ -39,9 +39,9 @@ export function parseUpstreamPoints(points,now=Date.now()){
   observedAt:new Date(last.time).toISOString()
  };
 }
-export async function fetchUpstreamStation(station,{now=Date.now(),fetchImpl=fetch}={}){
+export async function fetchUpstreamStation(station,{now=Date.now(),fetchImpl=fetch,backupReader=null}={}){
  try{
-  const result=await getHydroObservations(station.code,{limit:80,fetchImpl});
+  const result=await getHydroObservations(station.code,{limit:80,fetchImpl,backupReader});
   const parsed=parseUpstreamPoints(result.points,now);
   return {...station,...parsed,source:result.source};
  }catch(error){
@@ -286,9 +286,9 @@ export async function fetchRadarCatalogue(env,{now=Date.now(),fetchImpl=fetch}={
  }
 }
 
-export async function buildEarlySignals(env,{now=Date.now(),fetchImpl=fetch}={}){
+export async function buildEarlySignals(env,{now=Date.now(),fetchImpl=fetch,backupReader=null}={}){
  const [upstream,rain,forecast,official,radar]=await Promise.all([
-  Promise.all(UPSTREAM_STATIONS.map(x=>fetchUpstreamStation(x,{now,fetchImpl}))),
+  Promise.all(UPSTREAM_STATIONS.map(x=>fetchUpstreamStation(x,{now,fetchImpl,backupReader}))),
   Promise.all(RAIN_AREAS.map(x=>fetchRainArea(x,{now,fetchImpl}))),
   Promise.all(RAIN_AREAS.map(x=>fetchRainForecast(x,{now,fetchImpl}))),
   fetchOfficialVigilance(env,{now,fetchImpl}),
@@ -307,9 +307,9 @@ export async function buildEarlySignals(env,{now=Date.now(),fetchImpl=fetch}={})
 async function ensureTable(db){
  await db.prepare('CREATE TABLE IF NOT EXISTS early_signals (station_code TEXT PRIMARY KEY, checked_ms INTEGER NOT NULL, payload TEXT NOT NULL)').run();
 }
-export async function refreshEarlySignals(env,{now=Date.now(),fetchImpl=fetch}={}){
+export async function refreshEarlySignals(env,{now=Date.now(),fetchImpl=fetch,backupReader=null}={}){
  if(!env?.DB)throw Error('D1 unavailable');
- const result=await buildEarlySignals(env,{now,fetchImpl});
+ const result=await buildEarlySignals(env,{now,fetchImpl,backupReader});
  await ensureTable(env.DB);
  await env.DB.prepare('INSERT INTO early_signals(station_code,checked_ms,payload) VALUES(?,?,?) ON CONFLICT(station_code) DO UPDATE SET checked_ms=excluded.checked_ms,payload=excluded.payload')
   .bind(EARLY_SIGNALS_STATION,now,JSON.stringify(result)).run();
