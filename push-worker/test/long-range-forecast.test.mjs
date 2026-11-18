@@ -93,3 +93,41 @@ test('page renders expandable 10-day forecast independently of alert and Météo
  assert.ok(backend.includes('notForAlerts:true'));
  assert.ok(!backend.includes('sendFloodAlarmForLongRange'));
 });
+
+// Regression: the public 10-day card must work even when the Cloudflare Worker
+// is not deployed or the hydrometry register is temporarily unavailable.
+test('direct Open-Meteo browser fallback works without a Cloudflare Worker or Météo-France access',async()=>{
+ const html=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
+ const start=html.indexOf('async function loadOpenMeteoDirect(station){');
+ const end=html.indexOf('\nasync function loadLongRangeForecast(station){',start);
+ assert.ok(start>0&&end>start,'Direct browser forecast function exists');
+ assert.match(html,/Promise\.any\(\[loadOpenMeteoDirect\(station\),worker\(\)\]\)/);
+ const factory=new Function('fetch','ROQUEBRUNE_STATION_FALLBACK','LOCAL_RAIN_DEFAULT',
+  'AbortSignal','URLSearchParams',html.slice(start,end)+'\nreturn loadOpenMeteoDirect;');
+ const todayParts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{
+  timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'
+ }).formatToParts(new Date()).map(p=>[p.type,p.value]));
+ const startUtc=Date.UTC(Number(todayParts.year),Number(todayParts.month)-1,Number(todayParts.day));
+ const dates=Array.from({length:10},(_,i)=>new Date(startUtc+i*86400000).toISOString().slice(0,10));
+ const payload={daily:{time:dates,weather_code:dates.map(()=>3),
+  temperature_2m_max:dates.map(()=>19),temperature_2m_min:dates.map(()=>10),
+  precipitation_sum:dates.map(()=>2),precipitation_probability_max:dates.map(()=>50)}};
+ let requests=0;
+ const browserFetch=async url=>{
+  requests++;
+  const parsed=new URL(url);
+  assert.equal(parsed.origin,'https://api.open-meteo.com');
+  assert.equal(parsed.searchParams.get('forecast_days'),'10');
+  assert.equal(parsed.searchParams.get('timezone'),'Europe/Paris');
+  return {ok:true,json:async()=>payload};
+ };
+ const load=factory(browserFetch,{lat:43.4497,lon:6.6331},'Y531201001',AbortSignal,URLSearchParams);
+ const forecast=await load('Y531201001');
+ assert.equal(requests,1);
+ assert.equal(forecast.ok,true);
+ assert.equal(forecast.status,'forecast');
+ assert.equal(forecast.source,'Open-Meteo · direct');
+ assert.equal(forecast.days.length,10);
+ assert.equal(forecast.days[0].date,dates[0]);
+ assert.equal(forecast.days[0].precipitation_mm,2);
+});
