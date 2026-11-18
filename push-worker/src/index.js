@@ -31,6 +31,7 @@ export class AdminPushService extends WorkerEntrypoint {
   const byCode=new Map(rows.map(x=>[x.station_code,x]));
   const names=(await db.prepare("SELECT p.station_code,MAX(p.station_name) AS station_name FROM user_station_settings p JOIN app_users u ON u.id=p.user_id WHERE u.status='active' GROUP BY p.station_code").all()).results||[];
   const labels=new Map(names.map(x=>[x.station_code,x.station_name]));
+  for(const station of UPSTREAM_STATIONS)if(!labels.has(station.code))labels.set(station.code,station.name);
   const coverage=active.map(code=>{
    const row=byCode.get(code),received=Number(row?.received_ms),last=Number(row?.latest_ms);
    const current=row&&Number.isSafeInteger(received)&&Number.isSafeInteger(last)&&
