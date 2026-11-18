@@ -5,7 +5,7 @@ import { getHydroObservations } from '../src/water-sources.mjs';
 import {
  parseSnapshotPayload, ingestSnapshot, storedVigicruesObservations,
  verifyGitHubActionToken, activeBackupStationCodes, isActiveBackupStation,
- markVigicruesUnavailable, HOME_STATION
+ markVigicruesUnavailable, HOME_STATION, MANDATORY_BACKUP_STATIONS
 } from '../src/vigicrues-snapshot.mjs';
 
 const now=Date.now();
@@ -37,8 +37,10 @@ function fakeDb({active=[second,second,third]}={}){
      if(sql.startsWith('DELETE FROM vigicrues_backup_failures WHERE station_code=')){
       misses.delete(params[0]);
      }
-     if(sql.startsWith('DELETE FROM vigicrues_backup_snapshots WHERE station_code !=')){
-      for(const [code,row] of snapshots)if(code!==params[0]&&row.received_ms<params[1]&&!selected.has(code))snapshots.delete(code);
+     if(sql.startsWith('DELETE FROM vigicrues_backup_snapshots WHERE received_ms <')){
+      const permanent=new Set(params.slice(1));
+      for(const [code,row] of snapshots)
+       if(row.received_ms<params[0]&&!permanent.has(code)&&!selected.has(code))snapshots.delete(code);
      }
      return {meta:{}};
     },
@@ -69,23 +71,23 @@ test('accepts only plausible fresh station snapshots for any registered station'
  assert.throws(()=>parseSnapshotPayload({...payload(),readings:[[date(8),1450],[now-5*86400000,1440]]},now),/Out-of-range/);
 });
 
-test('discovers only active distinct subscriber stations plus permanent home station',async()=>{
+test('discovers subscribed stations plus all six permanent Roquebrune/Argens backups',async()=>{
  const db=fakeDb();
  const stations=await activeBackupStationCodes(db,{now});
- assert.deepEqual(stations.stations,[second,third,station].sort());
- assert.equal(stations.activeCount,3);
+ assert.deepEqual(stations.stations,[...MANDATORY_BACKUP_STATIONS,second,third].sort());
+ assert.equal(stations.activeCount,8);
  db.selected.delete(second);
  const afterSwitch=await activeBackupStationCodes(db,{now});
- assert.deepEqual(afterSwitch.stations,[third,station].sort());
+ assert.deepEqual(afterSwitch.stations,[...MANDATORY_BACKUP_STATIONS,third].sort());
  assert.equal(await isActiveBackupStation(db,second),false);
  assert.equal(await isActiveBackupStation(db,station),true);
 });
 
 test('new user station is automatically included in the next discovery, without deployment',async()=>{
  const db=fakeDb({active:[]});
- assert.deepEqual((await activeBackupStationCodes(db,{now})).stations,[station]);
+ assert.deepEqual((await activeBackupStationCodes(db,{now})).stations,[...MANDATORY_BACKUP_STATIONS].sort());
  db.selected.add(second);
- assert.deepEqual((await activeBackupStationCodes(db,{now:now+5*60000})).stations,[second,station].sort());
+ assert.deepEqual((await activeBackupStationCodes(db,{now:now+5*60000})).stations,[...MANDATORY_BACKUP_STATIONS,second].sort());
 });
 
 test('stores two different user stations independently and prevents arbitrary snapshot injection',async()=>{
@@ -109,12 +111,12 @@ test('defer unsupported station for six hours, stale readings for 30 minutes',as
  assert.equal(missing.deferredForMinutes,360);
  assert.equal(stale.deferredForMinutes,30);
  const immediate=await activeBackupStationCodes(db,{now:now+10*60000});
- assert.deepEqual(immediate.stations,[station]);
+ assert.deepEqual(immediate.stations,[...MANDATORY_BACKUP_STATIONS].sort());
  assert.deepEqual(immediate.deferred,[second,third].sort());
  const thirtyOne=await activeBackupStationCodes(db,{now:now+31*60000});
- assert.deepEqual(thirtyOne.stations,[third,station].sort());
+ assert.deepEqual(thirtyOne.stations,[...MANDATORY_BACKUP_STATIONS,third].sort());
  const sixHours=await activeBackupStationCodes(db,{now:now+361*60000});
- assert.equal(sixHours.stations.length,3);
+ assert.equal(sixHours.stations.length,8);
  assert.rejects(()=>markVigicruesUnavailable(db,'C123456789','no_data',{now}),/Inactive/);
 });
 
@@ -186,4 +188,20 @@ test('rejects forged OIDC tokens and accepts signed GitHub main workflow',async(
  const tampered=await issue(claims),parts=tampered.split('.');
  parts[1]=enc({...claims,run_id:'changed'});
  await assert.rejects(()=>verifyGitHubActionToken(parts.join('.'),{now,fetchImpl}),/signature/);
+});
+
+test('all five upstream gauges are permanently eligible for signed Vigicrues backup without a subscriber',async()=>{
+ const db=fakeDb({active:[]});
+ assert.equal(MANDATORY_BACKUP_STATIONS.length,6);
+ assert.equal(new Set(MANDATORY_BACKUP_STATIONS).size,6);
+ for(const code of MANDATORY_BACKUP_STATIONS){
+  assert.equal(await isActiveBackupStation(db,code),true);
+  const saved=await ingestSnapshot(db,payload(code),{runId:'mandatory',now});
+  assert.equal(saved.ok,true);
+  const observed=await storedVigicruesObservations(db,code,{now});
+  assert.equal(observed.source,'vigicrues');
+  assert.equal(observed.transport,'github-actions');
+ }
+ assert.equal(db.snapshots.size,6);
+ assert.equal(await isActiveBackupStation(db,'C123456789'),false);
 });
