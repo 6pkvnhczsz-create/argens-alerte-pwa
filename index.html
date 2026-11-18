@@ -2051,6 +2051,7 @@ setLanguage(lang);
 
 /* Information only. These supplementary signals never change risk colors or Push. */
 let earlySignalsSnapshot=null,localRainSnapshot=null,earlySignalsRequest=0,localRainLoading=false;
+let longRangeSnapshot=null,longRangeStation='',longRangeRequest=0,longRangeLoading=false,longRangeLoadedMs=0;
 let localRainStationCode='';
 const LOCAL_RAIN_DEFAULT='Y531201001';
 const currentRainStation=()=>window.argensHomeStationCode||LOCAL_RAIN_DEFAULT;
@@ -2410,7 +2411,102 @@ async function updateUpstreamMap(){
  }
 }
 
+function longRangeWeatherIcon(code){
+ if(code===0)return '☀️';
+ if(code===1||code===2)return '🌤️';
+ if(code===3)return '☁️';
+ if(code===45||code===48)return '🌫️';
+ if(code>=95)return '⛈️';
+ if(code>=71&&code<=77)return '❄️';
+ if(code>=51&&code<=67||code>=80&&code<=82)return '🌧️';
+ if(code>=85&&code<=86)return '🌨️';
+ return '🌦️';
+}
+function renderLongRangeForecast(){
+ const station=currentRainStation();
+ const forecast=longRangeStation===station&&longRangeSnapshot?.ok===true?
+  longRangeSnapshot:null;
+ const locale=document.documentElement.lang==='de'?'de-DE':
+  document.documentElement.lang==='en'?'en-GB':'fr-FR';
+ const rows=document.getElementById('longRangeDays');
+ if(!rows)return;
+ earlyText('longRangeSummary',earlyI18n('🌤️ Météo à 10 jours','🌤️ 10-day weather outlook','🌤️ Langzeitvorhersage · 10 Tage'));
+ earlyText('longRangeDisclaimer',earlyI18n(
+  'Tendance Open-Meteo Best Match pour la station choisie, et non prévisions AROME/ARPEGE sur 10 jours. La pluie prévue après le 7e jour est particulièrement incertaine. Aucune prévision de crue ni alerte officielle.',
+  'Open-Meteo Best Match outlook at the selected station, not a 10-day AROME/ARPEGE forecast. Rainfall after day 7 is particularly uncertain. Not a flood forecast or official warning.',
+  'Open-Meteo-Best-Match-Modell für die gewählte Station, keine 10-Tage-Prognose von AROME/ARPEGE. Regenmengen ab Tag 8 sind besonders unsicher. Keine Hochwasserprognose oder amtliche Warnung.'));
+ rows.replaceChildren();
+ if(!forecast||forecast.days?.length!==10){
+  const waiting=longRangeStation===station&&longRangeLoading;
+  earlyText('longRangeStatus',waiting?earlyI18n(
+   'Chargement des 10 jours…','Loading 10-day forecast…','Lade 10-Tage-Vorhersage…'):
+   earlyI18n('Prévisions temporairement indisponibles',
+   'Long-range forecast temporarily unavailable','Langzeitvorhersage derzeit nicht verfügbar'));
+  return;
+ }
+ const upd=new Date(forecast.checkedAt);
+ const updString=Number.isFinite(upd.getTime())?upd.toLocaleString(locale,{
+  day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+ earlyText('longRangeStatus',earlyI18n('Modèle longue échéance Open-Meteo · Mis à jour : ',
+ 'Open-Meteo long-range model · Updated: ',
+ 'Open-Meteo-Langzeitmodell · Aktualisiert: ')+updString);
+ for(const [i,day] of forecast.days.entries()){
+  const row=document.createElement('div');
+  row.className='long-range-day';
+  if(i>=7)row.classList.add('long-range-day--trend');
+  const top=document.createElement('div');top.className='long-range-day-top';
+  const date=document.createElement('span');date.className='long-range-date';
+  date.textContent=new Date(day.date+'T12:00:00Z').toLocaleDateString(locale,{
+   weekday:'short',day:'2-digit',month:'2-digit',timeZone:'UTC'});
+  const icon=document.createElement('span');icon.className='long-range-icon';
+  icon.textContent=longRangeWeatherIcon(day.weather_code);
+  icon.setAttribute('aria-hidden','true');
+  const temp=document.createElement('span');temp.className='long-range-temp';
+  temp.textContent=Math.round(day.temp_min_c)+'–'+Math.round(day.temp_max_c)+' °C';
+  top.append(date,icon,temp);
+  const lower=document.createElement('div');lower.className='long-range-day-bottom';
+  const rain=document.createElement('span');
+  rain.textContent=earlyI18n('Précipitations : ','Precipitation: ','Niederschlag: ')+
+   Number(day.precipitation_mm).toLocaleString(locale,{maximumFractionDigits:1})+' mm';
+  const chance=document.createElement('span');
+  chance.textContent=day.precipitation_probability_pct===null?
+   earlyI18n('Prob. pluie : —','Rain chance: —','Regenchance: —'):
+   earlyI18n('Prob. pluie : ','Rain chance: ','Regenchance: ')+day.precipitation_probability_pct+' %';
+  lower.append(rain,chance);
+  if(i>=7){
+   const trend=document.createElement('span');trend.className='long-range-trend';
+   trend.textContent=earlyI18n('Tendance incertaine','Low confidence trend','Unsicherer Trend');
+   lower.append(trend);
+  }
+  row.append(top,lower);rows.append(row);
+ }
+}
+async function loadLongRangeForecast(station){
+ if(station===longRangeStation&&longRangeLoading)return;
+ if(station===longRangeStation&&longRangeSnapshot&&Date.now()-longRangeLoadedMs<30*60000)return;
+ const sequence=++longRangeRequest;
+ longRangeStation=station;longRangeSnapshot=null;longRangeLoading=true;
+ renderLongRangeForecast();
+ try{
+  const url='https://argens-alerte-push.p-hammerschmidt.workers.dev/api/forecast/long-range?station='+encodeURIComponent(station);
+  const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(16000)});
+  const data=response.ok?await response.json():null;
+  if(sequence!==longRangeRequest||station!==currentRainStation())return;
+  longRangeSnapshot=data?.ok===true&&data.station?.code===station&&
+   data.status==='forecast'&&data.days?.length===10?data:null;
+  if(longRangeSnapshot)longRangeLoadedMs=Date.now();
+ }catch(error){
+  if(sequence===longRangeRequest&&station===currentRainStation())longRangeSnapshot=null;
+ }finally{
+  if(sequence===longRangeRequest&&station===currentRainStation()){
+   longRangeLoading=false;
+   renderLongRangeForecast();
+  }
+ }
+}
+
 function renderEarlySignals(){
+ renderLongRangeForecast();
  const homeCode=currentRainStation(),argens=homeCode===LOCAL_RAIN_DEFAULT;
  const d=argens?(earlySignalsSnapshot||localRainSnapshot):localRainSnapshot;
  const regional=argens&&d===earlySignalsSnapshot;
@@ -2609,6 +2705,7 @@ async function refreshMissingUpstreamReadings(existing){
 async function loadEarlySignalsPanel(){
  const btn=document.getElementById('earlySignalsRefresh');if(!btn)return;
  const station=currentRainStation(),argens=station===LOCAL_RAIN_DEFAULT,request=++earlySignalsRequest;
+ void loadLongRangeForecast(station);
  btn.disabled=true;localRainLoading=true;
  if(localRainStationCode!==station){localRainSnapshot=null;localRainStationCode=station}
  if(!earlySignalsSnapshot&&!localRainSnapshot)renderEarlySignals();
