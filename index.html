@@ -2537,6 +2537,66 @@ async function loadLongRangeForecast(station){
  }
 }
 
+// Read-only fallback for Argens: request the last real H observation per station.
+// Old values remain visible with their measurement time; they never trigger warnings.
+async function refreshMissingUpstreamReadings(existing){
+ const request=++upstreamFallbackRequest;
+ const missing=UPSTREAM_CONFLUENCE_ORDER.filter(code=>!existing.some(g=>g.code===code&&
+  Number.isFinite(Date.parse(g.observedAt))&&Date.now()-Date.parse(g.observedAt)<20*60000));
+ if(!missing.length)return;
+ // Independent Worker read: even an expired early-signals weather snapshot must
+ // not hide the latest real gauge readings. Direct Hub'Eau is the backup.
+ let workerReadings=[];
+ try{
+  const response=await fetch('https://argens-alerte-push.p-hammerschmidt.workers.dev/api/upstream/argens',{
+   cache:'no-store',signal:AbortSignal.timeout(15000)});
+  if(response.ok){
+   const payload=await response.json();
+   workerReadings=(Array.isArray(payload?.upstream)?payload.upstream:[]).filter(g=>
+    missing.includes(g.code)&&Number.isFinite(g.levelM)&&Number.isFinite(Date.parse(g.observedAt))&&
+    Date.parse(g.observedAt)<=Date.now()+15*60000);
+  }
+ }catch{}
+ const stillMissing=missing.filter(code=>!workerReadings.some(g=>g.code===code));
+ const direct=await Promise.all(stillMissing.map(async code=>{
+  try{
+   const url='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?'+new URLSearchParams({code_entite:code,grandeur_hydro:'H',size:'1',sort:'desc',format:'json'});
+   const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(10000)});
+   if(!response.ok)return null;
+   const payload=await response.json();
+   const obs=(Array.isArray(payload.data)?payload.data:[]).find(x=>x.resultat_obs!==null&&x.resultat_obs!==''&&Number.isFinite(Number(x.resultat_obs))&&Number.isFinite(Date.parse(x.date_obs)));
+   if(!obs)return null;
+   const levelM=Number(obs.resultat_obs)/1000;
+   if(levelM< -5||levelM>30||Date.parse(obs.date_obs)>Date.now()+15*60000)return null;
+   return {code,name:obs.libelle_station||obs.libelle_entite||code,
+    levelM,trendCmH:null,observedAt:obs.date_obs,status:'last_known'};
+  }catch{return null}
+ }));
+ if(request!==upstreamFallbackRequest||currentRainStation()!=='Y531201001')return;
+ const added=[...workerReadings,...direct.filter(Boolean)];
+ if(!added.length){
+  if(!existing.length)earlyText('earlyUpstreamStatus',earlyI18n(
+   'Aucune mesure disponible (service indisponible ou historique vide)',
+   'No readings available (service unavailable or empty history)',
+   'Keine Messwerte abrufbar (Dienst nicht erreichbar oder keine Historie)'));
+  return;
+ }
+ const byCode=new Map(existing.map(g=>[g.code,g]));
+ for(const g of added){
+  const prior=byCode.get(g.code);
+  if(!prior||Date.parse(g.observedAt)>Date.parse(prior.observedAt))byCode.set(g.code,g);
+ }
+ const merged=UPSTREAM_CONFLUENCE_ORDER.map(code=>byCode.get(code)).filter(Boolean);
+ upstreamKnownReadings=merged;
+ saveCachedUpstreamGauges(merged);
+ upstreamDisplayedGauges=merged;
+ earlyText('earlyUpstreamStatus',earlyI18n('Dernières mesures disponibles : ',
+  'Latest available readings: ','Letzte vorhandene Messwerte: ')+merged.length);
+ if(!document.getElementById('forecastPage').classList.contains('hidden'))
+  requestAnimationFrame(()=>updateUpstreamMap());
+
+}
+
 function renderEarlySignals(){
  renderLongRangeForecast();
  const homeCode=currentRainStation(),argens=homeCode===LOCAL_RAIN_DEFAULT;
@@ -2703,65 +2763,6 @@ function renderEarlySignals(){
  }
  const radar=regional?d.radar:null;
 
-// Read-only fallback for Argens: request the last real H observation per station.
-// Old values remain visible with their measurement time; they never trigger warnings.
-async function refreshMissingUpstreamReadings(existing){
- const request=++upstreamFallbackRequest;
- const missing=UPSTREAM_CONFLUENCE_ORDER.filter(code=>!existing.some(g=>g.code===code&&
-  Number.isFinite(Date.parse(g.observedAt))&&Date.now()-Date.parse(g.observedAt)<20*60000));
- if(!missing.length)return;
- // Independent Worker read: even an expired early-signals weather snapshot must
- // not hide the latest real gauge readings. Direct Hub'Eau is the backup.
- let workerReadings=[];
- try{
-  const response=await fetch('https://argens-alerte-push.p-hammerschmidt.workers.dev/api/upstream/argens',{
-   cache:'no-store',signal:AbortSignal.timeout(15000)});
-  if(response.ok){
-   const payload=await response.json();
-   workerReadings=(Array.isArray(payload?.upstream)?payload.upstream:[]).filter(g=>
-    missing.includes(g.code)&&Number.isFinite(g.levelM)&&Number.isFinite(Date.parse(g.observedAt))&&
-    Date.parse(g.observedAt)<=Date.now()+15*60000);
-  }
- }catch{}
- const stillMissing=missing.filter(code=>!workerReadings.some(g=>g.code===code));
- const direct=await Promise.all(stillMissing.map(async code=>{
-  try{
-   const url='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?'+new URLSearchParams({code_entite:code,grandeur_hydro:'H',size:'1',sort:'desc',format:'json'});
-   const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(10000)});
-   if(!response.ok)return null;
-   const payload=await response.json();
-   const obs=(Array.isArray(payload.data)?payload.data:[]).find(x=>x.resultat_obs!==null&&x.resultat_obs!==''&&Number.isFinite(Number(x.resultat_obs))&&Number.isFinite(Date.parse(x.date_obs)));
-   if(!obs)return null;
-   const levelM=Number(obs.resultat_obs)/1000;
-   if(levelM< -5||levelM>30||Date.parse(obs.date_obs)>Date.now()+15*60000)return null;
-   return {code,name:obs.libelle_station||obs.libelle_entite||code,
-    levelM,trendCmH:null,observedAt:obs.date_obs,status:'last_known'};
-  }catch{return null}
- }));
- if(request!==upstreamFallbackRequest||currentRainStation()!=='Y531201001')return;
- const added=[...workerReadings,...direct.filter(Boolean)];
- if(!added.length){
-  if(!existing.length)earlyText('earlyUpstreamStatus',earlyI18n(
-   'Aucune mesure disponible (service indisponible ou historique vide)',
-   'No readings available (service unavailable or empty history)',
-   'Keine Messwerte abrufbar (Dienst nicht erreichbar oder keine Historie)'));
-  return;
- }
- const byCode=new Map(existing.map(g=>[g.code,g]));
- for(const g of added){
-  const prior=byCode.get(g.code);
-  if(!prior||Date.parse(g.observedAt)>Date.parse(prior.observedAt))byCode.set(g.code,g);
- }
- const merged=UPSTREAM_CONFLUENCE_ORDER.map(code=>byCode.get(code)).filter(Boolean);
- upstreamKnownReadings=merged;
- saveCachedUpstreamGauges(merged);
- upstreamDisplayedGauges=merged;
- earlyText('earlyUpstreamStatus',earlyI18n('Dernières mesures disponibles : ',
-  'Latest available readings: ','Letzte vorhandene Messwerte: ')+merged.length);
- if(!document.getElementById('forecastPage').classList.contains('hidden'))
-  requestAnimationFrame(()=>updateUpstreamMap());
-
-}
 
  earlyText('earlyRadarStatus',radar?.status==='catalogue_only'?
   earlyI18n('✓ Catalogue radar officiel accessible','✓ Official radar catalogue accessible','✓ Amtlicher Radarkatalog erreichbar'):
