@@ -497,6 +497,24 @@ test('Argens gauges remain individually visible and use concurrent independent r
  assert.ok(loader>0&&loader<renderer,'Independent gauge function must be in shared scope');
 });
 
+
+test('public source diagnostics isolate official vigilance, PIAF, search and upstream without disclosing secrets',()=>{
+ const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ assert.match(src,/url\.pathname==='\/api\/diagnostics\/sources'/);
+ assert.match(src,/fetchOfficialVigilance\(env,/);
+ assert.match(src,/fetchPiafMetadata\(env,/);
+ assert.match(src,/const testStationDirectory=async/);
+ assert.match(src,/const testGeocoder=async/);
+ assert.match(src,/const testGauge=async station/);
+ assert.match(src,/const testVigicrues=async/);
+ assert.match(src,/const \[vigilance,piaf,directory,geocoder,gauges,vigicrues\]=await Promise\.all/);
+ assert.match(src,/__diagnostics\/public_sources_v1/);
+ const route=src.slice(src.indexOf("if(url.pathname==='/api/diagnostics/sources'"),
+  src.indexOf("if(url.pathname.startsWith('/auth/')"));
+ assert.doesNotMatch(route,/env\.METEO_FRANCE_API_KEY\W+[,}]/);
+ assert.doesNotMatch(route,/env\.METEO_FRANCE_BASIC\W+[,}]/);
+ assert.doesNotMatch(route,/env\.VAPID_PRIVATE_KEY\W+[,}]/);
+});
 test('public Worker deployment fingerprint is safe and upstream backup uses independent Vigicrues data',()=>{
  const worker=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
  assert.match(worker,/url\.pathname==='\/api\/diagnostics\/version'/);
