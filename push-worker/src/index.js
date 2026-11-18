@@ -572,6 +572,110 @@ export default {
    return json(request,{ok:true,service:'argens-alerte-push',
     version:'weather-data-repair-2026-11-18-v1',
     upstreamBackup:'vigicrues',piafGatewayFallback:true,knownArgensStation:true});
+  // Read-only diagnostics for four independent public data sources.
+  // No credentials, raw provider bodies, account data or alert thresholds are returned.
+  // Cache for 2 minutes to avoid turning troubleshooting into API polling.
+  if(url.pathname==='/api/diagnostics/sources'&&request.method==='GET'){
+   if([...url.searchParams].length)return json(request,{ok:false,error:'Unexpected parameters'},400);
+   const cache=globalThis.caches?.default;
+   const key=new Request('https://riviere-alerte.fr/__diagnostics/public_sources_v1');
+   if(cache){
+    const hit=await cache.match(key);
+    const saved=hit?await hit.json().catch(()=>null):null;
+    if(saved?.ok===true&&Number.isFinite(Date.parse(saved.checkedAt))&&
+       Date.now()-Date.parse(saved.checkedAt)<120000)
+     return json(request,saved);
+   }
+   const fetchBrief=(target,opts={})=>fetch(target,{...opts,
+    signal:AbortSignal.timeout(7000),cf:{cacheTtl:0}});
+   const classifyError=e=>{
+    const message=String(e?.message||'');
+    if(/^PIAF HTTP \d{3}$/.test(message))return 'http_'+message.slice(-3);
+    if(/^token_http_\d{3}$/.test(message))return message;
+    if(/^bulletin_http_\d{3}$/.test(message))return message;
+    if(/^(?:PIAF key unavailable|PIAF capabilities are not XML|PIAF model run unavailable or old|No current PIAF forecast frames|PIAF precipitation layer unavailable|PIAF forecast times unavailable|No PIAF coloured WMS style)$/.test(message))
+     return message==='PIAF key unavailable'?'not_configured':
+      message==='PIAF model run unavailable or old'?'model_run_stale':'catalogue_invalid_or_unavailable';
+    return e?.name==='TimeoutError'?'timeout':'request_failed';
+   };
+   const testVigilance=async()=>{
+    try{
+     const result=await fetchOfficialVigilance(env,{
+      department:'83',departmentName:'Var',fetchImpl:fetchBrief});
+     const state=result.status==='official'?'available':result.status==='not_configured'?'not_configured':'unavailable';
+     const diagnostic=String(result.diagnostic||'');
+     return {status:state,department:'83',reason:/^[a-z0-9_]{1,55}$/.test(diagnostic)?diagnostic:null,
+      updatedAt:state==='available'?result.updatedAt:null};
+    }catch(e){return {status:'unavailable',department:'83',reason:classifyError(e)}}
+   };
+   const testPiaf=async()=>{
+    try{
+     const result=await fetchPiafMetadata(env,{fetchImpl:fetchBrief});
+     return {status:'available',gateway:result.wmsBase?.includes('public-api.meteofrance.fr')?'public':'legacy',
+      authentication:result.authMethod,frames:result.frames?.length||0,
+      latestModelRun:result.referenceTime};
+    }catch(e){return {status:'unavailable',reason:classifyError(e)}}
+   };
+   const testStationDirectory=async()=>{
+    try{
+     const query=new URLSearchParams({code_station:DEFAULT_STATION,size:'1',format:'json'});
+     const response=await fetchBrief('https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?'+query,
+      {headers:{Accept:'application/json'}});
+     if(!response.ok)return {status:'unavailable',reason:'http_'+response.status};
+     const body=await response.json();
+     const found=(Array.isArray(body?.data)?body.data:[]).some(x=>x.code_station===DEFAULT_STATION);
+     return {status:found?'available':'no_matching_station',station:DEFAULT_STATION};
+    }catch(e){return {status:'unavailable',reason:classifyError(e)}}
+   };
+   const testGeocoder=async()=>{
+    try{
+     const query=new URLSearchParams({q:'Roquebrune-sur-Argens',limit:'1'});
+     const response=await fetchBrief('https://data.geopf.fr/geocodage/search?'+query,
+      {headers:{Accept:'application/json'}});
+     if(!response.ok)return {status:'unavailable',reason:'http_'+response.status};
+     const data=await response.json();
+     return {status:Array.isArray(data?.features)&&data.features.length>0?'available':'no_results'};
+    }catch(e){return {status:'unavailable',reason:classifyError(e)}}
+   };
+   const testGauge=async station=>{
+    try{
+     const query=new URLSearchParams({code_entite:station.code,grandeur_hydro:'H',size:'1',sort:'desc',format:'json'});
+     const response=await fetchBrief('https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?'+query,
+      {headers:{Accept:'application/json'}});
+     if(!response.ok)return {code:station.code,status:'unavailable',reason:'http_'+response.status};
+     const data=await response.json();
+     const obs=(Array.isArray(data?.data)?data.data:[]).find(row=>
+      row?.resultat_obs!==null&&row?.resultat_obs!==''&&
+      Number.isFinite(Number(row?.resultat_obs))&&Number.isFinite(Date.parse(row?.date_obs)));
+     if(!obs)return {code:station.code,status:'no_reading'};
+     const age=Date.now()-Date.parse(obs.date_obs);
+     return {code:station.code,status:age>=-15*60000&&age<=90*60000?'current':'older_reading',
+      observedAt:obs.date_obs};
+    }catch(e){return {code:station.code,status:'unavailable',reason:classifyError(e)}}
+   };
+   const testVigicrues=async()=>{
+    try{
+     const result=await readVigicruesObservations(UPSTREAM_STATIONS[0].code,{
+      limit:5,fetchImpl:fetchBrief});
+     return {status:'available',code:UPSTREAM_STATIONS[0].code,
+      observedAt:new Date(result.points[0].time).toISOString()};
+    }catch(e){return {status:'unavailable',reason:classifyError(e)}}
+   };
+   const [vigilance,piaf,directory,geocoder,gauges,vigicrues]=await Promise.all([
+    testVigilance(),testPiaf(),testStationDirectory(),testGeocoder(),
+    Promise.all(UPSTREAM_STATIONS.map(testGauge)),testVigicrues()
+   ]);
+   const data={ok:true,service:'argens-alerte-push',version:'weather-data-repair-2026-11-18-v1',
+    checkedAt:new Date().toISOString(),diagnostics:{
+     vigilance,piaf,stationDirectory:directory,geocoder,
+     upstream:{hubEau:gauges,vigicruesSample:vigicrues}
+    }};
+   if(cache)await cache.put(key,new Response(JSON.stringify(data),{
+    headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=120'}
+   })).catch(()=>{});
+   return json(request,data);
+  }
+
   if(url.pathname.startsWith('/auth/')||url.pathname==='/user/station'){try{return await accountRoute(request,env,url)}catch(e){console.error('Auth error',String(e));return json(request,{error:'Authentication unavailable'},500)}}
   if(url.pathname==='/devices/link'&&request.method==='POST'){
    if(!ALLOWED_ORIGINS.has(request.headers.get('Origin')))return json(request,{error:'Origin not allowed'},403);
