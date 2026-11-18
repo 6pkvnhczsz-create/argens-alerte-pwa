@@ -104,6 +104,10 @@
     throw Error('Official departmental warning not verified');
    }
    data=result;lastCode=requested;lastChecked=Date.now();
+   if(result.status!=='official'){
+    const diagnostic=String(result?.diagnostic||result?.status||'unavailable');
+    lastError=/^[a-z_0-9]{1,55}$/.test(diagnostic)?diagnostic:'unavailable';
+   }
   }catch(error){
    if(id!==seq||code!==requested)return;
    lastChecked=Date.now();lastCode=requested;
