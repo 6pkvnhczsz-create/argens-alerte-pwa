@@ -537,7 +537,7 @@ Rivière Alerte · riviere-alerte.fr`;
 // Cached public metadata does not contain any secret, but avoids repeated API queries.
 async function cachedPiafMetadata(env){
  const cache=globalThis.caches?.default;
- const key=new Request('https://riviere-alerte.fr/__piaf_cache/metadata_v1');
+ const key=new Request('https://riviere-alerte.fr/__piaf_cache/metadata_v2');
  if(cache){
   const hit=await cache.match(key);
   if(hit){
@@ -792,8 +792,16 @@ export default {
      station:{code:station.code,name:station.name,lat:station.lat,lon:station.lon,river:station.river}});
    }
    catch(error){
-    console.warn('PIAF metadata unavailable',String(error?.message||'upstream'));
-    return json(request,{ok:false,available:false,error:'PIAF forecast currently unavailable'},503);
+    const message=String(error?.message||'');
+    const reason=message==='PIAF key unavailable'?'access_not_configured':
+     /^PIAF HTTP \d{3}$/.test(message)?'http_'+message.slice(-3):
+     message==='PIAF capabilities are not XML'?'response_not_xml':
+     message==='Hub Eau registry not available'?'hydrometry_register_unavailable':
+     /PIAF model run unavailable or old/.test(message)?'model_run_stale':
+     'upstream_or_catalogue_unavailable';
+    console.warn('PIAF metadata unavailable',reason);
+    return json(request,{ok:false,available:false,
+     error:'PIAF forecast currently unavailable',reason},503);
    }
   }
   // The legend follows the actual WMS style. A missing official legend must
@@ -857,36 +865,22 @@ export default {
    if(!bearer.startsWith('Bearer '))return json(request,{ok:false,error:'Workflow authentication required'},401);
    try{await verifyRadarWorkflowToken(bearer.slice(7))}
    catch{return json(request,{ok:false,error:'Workflow identity rejected'},401)}
-   const piafApiKey=env.METEO_FRANCE_PIAF_API_KEY||env.METEO_FRANCE_API_KEY;
-   if(!piafApiKey)return json(request,{ok:false,error:'PIAF API key not configured'},503);
-   // The canonical server URL comes from Météo-France PIAF's Swagger
-   // documentation. Keep the API key inside Cloudflare.
-   const candidates=[
-    'https://api.meteofrance.fr/pro/piaf/1.0/wms/MF-NWP-HIGHRES-PIAF-001-FRANCE-WMS/GetCapabilities?service=WMS&version=1.3.0'
-   ];
-   const answers=[];
-   for(let i=0;i<candidates.length;i++){
-    try{
-     const result=await fetch(candidates[i],{
-      headers:{apikey:piafApiKey,Accept:'application/xml'},
-      redirect:'manual',signal:AbortSignal.timeout(14000),cf:{cacheTtl:0}
-     });
-     const type=String(result.headers.get('content-type')||'').slice(0,100).replace(/[^a-zA-Z0-9/;= .-]/g,'');
-     let catalogue=false,layerCount=0,preview=[];
-     if(result.ok&&type.includes('xml')){
-      const body=await result.text();
-      if(body.length<2000000&&/<(?:WMS_Capabilities|WMT_MS_Capabilities|\w+:Capabilities)\b/i.test(body)){
-       catalogue=true;
-       const names=[...body.matchAll(/<Name>\s*([A-Z_][A-Z0-9_]+)\s*<\/Name>/g)]
-        .map(m=>m[1]).filter(x=>/PRECIP|RAIN|WATER/i.test(x));
-       layerCount=names.length;preview=names.slice(0,4);
-      }
-     }
-     answers.push({variant:i+1,httpStatus:result.status,contentType:type,catalogue,precipitationLayers:layerCount,layerNames:preview});
-     if(catalogue)break;
-    }catch{answers.push({variant:i+1,httpStatus:0,error:'request_failed'})}
+   try{
+    const info=await fetchPiafMetadata(env);
+    return json(request,{ok:true,connected:true,checkedAt:new Date().toISOString(),
+     model:'PIAF',answers:[{variant:'validated_wms',httpStatus:200,catalogue:true,
+      precipitationLayers:1,layerNames:[info.layer],authentication:info.authMethod,
+      gateway:info.wmsBase?.includes('public-api.meteofrance.fr')?'public':'legacy'}]});
+   }catch(error){
+    const message=String(error?.message||'');
+    const reason=message==='PIAF key unavailable'?'access_not_configured':
+     /^PIAF HTTP \d{3}$/.test(message)?'http_'+message.slice(-3):
+     message==='PIAF capabilities are not XML'?'response_not_xml':
+     'request_or_catalogue_unavailable';
+    return json(request,{ok:true,connected:false,checkedAt:new Date().toISOString(),
+     model:'PIAF',answers:[{variant:'both_official_gateways',httpStatus:Number(reason.slice(5))||0,
+      catalogue:false,reason}]});
    }
-   return json(request,{ok:true,connected:answers.some(a=>a.catalogue),checkedAt:new Date().toISOString(),model:'PIAF',answers});
   }
 
   if(url.pathname==='/api/radar-map/ingest'&&request.method==='POST'){
