@@ -482,3 +482,17 @@ test('Argens model fallback preserves all three catchment area IDs',()=>{
  assert.match(page,/get\('\/api\/rain\/basin'\)/);
  assert.match(page,/\['central','nartuby','lower'\]\.map/);
 });
+
+test('Argens gauges remain individually visible and use concurrent independent requests',()=>{
+ const page=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
+ assert.match(page,/async function refreshMissingUpstreamReadings\(existing\)/);
+ assert.match(page,/Promise\.all\(\[fromWorker\(\),fromHubeau\(\)\]\)/);
+ assert.match(page,/upstreamFetchInProgress/);
+ assert.match(page,/Messwert nicht verfügbar/);
+ assert.match(page,/UPSTREAM_CONFLUENCE_ORDER\.map\(\(code,i\)=>/);
+ assert.match(page,/saveCachedUpstreamGauges\(merged\)/);
+ assert.match(page,/if\(argens\)void refreshMissingUpstreamReadings\(upstreamKnownReadings\)/);
+ const loader=page.indexOf('async function refreshMissingUpstreamReadings(existing)');
+ const renderer=page.indexOf('function renderEarlySignals(){');
+ assert.ok(loader>0&&loader<renderer,'Independent gauge function must be in shared scope');
+});
