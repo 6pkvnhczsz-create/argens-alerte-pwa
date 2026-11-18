@@ -1684,9 +1684,55 @@ async function findStations(lat,lon){
   const recentCount=stationEntries.filter(x=>x.info.status==='recent').length;
   message.textContent=recentCount?mapText('Stations avec mesures récentes : ','Stations with recent readings: ')+recentCount:mapText('Aucune station avec mesures récentes trouvée dans cette zone. Les autres stations restent consultables ci-dessous.','No stations with recent readings found in this area. Other stations are listed below.');
   if(stationMap){const visible=stationEntries.filter(x=>x.marker).map(x=>x.marker.getLatLng());if(visible.length)stationMap.fitBounds(visible,{padding:[24,24],maxZoom:12});else stationMap.setView([lat,lon],10);setTimeout(()=>stationMap.invalidateSize(),100)}
- }catch(e){message.textContent=mapText('Recherche indisponible pour le moment. Réessayez plus tard.','Search temporarily unavailable. Please try again.')}
+ }catch(e){message.textContent=mapText(
+   'Commune trouvée, mais le répertoire de stations Hub’Eau ne répond pas. Réessayez plus tard.',
+   'Town found, but the Hub’Eau station register is not responding. Please retry later.');
+   console.warn('Station directory lookup failed',String(e?.message||e).slice(0,100));}
 }
-async function searchPlace(queryOverride){const q=(typeof queryOverride==='string'?queryOverride:document.querySelector('#place').value).trim();if(!q)return;message.textContent='Recherche de la commune…';try{const res=await fetch('https://api-adresse.data.gouv.fr/search/?limit=1&q='+encodeURIComponent(q));if(!res.ok)throw Error();const j=await res.json();const point=j.features?.[0]?.geometry?.coordinates;if(!point){message.textContent='Lieu introuvable en France.';return}await findStations(point[1],point[0])}catch(e){message.textContent='Recherche de commune indisponible.'}}
+// The former BAN host was deprecated in January 2026. Use IGN Géoplateforme.
+// The French official communes API is an independent lookup fallback.
+async function searchPlace(queryOverride){
+ const q=(typeof queryOverride==='string'?queryOverride:document.querySelector('#place').value).trim();
+ if(!q)return;
+ message.textContent=mapText('Recherche de la commune…','Searching for the town…');
+ const located=async()=>{
+  const params=new URLSearchParams({q,limit:'5',index:'address'});
+  const response=await fetch('https://data.geopf.fr/geocodage/search?'+params,{
+   headers:{Accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(12000)});
+  if(!response.ok)throw Error('IGN geocoder HTTP '+response.status);
+  const json=await response.json();
+  const features=Array.isArray(json?.features)?json.features:[];
+  const preferred=features.find(x=>x?.properties?.type==='municipality')||features[0];
+  return preferred?.geometry?.coordinates;
+ };
+ const commune=async()=>{
+  const postal=/^\d{5}$/.test(q);
+  const params=new URLSearchParams(postal?{codePostal:q,fields:'nom,code,centre',format:'json',geometry:'centre'}:
+   {nom:q,fields:'nom,code,centre',format:'json',geometry:'centre',boost:'population',limit:'5'});
+  const response=await fetch('https://geo.api.gouv.fr/communes?'+params,{
+   headers:{Accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(10000)});
+  if(!response.ok)throw Error('Official communes HTTP '+response.status);
+  const json=await response.json();
+  return (Array.isArray(json)?json:[]).find(x=>
+   Array.isArray(x.centre?.coordinates)&&x.centre.coordinates.length===2)?.centre?.coordinates;
+ };
+ let coords=null,notFound=false;
+ for(const source of [located,commune]){
+  try{
+   coords=await source();
+   if(Array.isArray(coords)&&coords.length===2&&coords.every(Number.isFinite))break;
+   notFound=true;coords=null;
+  }catch{}
+ }
+ if(!coords){
+  message.textContent=notFound?mapText('Commune introuvable. Vérifiez le nom ou le code postal.',
+   'Town not found. Check the name or postal code.'):
+   mapText('Les services de recherche de communes ne répondent pas. Réessayez.',
+    'Town lookup services are not responding. Please retry.');
+  return;
+ }
+ await findStations(coords[1],coords[0]);
+}
 document.querySelector('#findPlace').addEventListener('click',searchPlace);
 document.querySelector('#place').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchPlace()}});
 document.querySelector('#gps').addEventListener('click',()=>{if(!navigator.geolocation){message.textContent='Géolocalisation non disponible.';return}message.textContent='Demande de position…';navigator.geolocation.getCurrentPosition(p=>findStations(p.coords.latitude,p.coords.longitude),()=>message.textContent='Position non autorisée ou indisponible.',{timeout:12000,enableHighAccuracy:false})});
