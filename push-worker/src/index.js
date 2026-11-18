@@ -571,8 +571,10 @@ export default {
   // If absent in production, the new push Worker has not been deployed.
   if(url.pathname==='/api/diagnostics/version'&&request.method==='GET')
    return json(request,{ok:true,service:'argens-alerte-push',
-    version:'weather-data-repair-2026-11-18-v1',
-    upstreamBackup:'vigicrues',piafGatewayFallback:true,knownArgensStation:true});
+    version:'hydrometry-failover-2026-11-18-v2',
+    upstreamBackup:'vigicrues',backupTransport:'github-actions',
+    permanentBackupStations:6,upstreamSignedSnapshots:true,
+    piafGatewayFallback:true,knownArgensStation:true});
   // Read-only diagnostics for four independent public data sources.
   // No credentials, raw provider bodies, account data or alert thresholds are returned.
   // Cache for 2 minutes to avoid turning troubleshooting into API polling.
@@ -655,18 +657,22 @@ export default {
     }catch(e){return {code:station.code,status:'unavailable',reason:classifyError(e)}}
    };
    const testVigicrues=async()=>{
-    try{
-     const result=await readVigicruesObservations(UPSTREAM_STATIONS[0].code,{
-      limit:5,fetchImpl:fetchBrief});
-     return {status:'available',code:UPSTREAM_STATIONS[0].code,
-      observedAt:new Date(result.points[0].time).toISOString()};
-    }catch(e){return {status:'unavailable',reason:classifyError(e)}}
+    const checks=await Promise.all([STATION,...UPSTREAM_STATIONS.map(x=>x.code)].map(async code=>{
+     try{
+      const result=await storedVigicruesObservations(env.DB,code,{limit:2});
+      return {code,status:'available',transport:'github-actions',
+       observedAt:new Date(result.points[0].time).toISOString()};
+     }catch{return {code,status:'unavailable',transport:'github-actions'}}
+    }));
+    return {status:checks.some(x=>x.status==='available')?'available':'unavailable',
+     coveredCount:checks.filter(x=>x.status==='available').length,
+     stationCount:checks.length,stations:checks};
    };
    const [vigilance,piaf,directory,geocoder,gauges,vigicrues]=await Promise.all([
     testVigilance(),testPiaf(),testStationDirectory(),testGeocoder(),
     Promise.all(UPSTREAM_STATIONS.map(testGauge)),testVigicrues()
    ]);
-   const data={ok:true,service:'argens-alerte-push',version:'weather-data-repair-2026-11-18-v1',
+   const data={ok:true,service:'argens-alerte-push',version:'hydrometry-failover-2026-11-18-v2',
     checkedAt:new Date().toISOString(),diagnostics:{
      vigilance,piaf,stationDirectory:directory,geocoder,
      upstream:{hubEau:gauges,vigicruesSample:vigicrues}
