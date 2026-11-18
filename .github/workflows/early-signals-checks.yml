@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'push-worker/src/early-signals.mjs'
+      - 'push-worker/src/long-range-forecast.mjs'
+      - 'push-worker/test/long-range-forecast.test.mjs'
       - 'push-worker/src/observed-argens-rain.mjs'
       - 'push-worker/src/measured-rain.mjs'
       - 'push-worker/test/measured-rain.test.mjs'
@@ -27,4 +29,5 @@ jobs:
         run: |
           node --check push-worker/src/observed-argens-rain.mjs
           node --check push-worker/src/measured-rain.mjs
-          node --test push-worker/test/early-signals.test.mjs push-worker/test/water-sources.test.mjs push-worker/test/observed-argens-rain.test.mjs
+          node --check push-worker/src/long-range-forecast.mjs
+          node --test push-worker/test/early-signals.test.mjs push-worker/test/water-sources.test.mjs push-worker/test/observed-argens-rain.test.mjs push-worker/test/long-range-forecast.test.mjs

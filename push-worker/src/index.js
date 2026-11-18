@@ -12,6 +12,7 @@ import { fetchPiafMetadata, fetchPiafFrame, fetchPiafLegend } from './piaf-map.m
 import { DEFAULT_STATION, validStationCode, cachedStation } from './piaf-station.mjs';
 import {registerSelectedRainStation,readSelectedRainMeasurements} from './measured-rain.mjs';
 import {loadArgensObservedRain} from './observed-argens-rain.mjs';
+import {fetchLongRangeForecast} from './long-range-forecast.mjs';
 import { findLocalUpstream, recentUpstreamReading } from './upstream-topage.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
@@ -917,6 +918,41 @@ export default {
     console.warn('Departmental official vigilance unavailable',String(error?.message||'official source').slice(0,90));
     return json(request,{ok:false,status:'unavailable',station:code,
      reason:'department_or_source_unavailable',periods:[]},503);
+   }
+  }
+  // Ten-day informational weather outlook for the currently selected French
+  // hydrometric gauge. Location comes only from the verified Hub'Eau registry.
+  // No changes to short-term Météo-France forecasts or actual flood alerts.
+  if(url.pathname==='/api/forecast/long-range'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{ok:false,error:'Origin not allowed'},403);
+   const code=url.searchParams.get('station');
+   if(!validStationCode(code)||[...url.searchParams].length!==1||
+      url.searchParams.get('station')!==code)
+    return json(request,{ok:false,error:'Invalid hydrometric station'},400);
+   try{
+    const station=await cachedStation(code);
+    const cache=globalThis.caches?.default;
+    const key=new Request('https://riviere-alerte.fr/__meteo_cache/long_range_v1?station='+code);
+    if(cache){
+     const hit=await cache.match(key);
+     if(hit){
+      const saved=await hit.json().catch(()=>null);
+      if(saved?.ok===true&&saved.station?.code===code&&saved.days?.length===10
+       &&Number.isFinite(Date.parse(saved.checkedAt))&&
+       Date.now()-Date.parse(saved.checkedAt)<60*60000)return json(request,saved);
+     }
+    }
+    const forecast=await fetchLongRangeForecast(station);
+    if(cache)await cache.put(key,new Response(JSON.stringify(forecast),{headers:{
+      'Content-Type':'application/json','Cache-Control':'public, max-age=3600'
+    }}));
+    return json(request,forecast);
+   }catch(error){
+    console.warn('Long-range weather forecast unavailable',String(error?.message||error).slice(0,120));
+    return json(request,{ok:false,station:code,status:'unavailable',
+      error:'Long-range forecast temporarily unavailable',days:[],
+      notForAlerts:true},503);
    }
   }
   // Independent on-demand Argens region data. If the scheduled early-signals
