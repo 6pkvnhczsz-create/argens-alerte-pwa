@@ -2142,9 +2142,10 @@ async function loadOfficialRadarMap(){
 // from the existing validated early-signals API, not this coordinate request.
 // Retain only genuine, timestamped observations in the device's last-known cache.
 const UPSTREAM_LAST_KNOWN_KEY='riviere-alerte-upstream-latest-v1';
+const CACHED_UPSTREAM_CODES=new Set(['Y530501501','Y523501002','Y521502002','Y520201001','Y511201001']);
 function validLastKnownGauge(g){
  const age=Date.now()-Date.parse(g?.observedAt);
- return UPSTREAM_CONFLUENCE_ORDER.includes(g?.code)&&Number.isFinite(g?.levelM)&&
+ return CACHED_UPSTREAM_CODES.has(g?.code)&&Number.isFinite(g?.levelM)&&
   g.levelM>=-5&&g.levelM<=30&&Number.isFinite(age)&&age>=-15*60000&&age<=30*24*3600000;
 }
 function loadCachedUpstreamGauges(){
