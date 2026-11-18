@@ -6,7 +6,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 import { getHydroObservations, readVigicruesObservations, validHydroStation } from './water-sources.mjs';
 import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, activeBackupStationCodes, markVigicruesUnavailable, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
 import { translateFeedbackRecord } from './feedback-translation.mjs';
-import { refreshEarlySignals, loadEarlySignals, fetchOfficialVigilance, fetchRainArea, fetchRainForecast, RAIN_AREAS, EARLY_SIGNALS_STATION } from './early-signals.mjs';
+import { refreshEarlySignals, loadEarlySignals, fetchOfficialVigilance, fetchRainArea, fetchRainForecast, RAIN_AREAS, EARLY_SIGNALS_STATION, UPSTREAM_STATIONS } from './early-signals.mjs';
 import { verifyRadarWorkflowToken, fetchOfficialRadarH5, readRadarFrame, storeRadarFrame } from './radar-map.mjs';
 import { fetchPiafMetadata, fetchPiafFrame, fetchPiafLegend } from './piaf-map.mjs';
 import { DEFAULT_STATION, validStationCode, cachedStation } from './piaf-station.mjs';
@@ -677,6 +677,46 @@ export default {
     console.warn('Radar raw download unavailable',code);
     return json(request,{error:'Radar product unavailable',stage:'download',code},502);
    }
+  }
+  // Independent, informational Argens gauge readings, also when the weather
+  // snapshot is stale. Older observations are dated and cannot trigger alerts.
+  if(url.pathname==='/api/upstream/argens'&&request.method==='GET'){
+   const origin=request.headers.get('Origin');
+   if(origin&&!ALLOWED_ORIGINS.has(origin))return json(request,{error:'Origin not allowed'},403);
+   if([...url.searchParams].length)return json(request,{error:'Unexpected parameters'},400);
+   const cache=globalThis.caches?.default;
+   const key=new Request('https://riviere-alerte.fr/__hydro_cache/argens_latest_v1');
+   if(cache){
+    const hit=await cache.match(key),saved=hit?await hit.json().catch(()=>null):null;
+    if(saved?.ok===true&&Array.isArray(saved.upstream))return json(request,saved);
+   }
+   const now=Date.now();
+   const rows=await Promise.all(UPSTREAM_STATIONS.map(async station=>{
+    try{
+     const query=new URLSearchParams({code_entite:station.code,grandeur_hydro:'H',size:'65',sort:'desc',format:'json'});
+     const response=await fetch('https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?'+query,{
+      headers:{Accept:'application/json'},signal:AbortSignal.timeout(11000),cf:{cacheTtl:0}});
+     if(!response.ok)return null;
+     const payload=await response.json();
+     const readings=(Array.isArray(payload?.data)?payload.data:[]).map(row=>{
+      if(row?.resultat_obs==null||row.resultat_obs==='')return null;
+      const mm=Number(row.resultat_obs),time=Date.parse(row.date_obs);
+      return Number.isFinite(mm)&&Number.isFinite(time)&&mm>=-5000&&mm<=30000&&time<=now+15*60000?{mm,time}:null;
+     }).filter(Boolean).sort((a,b)=>b.time-a.time);
+     if(!readings.length)return null;
+     const latest=readings[0],recent=now-latest.time<=90*60000;
+     const baseline=recent?readings.find(x=>latest.time-x.time>=30*60000&&latest.time-x.time<=180*60000):null;
+     const trend=baseline?(latest.mm-baseline.mm)/10/((latest.time-baseline.time)/3600000):null;
+     return {...station,status:recent?'current':'last_known',levelM:Math.round(latest.mm/10)/100,
+      trendCmH:Number.isFinite(trend)?Math.round(trend*10)/10:null,
+      observedAt:new Date(latest.time).toISOString(),source:'hubeau'};
+    }catch{return null}
+   }));
+   const upstream=rows.filter(Boolean),result={ok:upstream.length>0,upstream,
+    checkedAt:new Date(now).toISOString(),source:'hubeau',informationalOnly:true,notForAlerts:true};
+   if(cache&&upstream.length)await cache.put(key,new Response(JSON.stringify(result),{
+    headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=60'}})).catch(()=>{});
+   return json(request,result,upstream.length?200:503);
   }
   // Local upstream discovery for mainland France. Only confirmed directed
   // TOPAGE graph connections are ever called "upstream". This is read-only
