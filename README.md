@@ -39,6 +39,15 @@ To verify the live pipeline, check the workflow's latest logs and read `/api/vig
 Regression tests: `node --test push-worker/test/vigicrues-snapshot.test.mjs push-worker/test/water-sources.test.mjs` and `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`. The PR test workflow also syntax-checks the Python sync script.
 
 
+## Automatischer Vigicrues-Notfallbetrieb bei Hub’Eau-Ausfall
+
+- Hub’Eau bleibt Primärquelle für echte Pegelmessungen. Bei fehlerhafter, nicht valider oder zu alter Antwort wird **pro Station** automatisch die bereits vorhandene, OIDC-signierte GitHub-Actions-zu-D1-Vigicrues-Sicherung verwendet.
+- Die fünf Oberliegerstationen `Y511201001`, `Y530501501`, `Y520201001`, `Y523501002` und `Y521502002` werden jetzt **ständig** im Fünf-Minuten-GitHub-Backup geführt, auch wenn kein Nutzer sie als persönliche Heimatstation eingerichtet hat. Roquebrune `Y531201001` bleibt unverändert permanent gesichert.
+- In der öffentlichen Vorhersage-Ansicht und im Worker-Endpunkt `/api/upstream/argens` kommen bei einem Hub’Eau-Ausfall dieselben gespeicherten Vigicrues-Messwerte zum Einsatz. Das Administrator-Panel zeigt jede dieser sechs Stationen im Bereich Vigicrues-Abdeckung. Alte Werte erscheinen nur mit Messzeitpunkt; nie als aktuelles „Grün“.
+- Das gilt ausschließlich für **Pegelbeobachtungen**; Météo-France-Unwetterwarnungen, PIAF-Regenprognosen und die nationale Stationssuche sind andere Dienste und können nicht durch Pegeldaten von Vigicrues ersetzt werden.
+- **Vigicrues deckt nicht alle Hub’Eau-Stationen ab.** Wenn eine der sechs Stationen bei Vigicrues keine gültige, aktuelle Messreihe bereitstellt, bleibt diese Station explizit nicht verfügbar. Keine erfundene Pegelhöhe, keine rückwirkende Push-Meldung.
+- Veröffentlichungsprüfung: `/api/diagnostics/version` muss `hydrometry-failover-2026-11-18-v2` ausgeben. Im deutschen Adminbereich „Vigicrues-Abdeckung“ muss der Status der sechs Stationen kontrolliert werden. Ein erfolgreicher Commit alleine bestätigt noch keinen Cloudflare-Deploy oder erfolgreichen GitHub-Abgleich.
+
 ## Frühindikatoren — Météo-France, Regen und Oberlieger
 
 Im öffentlichen Bereich von Rivière Alerte gibt es eine zusätzliche, FR/EN/DE-übersetzte Informationsanzeige für das Argens-Einzugsgebiet rund um Roquebrune. Der bestehende Push-Worker aktualisiert die Anzeige im geplanten 5-Minuten-Lauf und speichert sie kurzzeitig in D1 (max. 25 Minuten). Public Read-API: GET /api/early-signals.
