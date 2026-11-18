@@ -67,6 +67,34 @@ test('only working upstream gauges are returned, unavailable gauges remain candi
  assert.equal(out.changesFloodThresholds,false);
 });
 
+
+test('outage: scheduled upstream early signals use fresh signed Vigicrues backup for all five gauges',async()=>{
+ const now=Date.now(),called=[];
+ const backedUp=async(code)=>{
+  called.push(code);
+  return {source:'vigicrues',transport:'github-actions',points:[
+   {time:now-10*60000,mm:2300},{time:now-70*60000,mm:2200}
+  ]};
+ };
+ const result=await buildEarlySignals({},{
+  now,fetchImpl:async()=>({ok:false,status:503}),
+  backupReader:backedUp
+ });
+ assert.equal(called.length,5);
+ assert.deepEqual(new Set(called),new Set(UPSTREAM_STATIONS.map(x=>x.code)));
+ assert.equal(result.upstream.length,5);
+ assert.ok(result.upstream.every(x=>x.source==='vigicrues'&&x.status==='current'&&x.trendCmH===10));
+ assert.equal(result.changesFloodThresholds,false);
+});
+test('backup never invents an upstream reading when neither provider has current measurements',async()=>{
+ const out=await buildEarlySignals({},{
+  now:Date.now(),
+  fetchImpl:async()=>({ok:false,status:503}),
+  backupReader:async()=>{throw Error('No recent signed Vigicrues snapshot')}
+ });
+ assert.equal(out.upstream.length,0);
+ assert.equal(out.changesFloodThresholds,false);
+});
 test('model rain accumulates past hourly estimates, never claims radar measurement',()=>{
  const hours=Array.from({length:8},(_,i)=>Math.floor((NOW-(8-i)*3600000)/1000));
  const weather={hourly:{time:hours,precipitation:Array(8).fill(2)}};
