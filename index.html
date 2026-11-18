@@ -2735,9 +2735,9 @@ async function refreshMissingUpstreamReadings(existing){
   upstreamDisplayedGauges=merged;
   earlyText('earlyUpstreamStatus',merged.length?earlyI18n(
    'Dernières mesures disponibles : ','Latest available readings: ','Letzte verfügbare Messwerte: ')+merged.length:
-   earlyI18n('Mesures indisponibles : Hub’Eau et serveur de secours inaccessibles',
-    'Readings unavailable: Hub’Eau and backup server not responding',
-    'Keine Messwerte abrufbar: Hub’Eau und Ersatzserver antworten nicht'));
+   earlyI18n('Aucune mesure hydrométrique valide reçue. Vérifiez Hub’Eau et le serveur de secours.',
+    'No valid hydrometric readings received. Check Hub’Eau and the backup server.',
+    'Keine gültigen Pegelmesswerte erhalten. Bitte Hub’Eau und den Ersatzserver prüfen.'));
   if(!document.getElementById('forecastPage').classList.contains('hidden'))
    requestAnimationFrame(()=>updateUpstreamMap());
  }finally{
