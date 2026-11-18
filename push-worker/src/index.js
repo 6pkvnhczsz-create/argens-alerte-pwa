@@ -1345,5 +1345,5 @@ export default {
   }
   return json(request,{error:'Not found'},404);
  },
- async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));ctx.waitUntil(checkPersonalStations(env).catch(e=>console.error('Personal stations check failed',String(e))));ctx.waitUntil(refreshEarlySignals(env).catch(e=>console.error('Early signals refresh failed',String(e))))}
+ async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));ctx.waitUntil(checkPersonalStations(env).catch(e=>console.error('Personal stations check failed',String(e))));ctx.waitUntil(refreshEarlySignals(env,{backupReader:(code,limit)=>bestVigicruesBackup(env,code,limit)}).catch(e=>console.error('Early signals refresh failed',String(e))))}
 };
