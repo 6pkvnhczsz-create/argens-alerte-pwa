@@ -2316,7 +2316,7 @@ async function updateUpstreamMap(){
  const mapNode=document.getElementById('upstreamMap');
  const forecastPage=document.getElementById('forecastPage');
  if(!mapNode||!forecastPage||forecastPage.classList.contains('hidden'))return;
- if(window.argensHomeStationCode!=='Y531201001'){mapNode.hidden=true;return}
+ if(currentRainStation()!=='Y531201001'){mapNode.hidden=true;return}
  const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
  const fmt=n=>Number(n).toLocaleString(locale,{maximumFractionDigits:1});
  const gauges=upstreamDisplayedGauges.filter(x=>Number.isFinite(x.levelM)&&Number.isFinite(Date.parse(x.observedAt))&&Date.parse(x.observedAt)-Date.now()<=15*60000);
@@ -2335,7 +2335,7 @@ async function updateUpstreamMap(){
   Promise.all(gauges.map(async g=>({g,point:await officialUpstreamPosition(g.code)}))),
   officialUpstreamPosition('Y531201001')
  ]);
- if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden')||window.argensHomeStationCode!=='Y531201001')return;
+ if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden')||currentRainStation()!=='Y531201001')return;
  const reference=referencePosition||ROQUEBRUNE_STATION_FALLBACK;
  const ordered=positions.map(({g,point})=>({g,point,rank:UPSTREAM_CONFLUENCE_ORDER.indexOf(g.code)+1}))
   .sort((a,b)=>a.rank-b.rank||String(a.g.code).localeCompare(String(b.g.code)));
@@ -2351,7 +2351,7 @@ async function updateUpstreamMap(){
  }
  try{
   const L=await loadMapLibrary();
-  if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden')||window.argensHomeStationCode!=='Y531201001')return;
+  if(id!==upstreamMapUpdateId||forecastPage.classList.contains('hidden')||currentRainStation()!=='Y531201001')return;
   mapNode.hidden=false;
   if(!upstreamMapInstance){
    upstreamMapInstance=L.map(mapNode,{scrollWheelZoom:false,zoomControl:true});
@@ -2548,7 +2548,7 @@ function renderEarlySignals(){
    'Örtlich geschätzte Regenmenge der letzten Stunden aus Open-Meteo, keine Messung durch Regenmesser oder Radar.'));
  earlyText('earlyUpstreamDisclaimer',earlyI18n(
   'Dernières mesures disponibles, y compris anciennes mesures datées. Les hauteurs de stations différentes ne sont pas comparables.',
-  'Only gauges with recent measurements are shown. Water levels from different gauges cannot be compared directly.',
+  'Latest available readings, including older dated measurements. Water levels from different gauges cannot be compared directly.',
   'Letzte verfügbare Messwerte, auch ältere mit Zeitangabe. Die Pegelhöhen verschiedener Stationen sind nicht direkt vergleichbar.'));
  earlyText('earlySignalsRefresh',earlyI18n('↻ Actualiser les données','↻ Refresh data','↻ Daten aktualisieren'));
  // If the dedicated Météo-France feed is unavailable, the backup comes
@@ -2649,13 +2649,13 @@ function renderEarlySignals(){
   earlyI18n('Recherche des dernières mesures…','Checking latest available readings…','Letzte vorhandene Messwerte werden geprüft…'));
  upstreamDisplayedGauges=gauges;
  if(regional)refreshMissingUpstreamReadings(gauges);
- if(window.argensHomeStationCode!=='Y531201001'){
+ if(currentRainStation()!=='Y531201001'){
   document.getElementById('upstreamMap').hidden=true;
   document.getElementById('earlyUpstreamRows').hidden=true;
  }else if(!gauges.length){
   document.getElementById('upstreamMap').hidden=true;
   document.getElementById('earlyUpstreamRows').hidden=true;
-  earlyText('upstreamMapMessage',earlyI18n('Aucune station avec des mesures récentes','No upstream stations currently reporting','Keine flussaufwärts gelegene Station mit aktuellen Messungen'));
+  earlyText('upstreamMapMessage',earlyI18n('Recherche des dernières mesures par station…','Checking last available readings for each gauge…','Prüfe die letzten verfügbaren Messwerte jeder Station…'));
  }else if(!document.getElementById('forecastPage').classList.contains('hidden')){
   requestAnimationFrame(()=>updateUpstreamMap());
  }
@@ -2695,7 +2695,7 @@ async function refreshMissingUpstreamReadings(existing){
     levelM,trendCmH:null,observedAt:obs.date_obs,status:'last_known'};
   }catch{return null}
  }));
- if(request!==upstreamFallbackRequest||window.argensHomeStationCode!=='Y531201001')return;
+ if(request!==upstreamFallbackRequest||currentRainStation()!=='Y531201001')return;
  const added=[...workerReadings,...direct.filter(Boolean)];
  if(!added.length){
   if(!existing.length)earlyText('earlyUpstreamStatus',earlyI18n(
