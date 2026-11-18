@@ -283,6 +283,32 @@ test('Météo-France API key auth bypasses OAuth portal and parses official Var 
  assert.equal(calls,1);
  assert.ok(!JSON.stringify(r).includes('SENSITIVE_DO_NOT_LOG'));
 });
+test('Vigilance permission failure on API key retries a separately configured OAuth2 account',async()=>{
+ const calls=[];
+ const fetchImpl=async(url,options)=>{
+  if(url.endsWith('/token')){
+   calls.push('oauth-token');
+   assert.equal(options.headers.Authorization,'Basic TEST_ONLY_FALLBACK_BASIC');
+   return {ok:true,json:async()=>({access_token:'oauth-fallback-vigilance-test-token',expires_in:3600})};
+  }
+  if(options.headers.apikey){
+   calls.push('key-rejected');
+   assert.equal(options.headers.apikey,'TEST_ONLY_KEY_FOR_OTHER_PRODUCTS');
+   return {ok:false,status:403};
+  }
+  calls.push('oauth-bulletin');
+  assert.equal(options.headers.Authorization,'Bearer oauth-fallback-vigilance-test-token');
+  return {ok:true,json:async()=>fixtureOfficial()};
+ };
+ const r=await fetchOfficialVigilance({
+  METEO_FRANCE_API_KEY:'TEST_ONLY_KEY_FOR_OTHER_PRODUCTS',
+  METEO_FRANCE_BASIC:'TEST_ONLY_FALLBACK_BASIC'
+ },{now:NOW,fetchImpl});
+ assert.equal(r.status,'official');
+ assert.equal(r.periods[0].color,'orange');
+ assert.deepEqual(calls,['key-rejected','oauth-token','oauth-bulletin']);
+ assert.ok(!JSON.stringify(r).includes('TEST_ONLY'));
+});
 test('API key failure does not claim any valid official warnings',async()=>{
  const r=await fetchOfficialVigilance({METEO_FRANCE_API_KEY:'DO_NOT_LOG'},{
   now:NOW,fetchImpl:async()=>({ok:false,status:401})
@@ -315,6 +341,17 @@ test('D1 cache must be recent, rejects stale indicator data',async()=>{
  assert.equal(saved.ok,true);
  assert.equal((await loadEarlySignals(db,{now:NOW+100000})).station,'Y531201001');
  await assert.rejects(()=>loadEarlySignals(db,{now:NOW+26*60000}),/stale/);
+});
+test('PWA forecast startup can access its upstream loader without a ReferenceError',()=>{
+ const page=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
+ const loader=page.indexOf('async function refreshMissingUpstreamReadings(existing){');
+ const render=page.indexOf('function renderEarlySignals(){');
+ const startup=page.indexOf('async function loadEarlySignalsPanel(){');
+ assert.ok(loader>0&&render>0&&startup>0,'All forecast functions must exist');
+ assert.ok(loader<render&&render<startup,'Upstream loader must be in shared script scope before startup');
+ assert.match(page,/if\(argens\)void refreshMissingUpstreamReadings\(upstreamKnownReadings\)/);
+ const inline=[...page.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).filter(Boolean);
+ for(const script of inline)assert.doesNotThrow(()=>new Script(script));
 });
 test('worker surface is information only, does not rewrite warning functions',()=>{
  const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
