@@ -122,3 +122,26 @@ test('reports endpoint-specific Vigicrues failures for admin diagnostics',async(
     &&error.message.includes('trailing-slash: HTTP 403')
  );
 });
+
+test('Hub Eau returns a 200 HTML maintenance page: reject it and use Vigicrues backup',async()=>{
+ const calls=[];
+ const fetchImpl=async url=>{
+  calls.push(url);
+  return url.includes('hubeau.eaufrance.fr')?
+   new Response('<!DOCTYPE html><title>Site en maintenance</title>',{
+    status:200,headers:{'Content-Type':'text/html; charset=UTF-8'}}):
+   new Response(JSON.stringify(vig),{
+    status:200,headers:{'Content-Type':'application/json'}});
+ };
+ const result=await getHydroObservations(station,{fetchImpl});
+ assert.equal(result.source,'vigicrues');
+ assert.equal(result.points[0].mm,5400);
+ assert.ok(calls.some(x=>x.includes('observations.json')));
+});
+
+test('Hub Eau maintenance HTML is classified, not surfaced as a JSON SyntaxError',async()=>{
+ const fetchImpl=async()=>new Response('<!DOCTYPE html><title>Site en maintenance</title>',{
+  status:200,headers:{'Content-Type':'text/html'}});
+ await assert.rejects(()=>readHubObservations(station,{fetchImpl}),
+  error=>/Upstream maintenance: HTML instead of JSON/.test(error.message));
+});
