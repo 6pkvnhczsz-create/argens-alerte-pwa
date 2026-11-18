@@ -292,7 +292,19 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #officialRadarTime{margin:8px auto!important;color:#3a6b77}
 
 /* Compact hydrology table: three clear rows instead of a stack of mini cards. */
-#forecastPage .forecast-compact-list{margin:14px 0 4px;width:100%;border:1px solid #dfeaf0;border-radius:14px;overflow:hidden;background:#fff;text-align:left}
+#forecastPage .long-range-card details>summary{cursor:pointer;font-size:16px;font-weight:750;color:#17445a;line-height:1.4;list-style-position:outside;padding:3px 0 5px}
+.long-range-card .long-range-status{margin:8px 0;font-size:12px}
+.long-range-card .long-range-days{border:1px solid #dfeaf0;border-radius:13px;overflow:hidden;background:white;margin:12px 0}
+.long-range-card .long-range-day{padding:10px 12px}
+.long-range-card .long-range-day+.long-range-day{border-top:1px solid #e5edf2}
+.long-range-card .long-range-day-top{display:flex;align-items:center;gap:8px}
+.long-range-card .long-range-date{font-size:13px;font-weight:700;min-width:0;flex:1;color:#17475a}
+.long-range-card .long-range-icon{font-size:19px;flex:none}
+.long-range-card .long-range-temp{font-size:13px;white-space:nowrap;font-weight:750;color:#305d70}
+.long-range-card .long-range-day-bottom{margin-top:4px;display:flex;align-items:center;gap:9px;justify-content:space-between;flex-wrap:wrap;color:#536f7f;font-size:12px}
+.long-range-card .long-range-trend{color:#845d25;font-size:11px}
+.long-range-card .long-range-note{margin-top:10px;font-size:12px;line-height:1.55;color:#577585}
+.forecast-compact-list{margin:14px 0 4px;width:100%;border:1px solid #dfeaf0;border-radius:14px;overflow:hidden;background:#fff;text-align:left}
 #forecastPage .rain-list-header,#forecastPage .rain-list-row{display:grid;grid-template-columns:minmax(0,1fr) 83px 83px;gap:8px;align-items:center;padding:12px 11px}
 #forecastPage .rain-list-header{background:#eaf3f7;color:#4d7282;font-size:11px;font-weight:750;letter-spacing:.02em}
 #forecastPage .rain-list-row+.rain-list-row{border-top:1px solid #e4edf1}
@@ -568,6 +580,18 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
     <p id="earlyForecastStatus" class="note" role="status">Chargement…</p>
     <div id="earlyForecastRows" class="forecast-compact-list" aria-label="Prévisions de pluie pour 6 et 24 heures"></div>
     <p id="earlyForecastDisclaimer" class="note forecast-disclaimer">Prévision des modèles AROME/ARPEGE via Open-Meteo, pas une mesure radar ni une prévision de crue.</p>
+   </article>
+   <article class="panel forecast-card long-range-card" id="longRangeForecastCard">
+    <details id="longRangeDetails">
+     <summary id="longRangeSummary">🌤️ Tendance météo · 10 jours</summary>
+     <p id="longRangeStatus" class="note long-range-status" role="status">Chargement…</p>
+     <div id="longRangeDays" class="long-range-days"></div>
+     <p id="longRangeDisclaimer" class="long-range-note">
+      Tendance du modèle Open-Meteo Best Match, et non des modèles AROME/ARPEGE à courte échéance.
+      Les quantités de pluie prévues au-delà de 7 jours sont très incertaines.
+      Aucune prévision de crue ou alerte officielle.
+     </p>
+    </details>
    </article>
 
    <article class="panel forecast-card" id="recentRainCard">
