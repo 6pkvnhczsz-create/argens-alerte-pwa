@@ -28,7 +28,7 @@
  const departmentLabel=value=>String(value||'').toLocaleLowerCase('fr-FR')
   .replace(/(^|[\s\-’'])(\p{L})/gu,(_,prefix,ch)=>prefix+ch.toLocaleUpperCase('fr-FR'));
  let code=validCode(window.argensHomeStationCode)?window.argensHomeStationCode:DEFAULT;
- let stationName='Roquebrune-sur-Argens',data=null,seq=0,lastChecked=0,lastCode='';
+ let stationName='Roquebrune-sur-Argens',data=null,seq=0,lastChecked=0,lastCode='',lastError='';
  function showHeading(){
   const place=validDepartment(data?.department)?
    ((data.departmentName?departmentLabel(data.departmentName)+' ':'')+'('+data.department+')'):
@@ -41,13 +41,14 @@
  }
  function unavailable(){
   periods.replaceChildren();
-  status.textContent=data?.status==='not_configured'?
+  status.textContent=data?.status==='not_configured'||lastError==='not_configured'?
    i18n('Données officielles indisponibles (API non configurée).',
     'Official warning data unavailable (API not configured).',
     'Amtliche Warnungen derzeit nicht verfügbar (API nicht eingerichtet).'):
    i18n('Vigilance officielle momentanément indisponible. Consultez Météo-France.',
     'Official warnings temporarily unavailable. Check Météo-France.',
     'Amtliche Warnungen derzeit nicht verfügbar. Bitte Météo-France prüfen.');
+  if(lastError)status.textContent+=' · '+i18n('Diagnostic : ','Diagnostic: ','Fehlercode: ')+lastError;
  }
  function render(){
   panel.hidden=false;showHeading();periods.replaceChildren();
@@ -90,17 +91,23 @@
   status.textContent=i18n('Consultation des avertissements officiels…',
    'Loading official departmental warnings…',
    'Amtliche Warnungen für die Heimatstation werden geladen…');
+  lastError='';
   try{
    const response=await fetch(ROOT+'/api/vigilance/station?station='+encodeURIComponent(requested),
     {cache:'no-store',signal:AbortSignal.timeout(20000)});
    const result=await response.json().catch(()=>null);
    if(id!==seq||code!==requested)return;
    if(!response.ok||result?.ok!==true||result.station!==requested||
-      !validDepartment(result.department))throw Error('Official departmental warning not verified');
+      !validDepartment(result.department)){
+    const diagnostic=String(result?.diagnostic||result?.reason||'http_'+response.status);
+    lastError=/^(?:token_(?:http_\d{3}|fetch_failed|invalid_json|html_redirect|html_response|text_response|missing)|bulletin_(?:http_\d{3}|fetch_failed|invalid_json)|invalid_bulletin|outdated_bulletin|missing_department_period|department_unverified|department_or_source_unavailable|http_\d{3}|request_or_format_error|not_configured)$/.test(diagnostic)?diagnostic:'invalid_api_response';
+    throw Error('Official departmental warning not verified');
+   }
    data=result;lastCode=requested;lastChecked=Date.now();
   }catch(error){
    if(id!==seq||code!==requested)return;
    lastChecked=Date.now();lastCode=requested;
+   if(!lastError)lastError=String(error?.name||'')==='TimeoutError'?'request_timeout':'connection_failed';
    // Never reuse the last station's color, dates or department after a failure.
    data=null;
   }
