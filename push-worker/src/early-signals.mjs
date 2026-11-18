@@ -206,17 +206,30 @@ export async function fetchOfficialVigilance(env,{now=Date.now(),fetchImpl=fetch
   link:department==='83'?OFFICIAL_LINK:'https://vigilance.meteofrance.fr/fr'};
  if(!configured)return fallback;
  try{
-  // Météo-France accepts an API key directly. Prefer it when configured to avoid
-  // token portal HTML/interstitials; preserve existing OAuth2 as a fallback mode.
-  const headers=env.METEO_FRANCE_API_KEY?
-   {apikey:env.METEO_FRANCE_API_KEY,Accept:'application/json'}:
-   {Authorization:'Bearer '+await fetchMeteoToken(env.METEO_FRANCE_BASIC,fetchImpl,now),Accept:'application/json'};
-  let response;
-  try{response=await fetchImpl(METEO_VIGILANCE,{headers,
-   signal:AbortSignal.timeout(12000)})}catch{throw Error('bulletin_fetch_failed')}
-  if(!response.ok)throw Error('bulletin_http_'+response.status);
+  // A key may be valid for another Météo-France product but not for Vigilance.
+  // If the key is rejected, try the independently configured OAuth2 access.
+  // Never leak either credential or silently turn missing warnings green.
+  const getBulletin=async headers=>{
+   let response;
+   try{response=await fetchImpl(METEO_VIGILANCE,{headers,
+    signal:AbortSignal.timeout(12000)})}catch{throw Error('bulletin_fetch_failed')}
+   if(!response.ok)throw Error('bulletin_http_'+response.status);
+   try{return await response.json()}catch{throw Error('bulletin_invalid_json')}
+  };
   let bulletin;
-  try{bulletin=await response.json()}catch{throw Error('bulletin_invalid_json')}
+  if(env.METEO_FRANCE_API_KEY){
+   try{
+    bulletin=await getBulletin({apikey:env.METEO_FRANCE_API_KEY,Accept:'application/json'});
+   }catch(error){
+    if(!env.METEO_FRANCE_BASIC||!/^bulletin_http_(?:401|403)$/.test(String(error?.message||'')))
+     throw error;
+    const token=await fetchMeteoToken(env.METEO_FRANCE_BASIC,fetchImpl,now);
+    bulletin=await getBulletin({Authorization:'Bearer '+token,Accept:'application/json'});
+   }
+  }else{
+   const token=await fetchMeteoToken(env.METEO_FRANCE_BASIC,fetchImpl,now);
+   bulletin=await getBulletin({Authorization:'Bearer '+token,Accept:'application/json'});
+  }
   return parseMeteoVigilance(bulletin,{now,department,departmentName});
  }catch(error){
   // Only fixed diagnostic codes are exposed; credentials, response bodies and tokens never are.
