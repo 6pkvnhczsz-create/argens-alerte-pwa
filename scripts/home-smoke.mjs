@@ -177,6 +177,26 @@ function scriptsWithConnector(){
  return [...page.matchAll(/function updateLevelConnector\(\)/g)].length;
 }
 
+// A switch to another French home station MUST trigger its own ten-day request;
+// old Roquebrune forecast rows must never remain as that station's forecast.
+const oldDates=[...d.querySelectorAll('#longRangeDays .long-range-date')].map(x=>x.textContent);
+dom.window.argensHomeStationCode='H123456789';
+dom.window.argensHomeStationName='Paris';
+d.dispatchEvent(new dom.window.CustomEvent('argens-station-selected',{detail:{code:'H123456789',name:'Paris'}}));
+await new Promise(resolve=>setTimeout(resolve,90));
+assert.equal(d.querySelectorAll('#longRangeDays .long-range-day').length,10,
+ 'Changing the home gauge must fetch its own 10-day values');
+assert.match(d.querySelector('#longRangeStatus').textContent,/Open-Meteo/,
+ 'After station switch, use the new location source instead of old data');
+assert.deepEqual([...d.querySelectorAll('#longRangeDays .long-range-date')].map(x=>x.textContent),oldDates,
+ 'Dates should remain valid daily forecast dates after a station switch');
+dom.window.argensHomeStationCode='Y531201001';
+dom.window.argensHomeStationName='Roquebrune-sur-Argens';
+d.dispatchEvent(new dom.window.CustomEvent('argens-station-selected',{detail:{code:'Y531201001',name:'Roquebrune-sur-Argens'}}));
+await new Promise(resolve=>setTimeout(resolve,90));
+assert.equal(d.querySelectorAll('#longRangeDays .long-range-day').length,10,
+ 'Returning to Argens must restore its own 10-day outlook');
+
 // The app intentionally keeps timers and pending fetches alive. Exit after all
 // assertions to avoid a jsdom teardown race with its unfinished navigation.
 process.exit(0);
