@@ -10,6 +10,7 @@ import json
 import math
 import os
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -24,6 +25,11 @@ STATION_PATTERN = re.compile(r"^[A-Z][0-9]{8,12}$")
 MAX_STATIONS_PER_RUN = 200  # Explicit error rather than silently skipping users.
 MAX_REQUEST_WORKERS = 8
 VALID_HISTORY_SECONDS = 2 * 24 * 3600  # Enough for rate calculations and recent chart history.
+# An upstream timeout must not turn a single delayed response into an Actions failure.
+# After bounded retries the job still fails, so persistent backup outages remain visible.
+VIGICRUES_MAX_ATTEMPTS = 3
+VIGICRUES_RETRY_PAUSES_SECONDS = (2, 5)
+VIGICRUES_TRANSIENT_HTTP = {408, 429, 500, 502, 503, 504, 520, 522, 524}
 
 
 class UnusableSeries(Exception):
@@ -84,13 +90,35 @@ def active_station_codes(token):
     return codes
 
 
+def fetch_vigicrues_with_retries(url, code):
+    """Retry only transient official-Vigicrues transport failures; never fake data."""
+    for attempt in range(1, VIGICRUES_MAX_ATTEMPTS + 1):
+        try:
+            return http_json(url, timeout=16)
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+            # HTTPError extends URLError, but 403/404 and other permanent HTTP
+            # responses must be handled by the station-specific unavailable logic.
+            if isinstance(error, urllib.error.HTTPError):
+                transient = error.code in VIGICRUES_TRANSIENT_HTTP
+                reason = "HTTP " + str(error.code)
+            else:
+                transient = True
+                reason = type(error).__name__
+            if not transient or attempt >= VIGICRUES_MAX_ATTEMPTS:
+                raise
+            delay = VIGICRUES_RETRY_PAUSES_SECONDS[attempt - 1]
+            print(f"BACKUP RETRY {code}: {reason}, attempt {attempt + 1}/"
+                  f"{VIGICRUES_MAX_ATTEMPTS} after {delay}s", flush=True)
+            time.sleep(delay)
+
+
 def load_vigicrues_station(code, now):
     if not STATION_PATTERN.fullmatch(code):
         raise ValueError("Invalid station code")
     url = ("https://www.vigicrues.gouv.fr/services/observations.json?"
            + urllib.parse.urlencode({"CdStationHydro": code}))
     try:
-        payload = http_json(url, timeout=16)
+        payload = fetch_vigicrues_with_retries(url, code)
     except urllib.error.HTTPError as error:
         if error.code == 403:
             raise UnusableSeries("access_denied") from None

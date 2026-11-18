@@ -3,6 +3,8 @@ name: Vigicrues backup to Cloudflare
 # Cloudflare workers.dev requires a descriptive application User-Agent (error 1010).
 # Discover active registered user stations from Cloudflare before each signed run.
 # Unavailable stations are retried after a safe cooldown without blocking others.
+# Transient Vigicrues timeouts/5xx are retried up to three times within a run.
+# Permanent errors or exhausted retries still fail the run to preserve outage visibility.
 
 on:
   schedule:
