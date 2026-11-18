@@ -292,7 +292,10 @@ body{background:radial-gradient(ellipse at 50% -20%,#cce8ee 0%,#edf4f7 55%,#e8f0
 #officialRadarTime{margin:8px auto!important;color:#3a6b77}
 
 /* Compact hydrology table: three clear rows instead of a stack of mini cards. */
-#forecastPage .long-range-card details>summary{cursor:pointer;font-size:16px;font-weight:750;color:#17445a;line-height:1.4;list-style-position:outside;padding:3px 0 5px}
+#forecastPage .long-range-card details>summary{cursor:pointer;font-size:16px;font-weight:750;color:#17445a;line-height:1.4;list-style:none;display:flex;align-items:center;gap:9px;text-align:left;padding:3px 8px 5px 11px}
+#forecastPage .long-range-card details>summary::-webkit-details-marker{display:none}
+#forecastPage .long-range-card details>summary::before{content:'▶';display:inline-block;flex:none;font-size:11px;line-height:1;min-width:12px;color:#17445a}
+#forecastPage .long-range-card details[open]>summary::before{content:'▼'}
 .long-range-card .long-range-status{margin:8px 0;font-size:12px}
 .long-range-card .long-range-days{border:1px solid #dfeaf0;border-radius:13px;overflow:hidden;background:white;margin:12px 0}
 .long-range-card .long-range-day{padding:10px 12px}
@@ -2137,7 +2140,7 @@ async function loadOfficialRadarMap(){
 // Georeferenced upstream stations: locations are verified against the official
 // Hub'Eau station registry; real-time levels and trends still come exclusively
 // from the existing validated early-signals API, not this coordinate request.
-let upstreamDisplayedGauges=[],upstreamMapInstance=null,upstreamMapMarkers=null,upstreamMapUpdateId=0;
+let upstreamDisplayedGauges=[],upstreamKnownReadings=[],upstreamMapInstance=null,upstreamMapMarkers=null,upstreamMapUpdateId=0;
 const upstreamStationPositions=new Map(),upstreamPositionRequests=new Map(),upstreamPositionFailures=new Map();
 const UPSTREAM_POSITION_API='https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations';
 async function officialUpstreamPosition(code){
@@ -2595,11 +2598,14 @@ function renderEarlySignals(){
    earlyI18n('Données temporairement indisponibles','Data temporarily unavailable','Daten vorübergehend nicht verfügbar');
   for(const id of ['earlyForecastStatus','earlyRainStatus','earlyUpstreamStatus','earlyRadarStatus'])earlyText(id,unavailable);
   earlyText('earlySignalsChecked','');
-  upstreamDisplayedGauges=[];
+  upstreamDisplayedGauges=argens?upstreamKnownReadings:[];
   document.getElementById('upstreamMap').hidden=true;
   document.getElementById('earlyUpstreamRows').hidden=true;
   earlyText('upstreamMapMessage',argens?earlyI18n('Recherche des dernières mesures disponibles…','Checking latest available readings…','Prüfe die letzten verfügbaren Pegelmesswerte…'):unavailable);
-  if(argens)void refreshMissingUpstreamReadings([]);
+  if(argens){
+   if(upstreamKnownReadings.length&&!document.getElementById('forecastPage').classList.contains('hidden'))requestAnimationFrame(()=>updateUpstreamMap());
+   void refreshMissingUpstreamReadings(upstreamKnownReadings);
+  }
   healthState.weather=localRainLoading?'pending':'bad';renderSystemHealth();
   return;
  }
@@ -2643,12 +2649,13 @@ function renderEarlySignals(){
  for(const x of rain)addRainRow(rainNode,titles[x.id]||x.name,icons[x.id]||'🌧️',
   [fmt(x.last3hMm)+' mm',fmt(x.last6hMm)+' mm']);
  if(!rain.length)emptyRainList(rainNode);
- const gauges=(regional?d.upstream||[]:[]).filter(x=>Number.isFinite(x.levelM)&&Number.isFinite(Date.parse(x.observedAt))&&Date.parse(x.observedAt)-Date.now()<=15*60000);
+ const regionalReadings=(regional?d.upstream||[]:[]).filter(x=>Number.isFinite(x.levelM)&&Number.isFinite(Date.parse(x.observedAt))&&Date.parse(x.observedAt)-Date.now()<=15*60000);
+ const gauges=argens?[...regionalReadings,...upstreamKnownReadings.filter(x=>!regionalReadings.some(y=>y.code===x.code))]:[];
  earlyText('earlyUpstreamStatus',gauges.length?
   earlyI18n('Dernières mesures disponibles : ','Latest available readings: ','Letzte vorhandene Messwerte: ')+gauges.length:
   earlyI18n('Recherche des dernières mesures…','Checking latest available readings…','Letzte vorhandene Messwerte werden geprüft…'));
  upstreamDisplayedGauges=gauges;
- if(regional)refreshMissingUpstreamReadings(gauges);
+ if(argens)refreshMissingUpstreamReadings(gauges);
  if(currentRainStation()!=='Y531201001'){
   document.getElementById('upstreamMap').hidden=true;
   document.getElementById('earlyUpstreamRows').hidden=true;
@@ -2705,6 +2712,7 @@ async function refreshMissingUpstreamReadings(existing){
   return;
  }
  const merged=[...existing,...added];
+ upstreamKnownReadings=merged;
  upstreamDisplayedGauges=merged;
  earlyText('earlyUpstreamStatus',earlyI18n('Dernières mesures disponibles : ',
   'Latest available readings: ','Letzte vorhandene Messwerte: ')+merged.length);
@@ -2728,6 +2736,8 @@ async function loadEarlySignalsPanel(){
  const btn=document.getElementById('earlySignalsRefresh');if(!btn)return;
  const station=currentRainStation(),argens=station===LOCAL_RAIN_DEFAULT,request=++earlySignalsRequest;
  void loadLongRangeForecast(station);
+ // Fetch gauges immediately, not after the weather/vigilance API response.
+ if(argens)void refreshMissingUpstreamReadings(upstreamKnownReadings);
  btn.disabled=true;localRainLoading=true;
  if(localRainStationCode!==station){localRainSnapshot=null;localRainStationCode=station}
  if(!earlySignalsSnapshot&&!localRainSnapshot)renderEarlySignals();
