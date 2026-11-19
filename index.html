@@ -1055,7 +1055,7 @@ async function checkPushHealth(){
  }catch(e){healthState.push='bad'}
  renderSystemHealth();
 }
-document.querySelector('#healthRefresh').addEventListener('click',()=>{healthState.push='pending';renderSystemHealth();checkPushHealth();refreshCurrentStation();loadLocalWeather()});
+document.querySelector('#healthRefresh').addEventListener('click',()=>{healthState.push='pending';renderSystemHealth();checkPushHealth();refreshCurrentStation()});
 document.addEventListener('argens-language-changed',renderSystemHealth);
 document.addEventListener('argens-language-changed',()=>{renderSwarms();const input=document.querySelector('#swarmName');if(input)input.placeholder=mapText('Nom du groupe (ex. Mon Argens)','Group name (e.g. My Argens)')});
 checkPushHealth();
@@ -1063,29 +1063,12 @@ setInterval(()=>{if(!document.hidden){checkPushHealth();renderSystemHealth()}},5
 // Weather follows the station selected on the map; this does not change server-side alerts.
 let weatherLocation={lat:43.44,lon:6.64,name:'Roquebrune-sur-Argens'};
 // Historical rain summaries remain Argens-only; PIAF follows the selected gauge.
-function setWeatherStation(_station){loadLocalWeather()}
 
 // Informational weather widget; intentionally independent of flood alerts and push subscriptions.
 // The displayed rain forecasts now come solely from the Météo-France models
 // in the Early Signals snapshot. This presenter does not fetch duplicate rain
 // forecasts from Open-Meteo. Radar visualization remains clearly attributed.
-function loadLocalWeather(){
- earlyText('weatherHeadingTitle',earlyI18n('Radar des précipitations','Rain radar','Regenradar'));
- earlyText('weatherHeadingLocation',earlyI18n('Bassin de l’Argens','Argens catchment','Argens-Einzugsgebiet'));
- const iframe=document.querySelector('#windyRadarFrame');
- if(iframe)iframe.title=earlyI18n('Radar de pluie · région de l’Argens','Rain radar · Argens basin','Regenradar · Argens-Einzugsgebiet');
- earlyText('radarToggle',earlyI18n('🗺️ Afficher la carte radar','🗺️ Show radar map','🗺️ Radarkarte anzeigen'));
- earlyText('radarNote',earlyI18n(
-  'Carte provisoire fournie par Windy (service externe), pas par l’API radar Météo-France.',
-  'Temporary radar map by Windy (external provider), not the Météo-France radar API.',
-  'Vorläufige Radarkarte von Windy (externer Anbieter), noch keine Darstellung der Météo-France-Radardaten.'));
- earlyText('radarLink',earlyI18n('Ouvrir le radar dans Windy','Open radar in Windy','Radar bei Windy öffnen'));
- earlyText('officialRadarSource',earlyI18n('Source : Météo-France · Données Radar (API)','Source: Météo-France · Radar Data API','Quelle: Météo-France · Radar-Daten-API'));
- earlyText('radarDataNote',earlyI18n(
-  'L’API radar Météo-France est connectée. Une carte issue de ces données nécessite un traitement géographique des fichiers bruts.',
-  'The Météo-France radar API is connected. Displaying its own map requires processing georeferenced raw files.',
-  'Die Météo-France-Radar-API ist verbunden. Für eine eigene Radarkarte müssen die Rohdaten erst geografisch aufbereitet werden.'));
-}
+// Retired Windy presenter removed: piaf-player.js owns the active forecast UI.
 function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
  const en=document.documentElement.lang==='en',de=document.documentElement.lang==='de';
@@ -1559,7 +1542,6 @@ function selectMapStation(station,button,marker){
  window.argensHomeStationCode=code;
  rememberHomeStation(code,station.libelle_station||station.libelle_site||code);
  document.dispatchEvent(new CustomEvent('argens-station-selected',{detail:{code,name:station.libelle_station||station.libelle_site||code}}));
- setWeatherStation(station);
  document.querySelectorAll('#stations button').forEach(b=>b.classList.toggle('selected',b===button));
  if(marker&&stationMap){stationMap.panTo(marker.getLatLng());marker.closePopup()}
  document.querySelector('[data-tab="overview"]').click();
@@ -2277,8 +2259,6 @@ function earlyI18n(fr,en,de){
 }
 function earlyText(id,value){const node=document.getElementById(id);if(node)node.textContent=value}
 // The early-radar helpers live in this separate script; call the presenter only now.
-loadLocalWeather();
-document.addEventListener('argens-language-changed',loadLocalWeather);
 function earlyLine(text){
  const div=document.createElement('div');div.textContent=text;div.style.cssText='margin:7px 0;line-height:1.4';return div;
 }
