@@ -233,7 +233,7 @@
   text('stationHomeReminder',lang(
    'Votre station choisie reste mémorisée sur cet appareil. Pour recevoir des alertes sur cette station, enregistrez les seuils dans Réglages.',
    'Your chosen station stays saved on this device. For alerts on this station, save its thresholds in Settings.',
-   'Deine gewählte Heimatstation bleibt auf diesem Gerät gespeichert. Für Push-Warnungen dort bitte die Schwellen in Einstellungen speichern.'));
+   'Ihre gewählte Heimatstation bleibt auf diesem Gerät gespeichert. Für Push-Warnungen dort bitte die Schwellen in Einstellungen speichern.'));
  }
  mapLabels();labels();
  document.addEventListener('argens-language-changed',()=>{
