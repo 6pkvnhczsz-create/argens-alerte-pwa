@@ -4,6 +4,7 @@
 // Private Worker-to-Worker RPC; not exposed as a public HTTP route.
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { getHydroObservations, readVigicruesObservations, validHydroStation } from './water-sources.mjs';
+import { syncVigicruesFromCloudflare } from './cloudflare-vigicrues-sync.mjs';
 import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, activeBackupStationCodes, markVigicruesUnavailable, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
 import { translateFeedbackRecord } from './feedback-translation.mjs';
 import { refreshEarlySignals, loadEarlySignals, fetchOfficialVigilance, fetchRainArea, fetchRainForecast, RAIN_AREAS, EARLY_SIGNALS_STATION, UPSTREAM_STATIONS } from './early-signals.mjs';
@@ -1352,5 +1353,5 @@ export default {
   }
   return json(request,{error:'Not found'},404);
  },
- async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));ctx.waitUntil(checkPersonalStations(env).catch(e=>console.error('Personal stations check failed',String(e))));ctx.waitUntil(refreshEarlySignals(env,{backupReader:(code,limit)=>bestVigicruesBackup(env,code,limit)}).catch(e=>console.error('Early signals refresh failed',String(e))))}
+ async scheduled(event,env,ctx){if(env.VIGICRUES_CLOUDFLARE_SYNC==='enabled')ctx.waitUntil(syncVigicruesFromCloudflare(env).catch(e=>console.error('Cloudflare Vigicrues snapshot sync failed',String(e))));ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));ctx.waitUntil(checkPersonalStations(env).catch(e=>console.error('Personal stations check failed',String(e))));ctx.waitUntil(refreshEarlySignals(env,{backupReader:(code,limit)=>bestVigicruesBackup(env,code,limit)}).catch(e=>console.error('Early signals refresh failed',String(e))))}
 };
