@@ -22,7 +22,7 @@
   text('homeStationDialogDescription',lang(
    'Voulez-vous utiliser cette station comme nouvelle station personnelle ? Elle restera enregistrée sur cet appareil. Les seuils des alertes push ne changent pas.',
    'Would you like to use this gauge as your new home station? It will remain saved on this device. Your push alert thresholds will not change.',
-   'Möchten Sie diese Station als neue Heimatstation auswählen? Sie bleibt auf diesem Gerät gespeichert. Deine Push-Warnschwellen ändern sich dadurch nicht.'));
+   'Möchten Sie diese Station als neue Heimatstation auswählen? Sie bleibt auf diesem Gerät gespeichert. Ihre Push-Warnschwellen ändern sich dadurch nicht.'));
   text('homeStationDialogConfirm',lang('✓ Choisir comme station personnelle',
    '✓ Set as home station','✓ Als Heimatstation auswählen'));
   text('homeStationDialogCancel',lang('Annuler','Cancel','Abbrechen'));
@@ -217,7 +217,7 @@
   }
   const request=++seq,requested=code;
   text('nationalUpstreamStatus',lang('Vérification du réseau hydrographique officiel…',
-   'Checking official river network…','Prüfe amtliches Flussnetz…'));
+   'Checking official river network…','Amtliches Flussnetz wird geprüft…'));
   el('nationalUpstreamMap').hidden=true;el('nationalUpstreamRows').replaceChildren();
   try{
    const response=await fetch(ROOT+'/api/upstream/stations?station='+encodeURIComponent(requested),
