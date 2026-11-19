@@ -101,3 +101,61 @@ test('Cloudflare Access admin page is German and its embedded JavaScript parses'
  assert.ok(scripts.length);
  for (const source of scripts) new Script(source);
 });
+
+test('all named backend imports resolve to existing exported symbols', () => {
+ const modules = [
+  'push-worker/src/index.js',
+  'push-worker/src/water-sources.mjs',
+  'push-worker/src/vigicrues-snapshot.mjs',
+  'push-worker/src/early-signals.mjs',
+  'push-worker/src/feedback-translation.mjs',
+  'push-worker/src/radar-map.mjs',
+  'push-worker/src/piaf-map.mjs',
+  'push-worker/src/piaf-station.mjs',
+  'push-worker/src/measured-rain.mjs',
+  'push-worker/src/observed-argens-rain.mjs',
+  'push-worker/src/long-range-forecast.mjs',
+  'push-worker/src/upstream-topage.mjs',
+  'admin-worker/src/index.js',
+  'admin-worker/src/forecast-shadow.js',
+  'admin-worker/src/forecast-shadow-schedule.js',
+  'admin-worker/src/national-rain.js',
+  'admin-worker/src/forecast-shadow-comparison.js',
+  'admin-worker/src/rain-archive-2026.js',
+  'admin-worker/src/forecast-shadow-model.js',
+  'admin-worker/src/forecast-shadow-page.js'
+ ];
+ const sources = Object.fromEntries(modules.map(file => [file, read('../../' + file)]));
+ const available = {};
+ for (const [path, source] of Object.entries(sources)) {
+  const names = [...source.matchAll(/\bexport\s+(?:async\s+)?(?:const|let|function|class)\s+(\w+)/g)]
+   .map(match => match[1]);
+  for (const match of source.matchAll(/\bexport\s*{([^}]+)}\s*from\s*['"][^'"]+['"]/g))
+   names.push(...match[1].split(',').map(s => s.trim().split(/\s+as\s+/).pop()));
+  available[path] = new Set(names);
+ }
+ let count = 0;
+ for (const [from, source] of Object.entries(sources)) {
+  for (const match of source.matchAll(/import\s*{([^}]+)}\s*from\s*['"](\.[^'"]+)['"]/g)) {
+   const to = from.slice(0, from.lastIndexOf('/') + 1) + match[2].slice(2);
+   assert.ok(Object.hasOwn(sources, to), 'Missing backend module: ' + to);
+   for (const part of match[1].split(',')) {
+    const symbol = part.trim().split(/\s+as\s+/)[0];
+    assert.ok(available[to].has(symbol), 'Missing export ' + symbol + ' in ' + to + ' (required by ' + from + ')');
+    count++;
+   }
+  }
+ }
+ assert.ok(count >= 50, 'The backend import contract checker must cover both Workers');
+});
+
+test('service worker keeps public application scripts in its shell and has matching version tags', () => {
+ const worker = read('../../sw.js');
+ const version = worker.match(/argens-alerte-pwa-v(\d+)/)?.[1];
+ assert.ok(version, 'PWA must have a versioned cache');
+ assert.match(worker, new RegExp("_pwa_update','" + version + "'"));
+ for (const asset of ['index.html', 'i18n-de.js', 'piaf-palette.js',
+  'piaf-player.js', 'national-upstream.js', 'home-vigilance.js']) {
+  assert.ok(worker.includes("'./" + asset + "'"), 'Missing offline shell asset: ' + asset);
+ }
+});
