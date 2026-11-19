@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'push-worker/src/vigicrues-snapshot.mjs'
+      - 'push-worker/src/cloudflare-vigicrues-sync.mjs'
+      - 'push-worker/test/cloudflare-vigicrues-sync.test.mjs'
       - 'push-worker/src/index.js'
       - 'scripts/tests/**'
       - '.github/workflows/vigicrues-backup-sync.yml'
