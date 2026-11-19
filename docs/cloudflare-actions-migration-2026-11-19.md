@@ -32,3 +32,12 @@ Status: planning only. No production workflows or alert paths have been disabled
 ## Notes
 
 GitHub gross Actions usage is not equal to billable cost after discounts. Migration should prioritize reliability and avoid simply transferring cost to another provider. Cloudflare free/paid quotas and external API conditions require validation.
+
+## 2026-11-19 implementation and test status
+
+- Draft PR #84 contains opt-in Cloudflare Vigicrues cron code, D1 snapshot reuse, and safety tests. Production remains unchanged.
+- GitHub Vigicrues regression checks: passing on commit b05ac23d. Translation checks: passing.
+- Existing early-signal/radar checks failed on an outdated test expectation of refreshEarlySignals(env) without backupReader; test corrected in branch, latest CI rerun pending.
+- Do not merge or activate VIGICRUES_CLOUDFLARE_SYNC until a real Cloudflare staging deployment confirms direct Vigicrues access, D1 persistence, and the alert behavior across several cycles.
+- River-status.json publisher is consumed from separate argens-alerte repository; before disabling its 5-minute workflow, identify and migrate all consumers to a compatible Cloudflare status endpoint with last-known-good timestamps.
+- Keep the 15-minute Python radar workflow unchanged per user decision.
