@@ -2723,7 +2723,7 @@ function renderEarlySignals(){
  earlyText('forecastPageIntro',regional?earlyI18n(
   'Prévisions, observations récentes et stations en amont. Données indicatives, sans modification de vos alertes.',
   'Forecasts, recent rainfall estimates and upstream gauges. Informational only: your alerts remain unchanged.',
-  'Regenvorhersagen, bisherige Regenmengen und flussaufwärtsliegende Pegel. Zusätzliche Informationen ohne Änderung deiner Warnungen.'):
+  'Regenvorhersagen, bisherige Regenmengen und flussaufwärtsliegende Pegel. Zusätzliche Informationen ohne Änderung Ihrer Warnungen.'):
   earlyI18n('Prévisions de pluie et estimations récentes pour la station sélectionnée. Vos alertes restent inchangées.',
    'Rain forecasts and recent rainfall estimates for the selected gauge. Alerts remain unchanged.',
    'Regenprognosen und geschätzter Regen der letzten Stunden für die gewählte Station. Warnmeldungen bleiben unverändert.'));
@@ -2799,7 +2799,7 @@ function renderEarlySignals(){
    'Dernières mesures enregistrées : ','Last saved readings: ','Zuletzt gespeicherte Messwerte: ')+upstreamKnownReadings.length);
   document.getElementById('upstreamMap').hidden=true;
   document.getElementById('earlyUpstreamRows').hidden=!argens;
-  earlyText('upstreamMapMessage',argens?earlyI18n('Recherche des dernières mesures disponibles…','Checking latest available readings…','Prüfe die letzten verfügbaren Pegelmesswerte…'):unavailable);
+  earlyText('upstreamMapMessage',argens?earlyI18n('Recherche des dernières mesures disponibles…','Checking latest available readings…','Die letzten verfügbaren Pegelmesswerte werden geprüft…'):unavailable);
   if(argens){
    // Show known upstream stations with placeholders even when rain signals fail.
    if(!document.getElementById('forecastPage').classList.contains('hidden'))
