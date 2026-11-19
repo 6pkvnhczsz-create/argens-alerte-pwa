@@ -159,3 +159,22 @@ test('service worker keeps public application scripts in its shell and has match
   assert.ok(worker.includes("'./" + asset + "'"), 'Missing offline shell asset: ' + asset);
  }
 });
+
+test('public and admin API paths must have a matching Worker route', () => {
+ const push = read('../../push-worker/src/index.js');
+ const admin = read('../../admin-worker/src/index.js');
+ const declared = source => new Set([...source.matchAll(/url\.pathname\s*===\s*['"]([^'"]+)['"]/g)].map(m => m[1]));
+ const pushPaths = declared(push), adminPaths = declared(admin);
+ for (const file of ['../../index.html','../../home-vigilance.js',
+  '../../piaf-player.js','../../national-upstream.js']) {
+  const paths = [...new Set([...read(file).matchAll(/\/api\/[a-zA-Z0-9_\/-]+/g)].map(m=>m[0]))]
+   .filter(name => !name.startsWith('/api/v2/'));
+  for (const name of paths)
+   assert.ok(pushPaths.has(name)||[...pushPaths].some(x=>x.startsWith(name+'/')),
+    'Public app references unavailable Worker route ' + name + ' in ' + file);
+ }
+ const adminReferenced = [...new Set([...admin.matchAll(/\/api\/[a-zA-Z0-9_\/-]+/g)].map(m=>m[0]))]
+  .filter(name => !name.startsWith('/api/v2/'));
+ for (const name of adminReferenced)
+  assert.ok(adminPaths.has(name), 'Admin HTML references missing admin route ' + name);
+});
