@@ -19,8 +19,8 @@ export async function syncVigicruesFromCloudflare(env, {
       try{
         const {points}=await reader(station,{limit:700});
         const payload={station,collectedAt:Date.now(),readings:points.map(p=>[p.time,p.mm])};
-        await ingestSnapshot(env.DB,payload,{runId:'cloudflare-cron',now:Date.now()});
-        stored++;
+        const result=await ingestSnapshot(env.DB,payload,{runId:'cloudflare-cron',now:Date.now()});
+        if(result.stored)stored++;
       }catch(error){
         failed++;
         const reason=String(error?.message||error).slice(0,160);
