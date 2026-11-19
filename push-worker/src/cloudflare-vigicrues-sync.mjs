@@ -25,10 +25,18 @@ export async function syncVigicruesFromCloudflare(env, {
         failed++;
         const reason=String(error?.message||error).slice(0,160);
         failures.push({station,error:reason});
-        // Avoid hammering stations known to have no observations.
-        try{await markVigicruesUnavailable(env.DB,station,
-          /stale|future/i.test(reason)?'stale':/404|not.found/i.test(reason)?'not_found':/403|denied/i.test(reason)?'access_denied':/insufficient|missing|no usable/i.test(reason)?'no_data':'unavailable');
-        }catch(markError){console.error('Vigicrues backoff failed',station,String(markError))}
+        // Only genuine missing/stale/unsupported series get a long cooldown.
+        // Transport errors (timeouts, 429, 5xx, upstream blocking) must be retried
+        // on the next cron, never hidden for six hours.
+        const unavailableReason=/stale|future/i.test(reason)?'stale'
+          :/\b404\b|not.found/i.test(reason)?'not_found'
+          :/\b403\b|denied/i.test(reason)?'access_denied'
+          :/insufficient|series missing|measurements missing|no usable/i.test(reason)?'no_data'
+          :null;
+        if(unavailableReason){
+          try{await markVigicruesUnavailable(env.DB,station,unavailableReason)}
+          catch(markError){console.error('Vigicrues backoff failed',station,String(markError))}
+        }
       }
     }));
   }
