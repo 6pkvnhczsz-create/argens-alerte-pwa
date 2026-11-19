@@ -82,7 +82,7 @@ test('public markup has unique IDs and only the active PIAF renderer', () => {
  const ids = [...staticHtml.matchAll(/\bid=["']([^"']+)["']/g)].map(m => m[1]);
  assert.equal(ids.length, new Set(ids).size, 'Duplicate DOM IDs are ambiguous');
  for (const id of ['piafForecastPanel', 'piafForecastMap', 'piafForecastControls',
-  'earlyUpstreamRows', 'upstreamMap', 'earlyOfficialPanel', 'longRangeDays']) {
+  'earlyUpstreamRows', 'upstreamMap', 'homeOfficialPanel', 'longRangeDays']) {
   assert.ok(ids.includes(id), 'Missing essential PWA element: ' + id);
  }
  assert.doesNotMatch(html, /function loadOfficialRadarMap\(/,
