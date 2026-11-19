@@ -1,4 +1,5 @@
 import {FORECAST_SHADOW_PAGE, getForecastShadowStatus, syncForecastRain, probeForecastRain, backfillForecastRain} from './forecast-shadow.js';
+import {FORECAST_SHADOW_I18N_SCRIPT} from './forecast-shadow-i18n.js';
 import {forecastCronPlan} from './forecast-shadow-schedule.js';
 import {syncSelectedStationRain} from './national-rain.js';
 import {runShadowComparisonCycle,getShadowComparisons} from './forecast-shadow-comparison.js';
@@ -33,7 +34,7 @@ export default {
  if(!env.DB||!env.PUSH_SERVICE)return response({error:'Admin bindings not configured'},503);
  const url=new URL(request.url);
  if(request.method==='GET'&&url.pathname==='/')return new Response(PAGE.replace('</nav>','<a href="/forecast-shadow">Prognose-Test</a></nav>'),{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'}});
- if(request.method==='GET'&&url.pathname==='/forecast-shadow')return new Response(FORECAST_SHADOW_PAGE,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"}});
+ if(request.method==='GET'&&url.pathname==='/forecast-shadow')return new Response(FORECAST_SHADOW_PAGE.replace('</script>',FORECAST_SHADOW_I18N_SCRIPT+'\n</script>'),{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"}});
  if(request.method==='POST'&&url.pathname==='/api/forecast-shadow/sync-now'){
   if(request.headers.get('Origin')!==url.origin)return response({error:'Origin mismatch'},403);
   if(!env.METEO_FRANCE_OBS_API_KEY)return response({error:'Secret METEO_FRANCE_OBS_API_KEY fehlt'},503);
