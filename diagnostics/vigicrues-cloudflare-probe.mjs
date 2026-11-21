@@ -1,18 +1,31 @@
-// Isolated diagnostic worker: NO D1 writes, NO alert dispatch, NO secrets.
-// Deploy under its own name, never replace argens-alerte-push.
-const ENDPOINT='https://www.vigicrues.gouv.fr/services/observations.json?CdStationHydro=Y531201001';
+// Isolated read-only direct Vigicrues monitoring: no D1, push, or alert side effects.
+// GitHub backup remains active until a separately verified production migration.
+import {readVigicruesObservations} from '../push-worker/src/water-sources.mjs';
+const STATIONS=['Y531201001'];
+async function probe(){
+ const checkedAt=new Date().toISOString(), results=[];
+ for(const station of STATIONS){
+  const start=Date.now();
+  try{
+   const result=await readVigicruesObservations(station,{limit:10});
+   const newest=result.points[0];
+   results.push({station,ok:true,readings:result.points.length,observedAt:new Date(newest.time).toISOString(),ageMinutes:Math.round((Date.now()-newest.time)/60000),elapsedMs:Date.now()-start});
+  }catch(e){
+   results.push({station,ok:false,error:String(e?.message||e).slice(0,450),elapsedMs:Date.now()-start});
+  }
+ }
+ return {ok:results.every(r=>r.ok),checkedAt,results};
+}
 export default {
  async fetch(request){
-  const url=new URL(request.url);
-  if(url.pathname!=='/probe')return new Response('Not found',{status:404});
-  const started=Date.now();
-  try{
-   const upstream=await fetch(ENDPOINT,{headers:{Accept:'application/json','User-Agent':'RiviereAlerteProbe/1.0 (+https://riviere-alerte.fr)'},signal:AbortSignal.timeout(12000),cf:{cacheTtl:0}});
-   const contentType=upstream.headers.get('content-type')||'';
-   // Do not expose or cache official measurements in the diagnostic endpoint.
-   return Response.json({ok:upstream.ok&&contentType.includes('json'),httpStatus:upstream.status,contentType,elapsedMs:Date.now()-started},{headers:{'Cache-Control':'no-store'}});
-  }catch(error){
-   return Response.json({ok:false,errorType:String(error?.name||'Error'),elapsedMs:Date.now()-started},{headers:{'Cache-Control':'no-store'}});
-  }
+  if(new URL(request.url).pathname!=='/probe')return new Response('Not found',{status:404});
+  const result=await probe();
+  return Response.json(result,{status:result.ok?200:503,headers:{'Cache-Control':'no-store'}});
+ },
+ async scheduled(event,env,ctx){
+  ctx.waitUntil(probe().then(result=>{
+   // Cloudflare Worker logs permit checking repeated runs; no storage or alerts changed.
+   console.log('VIGICRUES_DIRECT_PROBE',JSON.stringify(result));
+  }).catch(error=>console.error('VIGICRUES_DIRECT_PROBE_ERROR',String(error))));
  }
 };
