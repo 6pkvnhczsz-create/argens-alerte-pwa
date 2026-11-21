@@ -315,7 +315,7 @@ export async function buildEarlySignals(env,{now=Date.now(),fetchImpl=fetch,back
  // Check all candidate stations, but only expose gauges with recent usable measurements.
  const availableUpstream=upstream.filter(x=>x.status==='current'&&Number.isFinite(x.trendCmH)&&Number.isFinite(x.levelM));
  return {ok:true,station:EARLY_SIGNALS_STATION,checkedAt:new Date(now).toISOString(),
-  upstream:availableUpstream,upstreamSummary:summarizeUpstreamTrends(availableUpstream),upstreamStationsChecked:UPSTREAM_STATIONS.length,rain,forecast,official,radar,
+  upstream:availableUpstream,upstreamStationsChecked:UPSTREAM_STATIONS.length,rain,forecast,official,radar,
   interpretation:'information_only',changesFloodThresholds:false,
   rainSource:'Open-Meteo past-hour model estimates; not measured rain or calibrated radar',
   forecastSource:forecast.some(x=>x.model==='open_meteo_best_match'&&x.status==='forecast')?
