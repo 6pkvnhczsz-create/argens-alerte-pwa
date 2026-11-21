@@ -5,7 +5,7 @@ const now = Date.parse('2026-11-21T12:00:00.000Z');
 const at = mins => now - mins * 60000;
 test('freshness boundaries use observation time', () => {
   assert.equal(classifyObservationFreshness(at(30), {now}).status, 'current');
-  assert.equal(classifyObservationFreshness(at(61), {now}).status, 'delayed');
+  assert.equal(classifyObservationFreshness(at(31), {now}).status, 'delayed');
   assert.equal(classifyObservationFreshness(at(60), {now}).status, 'delayed');
   assert.equal(classifyObservationFreshness(at(61), {now}).status, 'warning');
 });
