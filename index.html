@@ -1251,21 +1251,27 @@ const LAST_RIVER_READING_KEY='argens:last-river-reading:v1:';
 let displayingCachedRiverReading=false;
 function saveLastRiverReading(code,reading,source){
  if(!/^[A-Z][0-9]{9}$/.test(code)||!Number.isFinite(reading?.value)||!Number.isFinite(reading?.date?.getTime()))return;
- try{localStorage.setItem(LAST_RIVER_READING_KEY+code,JSON.stringify({value:reading.value,time:reading.date.toISOString(),source}));}catch(_){}
+ try{
+  const key=LAST_RIVER_READING_KEY+code,previous=JSON.parse(localStorage.getItem(key)||'null');
+  const previousTime=Date.parse(previous?.time);
+  if(Number.isFinite(previousTime)&&previousTime>reading.date.getTime())return;
+  localStorage.setItem(key,JSON.stringify({value:reading.value,time:reading.date.toISOString(),source}));
+ }catch(_){}
 }
 function showLastRiverReading(code){
  let cached;
  try{cached=JSON.parse(localStorage.getItem(LAST_RIVER_READING_KEY+code)||'null');}catch(_){return false}
  const time=Date.parse(cached?.time),value=Number(cached?.value);
- if(!cached||!Number.isFinite(time)||time>Date.now()+15*60000||!Number.isFinite(value)||value< -5000||value>30000)return false;
+ if(!cached||typeof cached.time!=='string'||!Number.isFinite(time)||time>Date.now()+15*60000||!Number.isFinite(value)||value< -5000||value>30000)return false;
  displayingCachedRiverReading=true;
  document.querySelector('#stationUpdated').dataset.cachedTime=String(time);
  level.textContent=(value/1000).toFixed(2).replace('.',',');
  const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
  document.querySelector('#stationUpdated').textContent=new Intl.DateTimeFormat(locale,{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}).format(new Date(time));
  document.querySelector('.hero').dataset.alert='unknown';
- document.querySelector('#status').textContent=mapText('Dernière mesure connue — aucune alerte calculée','Last known reading — no live alert calculated');
- document.querySelector('#trend').textContent=mapText('Données enregistrées sur cet appareil','Reading saved on this device');
+ status.className='threshold-message';
+ status.textContent=mapText('Dernière mesure connue — aucune alerte calculée','Last known reading — no live alert calculated');
+ trend.textContent=mapText('Données enregistrées sur cet appareil','Reading saved on this device');
  document.querySelector('#waterDataSource').dataset.source='unavailable';
  document.querySelector('#waterFreshnessStatus').hidden=false;
  renderWaterFreshness();
