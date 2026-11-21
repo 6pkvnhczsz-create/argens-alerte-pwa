@@ -11,7 +11,7 @@ function harness(){
  const storage=new Map(),elements=new Map();
  const el=id=>{if(!elements.has(id))elements.set(id,{dataset:{},textContent:'',hidden:false,style:{}});return elements.get(id)};
  const ctx={localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},Date,Number,JSON,Intl,
- document:{documentElement:{lang:'fr'},querySelector:el},level:el('#level'),
+ document:{documentElement:{lang:'fr'},querySelector:el},level:el('#level'),status:el('#status'),trend:el('#trend'),
  mapText:(fr,en)=>fr,renderWaterFreshness:()=>{},console};
  vm.createContext(ctx);vm.runInContext(code,ctx);
  return {ctx,storage,el,save:(...a)=>vm.runInContext('saveLastRiverReading',ctx)(...a),show:c=>vm.runInContext('showLastRiverReading',ctx)(c)};
@@ -25,10 +25,12 @@ test('valid reading is stored per station and restored as clearly non-live',()=>
  assert.match(h.el('#status').textContent,/aucune alerte calculée/);
  assert.equal(Number(h.el('#stationUpdated').dataset.cachedTime),date.getTime());
  assert.equal(h.show('Y531201002'),false);
+ h.save('Y531201001',{value:4900,date:new Date(date.getTime()-60000)},'vigicrues');
+ assert.equal(JSON.parse(h.storage.get('argens:last-river-reading:v1:Y531201001')).value,5200,'older reading must not overwrite newer cache');
 });
 test('invalid, future and out-of-range saved readings are rejected',()=>{
  const h=harness(),key='argens:last-river-reading:v1:Y531201001';
- for(const entry of [{value:5000,time:'bad'},{value:5000,time:new Date(Date.now()+20*60000).toISOString()},{value:40000,time:new Date().toISOString()}]){
+ for(const entry of [{value:5000,time:'bad'},{value:5000,time:0},{value:5000,time:new Date(Date.now()+20*60000).toISOString()},{value:40000,time:new Date().toISOString()}]){
   h.storage.set(key,JSON.stringify(entry));assert.equal(h.show('Y531201001'),false);
  }
 });
