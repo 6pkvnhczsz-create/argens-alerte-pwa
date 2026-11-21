@@ -231,6 +231,46 @@ async function recordMonitorStatus(env,ok,detail){
  }catch(e){console.error('Monitoring status write failed',String(e))}
 }
 
+// Optional administrator-only ntfy incident channel. Never uses public subscriber lists.
+async function notifyAdminSourceOutage(env){
+ const topic=env.ADMIN_NTFY_TOPIC,token=env.ADMIN_NTFY_TOKEN;
+ if(!topic||!token)return; // Explicit opt-in: no admin destination configured.
+ if(!/^[a-zA-Z0-9_-]{8,128}$/.test(topic))throw Error('Invalid admin ntfy topic');
+ const db=env.DB;
+ await db.prepare('CREATE TABLE IF NOT EXISTS admin_source_incident (station_code TEXT PRIMARY KEY, incident_state TEXT NOT NULL, updated_at TEXT NOT NULL)').run();
+ const row=await db.prepare('SELECT last_check_at,last_success_at,last_observed_at FROM monitor_status WHERE station_code=?').bind(STATION).first();
+ if(!row)return;
+ const utc=value=>{if(!value)return NaN;return Date.parse(value.includes('T')?value:value.replace(' ','T')+'Z')};
+ const now=Date.now(),checked=utc(row.last_check_at),success=utc(row.last_success_at),observed=utc(row.last_observed_at);
+ // A fresh cron heartbeat is required before interpreting data source status.
+ if(!Number.isFinite(checked)||now-checked>30*60000||checked-now>5*60000)return;
+ const stale=(!Number.isFinite(success)||now-success>60*60000||
+              !Number.isFinite(observed)||now-observed>60*60000||observed-now>5*60000);
+ const next=stale?'outage':'healthy';
+ const previous=await db.prepare('SELECT incident_state FROM admin_source_incident WHERE station_code=?').bind(STATION).first();
+ if(!previous){
+  // Baseline healthy state without a surprise recovery message on first activation.
+  if(next==='healthy')await db.prepare('INSERT INTO admin_source_incident(station_code,incident_state,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)').bind(STATION,next).run();
+  // First observed outage must notify, rather than silently initialize.
+  else await sendAdminIncident(env,'outage');
+  if(next==='outage')await db.prepare('INSERT INTO admin_source_incident(station_code,incident_state,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)').bind(STATION,next).run();
+  return;
+ }
+ if(previous.incident_state===next)return;
+ await sendAdminIncident(env,next);
+ await db.prepare('UPDATE admin_source_incident SET incident_state=?,updated_at=CURRENT_TIMESTAMP WHERE station_code=?').bind(next,STATION).run();
+}
+async function sendAdminIncident(env,state){
+ const outage=state==='outage';
+ const response=await fetch('https://ntfy.sh/'+encodeURIComponent(env.ADMIN_NTFY_TOPIC),{
+  method:'POST',headers:{'Authorization':'Bearer '+env.ADMIN_NTFY_TOKEN,
+   'Title':outage?'Riviere Alerte: Pegeldaten ausgefallen':'Riviere Alerte: Pegeldaten wieder aktuell',
+   'Priority':outage?'high':'default','Tags':outage?'warning':'white_check_mark'},
+  body:outage?'Seit ueber 60 Minuten keine aktuellen Pegeldaten. Hub Eau und Vigicrues pruefen.':'Pegelabfrage und Messwerte sind wieder aktuell.'
+ });
+ if(!response.ok)throw Error('Admin ntfy delivery HTTP '+response.status);
+}
+
 // Independent precipitation forecast alerts. Does not alter river-level alert state.
 const RAIN_COORDS={lat:43.44,lon:6.64};
 function rainLevel(mm){return mm>=120?'purple':mm>=90?'red':mm>=50?'orange':'green'}
@@ -1370,5 +1410,5 @@ export default {
   }
   return json(request,{error:'Not found'},404);
  },
- async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));ctx.waitUntil(checkPersonalStations(env).catch(e=>console.error('Personal stations check failed',String(e))));ctx.waitUntil(refreshEarlySignals(env,{backupReader:(code,limit)=>bestVigicruesBackup(env,code,limit)}).catch(e=>console.error('Early signals refresh failed',String(e))))}
+ async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}).then(()=>notifyAdminSourceOutage(env)).catch(e=>console.error('Admin source incident notification failed',String(e))));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));ctx.waitUntil(checkPersonalStations(env).catch(e=>console.error('Personal stations check failed',String(e))));ctx.waitUntil(refreshEarlySignals(env,{backupReader:(code,limit)=>bestVigicruesBackup(env,code,limit)}).catch(e=>console.error('Early signals refresh failed',String(e))))}
 };
