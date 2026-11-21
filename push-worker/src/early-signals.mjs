@@ -286,6 +286,24 @@ export async function fetchRadarCatalogue(env,{now=Date.now(),fetchImpl=fetch}={
  }
 }
 
+// Informational upstream trend summary; never generates flood warnings or predicts arrival time.
+export function summarizeUpstreamTrends(stations){
+ const valid=(Array.isArray(stations)?stations:[]).filter(s=>
+  s?.status==='current'&&Number.isFinite(s.trendCmH)&&Number.isFinite(s.levelM)&&
+  typeof s.code==='string'&&typeof s.observedAt==='string'&&Number.isFinite(Date.parse(s.observedAt)));
+ const rising=valid.filter(s=>s.trendCmH>0).sort((a,b)=>b.trendCmH-a.trendCmH);
+ const falling=valid.filter(s=>s.trendCmH<0);
+ return {
+  status:valid.length?'observed':'unavailable',
+  stationsAvailable:valid.length,
+  stationsRising:rising.length,
+  stationsFalling:falling.length,
+  stationsStable:valid.length-rising.length-falling.length,
+  fastestRise:rising.length?{code:rising[0].code,name:rising[0].name,trendCmH:rising[0].trendCmH,observedAt:rising[0].observedAt}:null,
+  informationalOnly:true,
+  predictsArrivalTime:false
+ };
+}
 export async function buildEarlySignals(env,{now=Date.now(),fetchImpl=fetch,backupReader=null}={}){
  const [upstream,rain,forecast,official,radar]=await Promise.all([
   Promise.all(UPSTREAM_STATIONS.map(x=>fetchUpstreamStation(x,{now,fetchImpl,backupReader}))),
@@ -297,7 +315,7 @@ export async function buildEarlySignals(env,{now=Date.now(),fetchImpl=fetch,back
  // Check all candidate stations, but only expose gauges with recent usable measurements.
  const availableUpstream=upstream.filter(x=>x.status==='current'&&Number.isFinite(x.trendCmH)&&Number.isFinite(x.levelM));
  return {ok:true,station:EARLY_SIGNALS_STATION,checkedAt:new Date(now).toISOString(),
-  upstream:availableUpstream,upstreamStationsChecked:UPSTREAM_STATIONS.length,rain,forecast,official,radar,
+  upstream:availableUpstream,upstreamSummary:summarizeUpstreamTrends(availableUpstream),upstreamStationsChecked:UPSTREAM_STATIONS.length,rain,forecast,official,radar,
   interpretation:'information_only',changesFloodThresholds:false,
   rainSource:'Open-Meteo past-hour model estimates; not measured rain or calibrated radar',
   forecastSource:forecast.some(x=>x.model==='open_meteo_best_match'&&x.status==='forecast')?
