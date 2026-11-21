@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 import {
- UPSTREAM_STATIONS, RAIN_AREAS, parseUpstreamPoints, parseRainEstimate,
+ UPSTREAM_STATIONS, RAIN_AREAS, parseUpstreamPoints, summarizeUpstreamTrends, parseRainEstimate,
  parseMeteoVigilance, fetchOfficialVigilance, parseRainForecast, fetchRainForecast, fetchRainArea, fetchRadarCatalogue, buildEarlySignals,
  refreshEarlySignals, loadEarlySignals
 } from '../src/early-signals.mjs';
@@ -564,4 +564,28 @@ test('station search uses official IGN and independent communes fallback, not re
  assert.match(page,/https:\/\/geo\.api\.gouv\.fr\/communes/);
  assert.doesNotMatch(page,/api-adresse\.data\.gouv\.fr/);
  assert.match(page,/Hub’Eau station register is not responding/);
+});
+
+test('upstream summary ranks only current measured rises and does not predict arrival',()=>{
+ const at=new Date(NOW-10*60000).toISOString();
+ const summary=summarizeUpstreamTrends([
+  {code:'A',name:'A',status:'current',trendCmH:12,levelM:1.2,observedAt:at},
+  {code:'B',name:'B',status:'current',trendCmH:45,levelM:2,observedAt:at},
+  {code:'C',name:'C',status:'current',trendCmH:-3,levelM:1,observedAt:at},
+  {code:'D',name:'D',status:'unavailable',trendCmH:100,levelM:3,observedAt:at},
+  {code:'E',name:'E',status:'current',trendCmH:80,levelM:3,observedAt:'invalid'}
+ ]);
+ assert.equal(summary.stationsAvailable,3);
+ assert.equal(summary.stationsRising,2);
+ assert.equal(summary.stationsFalling,1);
+ assert.equal(summary.fastestRise.code,'B');
+ assert.equal(summary.fastestRise.trendCmH,45);
+ assert.equal(summary.informationalOnly,true);
+ assert.equal(summary.predictsArrivalTime,false);
+});
+test('missing upstream data is unknown, never falsely stable',()=>{
+ const summary=summarizeUpstreamTrends([]);
+ assert.equal(summary.status,'unavailable');
+ assert.equal(summary.stationsStable,0);
+ assert.equal(summary.fastestRise,null);
 });
