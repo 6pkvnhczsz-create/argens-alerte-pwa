@@ -16,6 +16,24 @@ import {fetchLongRangeForecast} from './long-range-forecast.mjs';
 import { findLocalUpstream, recentUpstreamReading } from './upstream-topage.mjs';
 export class AdminPushService extends WorkerEntrypoint {
  async healthAdmin(){return {ok:true,pushConfigured:Boolean(this.env.VAPID_PRIVATE_KEY&&this.env.VAPID_PUBLIC_KEY&&this.env.VAPID_SUBJECT)}}
+ async waterSourceMonitorAdmin(){
+  // Read-only operational diagnostics; does not change flood alert state or push.
+  const row=await this.env.DB.prepare('SELECT last_check_at,last_success_at,last_error,last_observed_at FROM monitor_status WHERE station_code=?').bind(STATION).first();
+  const parseUtc=value=>{
+   if(typeof value!=='string'||!value)return null;
+   const timestamp=Date.parse(value.includes('T')?value:value.replace(' ','T')+'Z');
+   return Number.isFinite(timestamp)?timestamp:null;
+  };
+  const now=Date.now(),checked=parseUtc(row?.last_check_at),success=parseUtc(row?.last_success_at),observed=parseUtc(row?.last_observed_at);
+  const age=timestamp=>timestamp===null?null:Math.max(0,Math.floor((now-timestamp)/60000));
+  const checkAgeMinutes=age(checked),successAgeMinutes=age(success),observationAgeMinutes=age(observed);
+  const status=checkAgeMinutes===null||checkAgeMinutes>30?'monitor_unavailable':
+   successAgeMinutes===null||successAgeMinutes>60||observationAgeMinutes===null||observationAgeMinutes>60?'outage':
+   successAgeMinutes>30||observationAgeMinutes>30?'delayed':'good';
+  return {station:STATION,status,checkAgeMinutes,successAgeMinutes,observationAgeMinutes,
+   lastCheckAt:row?.last_check_at||null,lastSuccessAt:row?.last_success_at||null,
+   lastObservedAt:row?.last_observed_at||null,lastError:row?.last_error||null};
+ }
  async vigicruesHealthAdmin(){
   try{
    const result=await bestVigicruesBackup(this.env,STATION,10);
