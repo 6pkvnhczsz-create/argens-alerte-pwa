@@ -980,12 +980,12 @@ function renderWaterFreshness(){
  const age=Number.isFinite(time)?now-time:NaN;
  const minutes=Number.isFinite(age)?Math.max(0,Math.floor(age/60000)):null;
  const state=healthState.river==='bad'||!Number.isFinite(age)||age< -15*60000?'unavailable':
-  age>30*60000?'warning':age>15*60000?'delayed':'current';
+  age>60*60000?'warning':age>30*60000?'delayed':'current';
  const language=document.documentElement.lang;
  const labels={
-  fr:{current:'Mesure actuelle',delayed:'Mesure retardée',warning:'Attention : mesure de plus de 30 minutes',unavailable:'Mesures indisponibles'},
-  en:{current:'Current reading',delayed:'Delayed reading',warning:'Warning: reading older than 30 minutes',unavailable:'Readings unavailable'},
-  de:{current:'Aktueller Messwert',delayed:'Verzögerter Messwert',warning:'Datenwarnung: Messwert älter als 30 Minuten',unavailable:'Messdaten nicht verfügbar'}
+  fr:{current:'Mesure actuelle',delayed:'Mesure retardée',warning:'Attention : mesure de plus de 60 minutes',unavailable:'Mesures indisponibles'},
+  en:{current:'Current reading',delayed:'Delayed reading',warning:'Warning: reading older than 60 minutes',unavailable:'Readings unavailable'},
+  de:{current:'Aktueller Messwert',delayed:'Verzögerter Messwert',warning:'Datenwarnung: Messwert älter als 60 Minuten',unavailable:'Messdaten nicht verfügbar'}
  };
  const lang=labels[language]||labels.fr;
  el.hidden=false;
@@ -1061,7 +1061,7 @@ function renderSystemHealth(){
  document.querySelector('#healthNote').textContent=de?'Statusprüfung auf diesem Gerät. Die Erreichbarkeit des Servers bestätigt nicht den Versand automatischer Push-Warnungen.':en?'Checked from this device. Server availability does not confirm that scheduled push notifications are being sent.':'État vérifié depuis cet appareil. La disponibilité du serveur ne confirme pas l’envoi des notifications automatiques.';
  document.querySelector('#healthRefresh').textContent=de?'↻ Status aktualisieren':en?'↻ Refresh status':'↻ Actualiser l’état';
  const age=healthState.riverAt===null?null:Date.now()-healthState.riverAt;
- put('#healthRiver',healthState.river==='good'&&age!==null&&(age>15*60000||age< -15*60000)?'stale':healthState.river);
+ put('#healthRiver',healthState.river==='good'&&age!==null&&(age>30*60000||age< -15*60000)?'stale':healthState.river);
  const diagnostic=trendHealthDiagnostic();
  put('#healthTrend',diagnostic.state);
  document.querySelector('#healthTrendDetail').textContent=diagnostic.detail;
