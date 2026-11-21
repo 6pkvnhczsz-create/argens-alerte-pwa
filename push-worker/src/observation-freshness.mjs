@@ -22,3 +22,41 @@ export function classifyObservationFreshness(observedAt, {now = Date.now()} = {}
   return {status, ageMinutes: Math.floor(ageMs / 60000),
     observedAt: new Date(timestamp).toISOString()};
 }
+
+/**
+ * Stable, presentation-ready status independent of the flood alert decision.
+ * Only the newest *actual* observation counts. Missing observations fail closed.
+ */
+export function observationDataStatus(result, {now = Date.now()} = {}) {
+  const points = Array.isArray(result?.points) ? result.points : [];
+  const newest = points.filter(p => Number.isFinite(p?.time))
+    .reduce((best, p) => !best || p.time > best.time ? p : best, null);
+  const freshness = classifyObservationFreshness(newest?.time, {now});
+  return {
+    ...freshness,
+    source: typeof result?.source === 'string' ? result.source : null,
+    transport: typeof result?.transport === 'string' ? result.transport : null,
+    hasUsableReading: freshness.status !== 'unavailable' && Number.isFinite(newest?.mm),
+  };
+}
+
+export const FRESHNESS_MESSAGES = Object.freeze({
+  fr: Object.freeze({
+    current: 'Mesure actuelle',
+    delayed: 'Mesure retardée',
+    warning: 'Attention : mesure de plus de 30 minutes',
+    unavailable: 'Mesures indisponibles',
+  }),
+  en: Object.freeze({
+    current: 'Current reading',
+    delayed: 'Delayed reading',
+    warning: 'Warning: reading older than 30 minutes',
+    unavailable: 'Readings unavailable',
+  }),
+  de: Object.freeze({
+    current: 'Aktueller Messwert',
+    delayed: 'Verzögerter Messwert',
+    warning: 'Datenwarnung: Messwert älter als 30 Minuten',
+    unavailable: 'Messdaten nicht verfügbar',
+  }),
+});
