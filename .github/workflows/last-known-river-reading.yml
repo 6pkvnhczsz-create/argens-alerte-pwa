@@ -1,0 +1,20 @@
+name: Last known river reading tests
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'push-worker/test/last-known-river-reading.test.mjs'
+      - '.github/workflows/last-known-river-reading.yml'
+  push:
+    branches:
+      - 'feature/last-known-river-reading-20261121'
+jobs:
+  cached-reading:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run last known reading regression tests
+        run: node --test push-worker/test/last-known-river-reading.test.mjs
