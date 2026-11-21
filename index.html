@@ -976,21 +976,21 @@ const healthState={river:'pending',riverAt:null,weather:'pending',push:'pending'
 function renderWaterFreshness(){
  const el=document.querySelector('#waterFreshnessStatus');
  if(!el)return;
- const last=chartReadings[0],time=last?.date?.getTime(),now=Date.now();
+ const last=chartReadings[0],cachedTime=displayingCachedRiverReading?document.querySelector('#stationUpdated')?.dataset.cachedTime:null,time=displayingCachedRiverReading?Number(cachedTime):last?.date?.getTime(),now=Date.now();
  const age=Number.isFinite(time)?now-time:NaN;
  const minutes=Number.isFinite(age)?Math.max(0,Math.floor(age/60000)):null;
- const state=healthState.river==='bad'||!Number.isFinite(age)||age< -15*60000?'unavailable':
+ const state=displayingCachedRiverReading?'cached':healthState.river==='bad'||!Number.isFinite(age)||age< -15*60000?'unavailable':
   age>60*60000?'warning':age>30*60000?'delayed':'current';
  const language=document.documentElement.lang;
  const labels={
-  fr:{current:'Mesure actuelle',delayed:'Mesure retardée',warning:'Attention : mesure de plus de 60 minutes',unavailable:'Mesures indisponibles'},
-  en:{current:'Current reading',delayed:'Delayed reading',warning:'Warning: reading older than 60 minutes',unavailable:'Readings unavailable'},
-  de:{current:'Aktueller Messwert',delayed:'Verzögerter Messwert',warning:'Datenwarnung: Messwert älter als 60 Minuten',unavailable:'Messdaten nicht verfügbar'}
+  fr:{current:'Mesure actuelle',delayed:'Mesure retardée',warning:'Attention : mesure de plus de 60 minutes',unavailable:'Mesures indisponibles',cached:'Dernière mesure enregistrée — données en direct indisponibles'},
+  en:{current:'Current reading',delayed:'Delayed reading',warning:'Warning: reading older than 60 minutes',unavailable:'Readings unavailable',cached:'Last saved reading — live data unavailable'},
+  de:{current:'Aktueller Messwert',delayed:'Verzögerter Messwert',warning:'Datenwarnung: Messwert älter als 60 Minuten',unavailable:'Messdaten nicht verfügbar',cached:'Letzter gespeicherter Pegel — Live-Daten nicht verfügbar'}
  };
  const lang=labels[language]||labels.fr;
  el.hidden=state==='current';
  el.dataset.freshness=state;
- el.style.background=state==='warning'||state==='unavailable'?'#fff0e9':state==='delayed'?'#fff7e6':'transparent';
+ el.style.background=state==='warning'||state==='unavailable'||state==='cached'?'#fff0e9':state==='delayed'?'#fff7e6':'transparent';
  el.style.border=state==='warning'||state==='unavailable'?'1px solid #d97745':state==='delayed'?'1px solid #d8a32c':'none';
  el.style.color=state==='current'?'#087f71':state==='delayed'?'#9a6700':'#b45309';
  el.textContent=lang[state]+(minutes!==null&&state!=='unavailable'?' · '+minutes+' min':'');
@@ -1246,10 +1246,35 @@ function drawChart(items){
  svg.onlostpointercapture=e=>{if(pointer===e.pointerId)pointer=null;hide()};
  for(let i=0;i<3;i++){const label=document.createElement('span'),t=start+(newest-start)*i/2;label.textContent=fmt.format(new Date(t));axis.append(label)}
 }
+// Local, station-scoped fallback for display only. Never feeds forecasts or flood alerts.
+const LAST_RIVER_READING_KEY='argens:last-river-reading:v1:';
+let displayingCachedRiverReading=false;
+function saveLastRiverReading(code,reading,source){
+ if(!/^[A-Z][0-9]{9}$/.test(code)||!Number.isFinite(reading?.value)||!Number.isFinite(reading?.date?.getTime()))return;
+ try{localStorage.setItem(LAST_RIVER_READING_KEY+code,JSON.stringify({value:reading.value,time:reading.date.toISOString(),source}));}catch(_){}
+}
+function showLastRiverReading(code){
+ let cached;
+ try{cached=JSON.parse(localStorage.getItem(LAST_RIVER_READING_KEY+code)||'null');}catch(_){return false}
+ const time=Date.parse(cached?.time),value=Number(cached?.value);
+ if(!cached||!Number.isFinite(time)||time>Date.now()+15*60000||!Number.isFinite(value)||value< -5000||value>30000)return false;
+ displayingCachedRiverReading=true;
+ document.querySelector('#stationUpdated').dataset.cachedTime=String(time);
+ level.textContent=(value/1000).toFixed(2).replace('.',',');
+ const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
+ document.querySelector('#stationUpdated').textContent=new Intl.DateTimeFormat(locale,{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}).format(new Date(time));
+ document.querySelector('.hero').dataset.alert='unknown';
+ document.querySelector('#status').textContent=mapText('Dernière mesure connue — aucune alerte calculée','Last known reading — no live alert calculated');
+ document.querySelector('#trend').textContent=mapText('Données enregistrées sur cet appareil','Reading saved on this device');
+ document.querySelector('#waterDataSource').dataset.source='unavailable';
+ document.querySelector('#waterFreshnessStatus').hidden=false;
+ renderWaterFreshness();
+ return true;
+}
 async function loadMeasurements(code,{silent=false}={}){
  const seq=++loadSequence;activeStation=code;
   document.querySelector('#stationRiverPrefix').hidden=code!=='Y531201001';
-  if(!silent){chartReadings=[];noReading(mapText('Chargement des mesures…','Loading readings…'))}
+  if(!silent){displayingCachedRiverReading=false;chartReadings=[];noReading(mapText('Chargement des mesures…','Loading readings…'))}
  try{
   const startDate=new Date(Date.now()-52*3600000).toISOString();
   const url='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite='+encodeURIComponent(code)+'&grandeur_hydro=H&date_debut_obs='+encodeURIComponent(startDate)+'&size=1000&sort=desc&format=json';
@@ -1275,6 +1300,9 @@ async function loadMeasurements(code,{silent=false}={}){
   }
   if(seq!==loadSequence)return;
   chartReadings=items;
+  displayingCachedRiverReading=false;
+  delete document.querySelector('#stationUpdated').dataset.cachedTime;
+  saveLastRiverReading(code,items[0],source);
   const footer=document.querySelector('#waterDataSource');
   footer.dataset.source=source;
   footer.textContent=source==='vigicrues'?mapText('Source : Vigicrues (secours)','Source: Vigicrues (backup)'):mapText('Source : Hub’Eau','Source: Hub’Eau');
@@ -1289,18 +1317,14 @@ async function loadMeasurements(code,{silent=false}={}){
   renderForecast(chartReadings,code);
  }catch(e){
   if(seq===loadSequence){
-   const lastKnown=chartReadings[0]?.date;
    chartReadings=[];
+   displayingCachedRiverReading=false;
    healthState.river='bad';healthState.riverAt=null;renderSystemHealth();renderWaterFreshness();
    noReading(mapText('Sources de mesure indisponibles.','Water-level sources unavailable.'));
    const footer=document.querySelector('#waterDataSource');
    footer.dataset.source='unavailable';
    footer.textContent=mapText('Sources : Hub’Eau et Vigicrues indisponibles','Sources: Hub’Eau and Vigicrues unavailable');
-   if(lastKnown){
-    const locale=document.documentElement.lang==='de'?'de-DE':document.documentElement.lang==='en'?'en-GB':'fr-FR';
-    document.querySelector('#stationUpdated').textContent=mapText('Dernière mesure connue : ','Last known reading: ')+
-      new Intl.DateTimeFormat(locale,{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}).format(lastKnown);
-   }
+   showLastRiverReading(code);
    console.warn('Both river data sources unavailable',String(e));
   }
   throw e;
