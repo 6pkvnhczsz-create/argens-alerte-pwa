@@ -16,3 +16,13 @@ test('invalid or future timestamps never appear current', () => {
 test('future timestamp within tolerated clock skew is current', () => {
   assert.equal(classifyObservationFreshness(now + 2*60000, {now}).status, 'current');
 });
+
+test('status reflects actual newest observation rather than delivery timestamp', async () => {
+  const {observationDataStatus} = await import('./observation-freshness.mjs');
+  const result = {source:'vigicrues', transport:'github-actions', receivedAt:new Date(now).toISOString(), points:[{time:at(31),mm:5400}]};
+  assert.deepEqual(observationDataStatus(result,{now}), {
+    status:'warning',ageMinutes:31,observedAt:new Date(at(31)).toISOString(),
+    source:'vigicrues',transport:'github-actions',hasUsableReading:true
+  });
+  assert.equal(observationDataStatus({points:[]},{now}).status,'unavailable');
+});
