@@ -385,7 +385,7 @@ test('worker surface is information only, does not rewrite warning functions',()
  const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
  const page=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
  assert.match(src,/url.pathname==='\x2fapi\x2fearly-signals'/);
- assert.match(src,/ctx\.waitUntil\(refreshEarlySignals\(env\)/);
+ assert.match(src,/ctx\.waitUntil\(refreshEarlySignals\(env,\{backupReader:/);
  assert.match(src,/function levelFor\(metres,rate\)\{return metres>=4\.5\?'red':metres>=3/);
  assert.match(src,/const rapidLevel=obs.rate!==null&&obs.rate>=50\?'red':obs.rate!==null&&obs.rate>=30/);
  assert.match(page,/id="earlySignalsPanel"/);
