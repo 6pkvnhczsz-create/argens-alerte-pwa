@@ -385,7 +385,7 @@ test('worker surface is information only, does not rewrite warning functions',()
  const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
  const page=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
  assert.match(src,/url.pathname==='\x2fapi\x2fearly-signals'/);
- assert.match(src,/ctx\.waitUntil\(refreshEarlySignals\(env\)/);
+ assert.match(src,/ctx\.waitUntil\(refreshEarlySignals\(env,\{backupReader:/);
  assert.match(src,/function levelFor\(metres,rate\)\{return metres>=4\.5\?'red':metres>=3/);
  assert.match(src,/const rapidLevel=obs.rate!==null&&obs.rate>=50\?'red':obs.rate!==null&&obs.rate>=30/);
  assert.match(page,/id="earlySignalsPanel"/);
@@ -436,7 +436,7 @@ test('worker surface is information only, does not rewrite warning functions',()
  assert.match(page,/id="piafBand5"/);
  assert.match(page,/piaf-palette.js/);
  assert.match(page,/keine Radarmessung/i);
- assert.match(page,/Windy \(externer Anbieter\)/i);
+ assert.doesNotMatch(page,/Windy \\(externer Anbieter\\)/i);
  const inline=[...page.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).filter(Boolean);
  for(const script of inline) assert.doesNotThrow(()=>new Script(script));
  assert.equal(RAIN_AREAS.length,3);
@@ -473,7 +473,7 @@ test('local rainfall follows the selected gauge coordinates and remains informat
  const national=readFileSync(new URL('../../national-upstream.js',import.meta.url),'utf8');
  const backend=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
  assert.match(backend,/\/api\/rain\/station/);
- assert.match(backend,/await cachedStation\(code\)/);
+ assert.match(backend,/const station=await informationalStation\(code\)/);
  assert.match(page,/local\.station\?\.code===station/);
  assert.match(page,/document\.addEventListener\('argens-station-selected',rainHomeChanged\)/);
  assert.doesNotMatch(national,/\['rainForecastCard','recentRainCard'/);

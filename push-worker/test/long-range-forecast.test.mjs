@@ -89,7 +89,7 @@ test('page renders expandable 10-day forecast independently of alert and Météo
  assert.ok(html.includes('void loadLongRangeForecast(station)'));
  assert.ok(html.includes('argens-language-changed'));
  assert.ok(backend.includes("url.pathname==='/api/forecast/long-range'"));
- assert.ok(backend.includes('await cachedStation(code)'));
+ assert.ok(backend.includes('const station=await informationalStation(code)'));
  assert.ok(backend.includes('notForAlerts:true'));
  assert.ok(!backend.includes('sendFloodAlarmForLongRange'));
 });
