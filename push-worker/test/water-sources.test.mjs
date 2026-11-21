@@ -145,3 +145,45 @@ test('Hub Eau maintenance HTML is classified, not surfaced as a JSON SyntaxError
  await assert.rejects(()=>readHubObservations(station,{fetchImpl}),
   error=>/Upstream maintenance: HTML instead of JSON/.test(error.message));
 });
+
+test('retries a timed-out Hub Eau request once and keeps primary data when recovered',async()=>{
+ let calls=0;
+ const fetchImpl=async()=>{
+  calls++;
+  if(calls===1)throw new DOMException('The operation was aborted due to timeout','TimeoutError');
+  return {ok:true,status:206,json:async()=>hub};
+ };
+ const result=await readHubObservations(station,{fetchImpl});
+ assert.equal(result.source,'hubeau');
+ assert.equal(calls,2);
+});
+
+test('uses Vigicrues backup after both Hub Eau timeout attempts fail',async()=>{
+ let hubCalls=0,backupCalls=0;
+ const fetchImpl=async url=>{
+  if(url.includes('hubeau.eaufrance.fr')){
+   hubCalls++;
+   throw new DOMException('Timeout','TimeoutError');
+  }
+  backupCalls++;
+  return {ok:true,status:200,json:async()=>vig};
+ };
+ const result=await getHydroObservations(station,{fetchImpl});
+ assert.equal(result.source,'vigicrues');
+ assert.equal(hubCalls,2);
+ assert.equal(backupCalls,1);
+});
+
+test('does not retry Hub Eau maintenance HTML',async()=>{
+ let hubCalls=0;
+ const fetchImpl=async url=>{
+  if(url.includes('hubeau.eaufrance.fr')){
+   hubCalls++;
+   return new Response('<!DOCTYPE html>',{status:200,headers:{'Content-Type':'text/html'}});
+  }
+  return {ok:true,status:200,json:async()=>vig};
+ };
+ const result=await getHydroObservations(station,{fetchImpl});
+ assert.equal(result.source,'vigicrues');
+ assert.equal(hubCalls,1);
+});
