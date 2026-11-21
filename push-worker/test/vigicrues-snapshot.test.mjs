@@ -101,7 +101,7 @@ test('stores two different user stations independently and prevents arbitrary sn
  assert.equal(two.points[0].mm,6500);
  await assert.rejects(()=>ingestSnapshot(db,payload('C123456789'),{now}),/Inactive/);
  db.selected.delete(second);
- await assert.rejects(()=>storedVigicruesObservations(db,second,{now}),/no active subscribers/);
+ await assert.rejects(()=>storedVigicruesObservations(db,second,{now}),/neither active subscribers nor permanent backup coverage/);
 });
 
 test('defer unsupported station for six hours, stale readings for 30 minutes',async()=>{
