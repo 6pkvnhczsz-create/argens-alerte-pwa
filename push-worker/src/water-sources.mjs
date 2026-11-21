@@ -44,10 +44,10 @@ export function assertFresh(points, now=Date.now()) {
  if(!Number.isFinite(age)||age>MAX_OBSERVATION_AGE_MS||age < -FUTURE_TOLERANCE_MS)throw Error('Observations stale or from the future');
  return points;
 }
-async function readJson(url, fetchImpl=fetch) {
+async function readJson(url, fetchImpl=fetch, timeoutMs=11000) {
  const response=await fetchImpl(url,{
   headers:{Accept:'application/json'},
-  signal:AbortSignal.timeout(11000),
+  signal:AbortSignal.timeout(timeoutMs),
   cf:{cacheTtl:0}
  });
  if(!response.ok)throw Error('HTTP '+response.status);
@@ -61,7 +61,19 @@ async function readJson(url, fetchImpl=fetch) {
 export async function readHubObservations(code,{limit=100,fetchImpl=fetch}={}) {
  if(!validHydroStation(code))throw Error('Invalid station code');
  const url='https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite='+encodeURIComponent(code)+'&grandeur_hydro=H&size='+Math.min(Math.max(1,limit),1000)+'&sort=desc&format=json';
- const data=await readJson(url,fetchImpl);
+ let data;
+ try{
+  data=await readJson(url,fetchImpl);
+ }catch(error){
+  // Retry only network timeouts. Do not retry maintenance HTML, bad JSON,
+  // invalid measurements or HTTP failures; the existing backup handles those.
+  const name=String(error?.name||'');
+  const message=String(error?.message||'');
+  const timedOut=name==='TimeoutError'||(name==='AbortError'&&/timeout/i.test(message))||/timed?\s*out|timeout/i.test(message);
+  if(!timedOut)throw error;
+  console.warn('Hub Eau timed out; one short retry',code);
+  data=await readJson(url,fetchImpl,5000);
+ }
  return {source:'hubeau',points:assertFresh(parseHubObservations(data)).slice(0,limit)};
 }
 export async function readVigicruesObservations(code,{limit=700,fetchImpl=fetch}={}) {
