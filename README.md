@@ -65,3 +65,28 @@ Im öffentlichen Bereich von Rivière Alerte gibt es eine zusätzliche, FR/EN/DE
 **Sicherheit:** Diese Funktionen sind reine Zusatzinformationen. Individuelle Warnschwellen, Haupt-Push-Warnungen und Pegelfarben bleiben unverändert. Neue automatische Push-Frühwarnungen erst nach historischer Kalibrierung und Tests.
 
 Tests: node --test push-worker/test/early-signals.test.mjs push-worker/test/water-sources.test.mjs
+
+## Smart Garden Cron sharing
+
+The existing `argens-alerte-push` Cloudflare Worker already runs a five-minute
+cron (`*/5 * * * *`). It also dispatches a **best-effort internal RPC** to
+`smart-garden-api` using the `SMART_GARDEN_MONITOR` Service Binding and the
+named `GardenMonitor` entrypoint.
+
+- No sixth Cron Trigger is created and no new public HTTP endpoint is opened.
+- The bridge is `push-worker/src/garden-bridge.mjs`, invoked from the existing
+  `scheduled()` handler via a separate `ctx.waitUntil` call.
+- All four existing flood/hydrology tasks retain their independent handling.
+  The garden RPC catches and logs its own errors and never blocks flood checks.
+- Both Workers must be deployed **in the same Cloudflare account**:
+  first `smart-garden-api` (named entrypoint), then `argens-alerte-push`
+  (service binding). Keep the existing flood cron unchanged.
+- Smart Garden displays its latest background heartbeat / outcome in Settings;
+  a manual live controller test does not prove the scheduled bridge is running.
+- Garden controller checks are every five minutes with offline notifications
+  after 30 minutes of confirmed consecutive offline samples. Its other existing
+  scheduled tasks run on a half-hour bucket.
+
+Cloudflare deployment verification (not only GitHub merge status) is required
+before relying on Smart Garden offline push alerts.
+
