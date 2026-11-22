@@ -3,6 +3,7 @@
 
 // Private Worker-to-Worker RPC; not exposed as a public HTTP route.
 import { WorkerEntrypoint } from 'cloudflare:workers';
+import { runGardenBridge } from './garden-bridge.mjs';
 import { getHydroObservations, readVigicruesObservations, validHydroStation } from './water-sources.mjs';
 import { verifyGitHubActionToken, ingestSnapshot, storedVigicruesObservations, activeBackupStationCodes, markVigicruesUnavailable, SNAPSHOT_MAX_BODY } from './vigicrues-snapshot.mjs';
 import { translateFeedbackRecord } from './feedback-translation.mjs';
@@ -1370,5 +1371,14 @@ export default {
   }
   return json(request,{error:'Not found'},404);
  },
- async scheduled(event,env,ctx){ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));ctx.waitUntil(checkPersonalStations(env).catch(e=>console.error('Personal stations check failed',String(e))));ctx.waitUntil(refreshEarlySignals(env,{backupReader:(code,limit)=>bestVigicruesBackup(env,code,limit)}).catch(e=>console.error('Early signals refresh failed',String(e))))}
+ async scheduled(event,env,ctx){
+  // Rivière Alerte's four independent safety checks are kept unchanged.
+  ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));
+  ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));
+  ctx.waitUntil(checkPersonalStations(env).catch(e=>console.error('Personal stations check failed',String(e))));
+  ctx.waitUntil(refreshEarlySignals(env,{backupReader:(code,limit)=>bestVigicruesBackup(env,code,limit)}).catch(e=>console.error('Early signals refresh failed',String(e))));
+  // Reuse this existing 5-minute cron, WITHOUT creating another trigger.
+  // Any garden failure is caught inside the bridge and cannot block flood checks.
+  ctx.waitUntil(runGardenBridge(env));
+}
 };
