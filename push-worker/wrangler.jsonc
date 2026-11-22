@@ -8,6 +8,13 @@
       "*/5 * * * *"
     ]
   },
+  "services": [
+    {
+      "binding": "SMART_GARDEN_MONITOR",
+      "service": "smart-garden-api",
+      "entrypoint": "GardenMonitor"
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
