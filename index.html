@@ -1107,7 +1107,7 @@ function renderForecast(items,code){
  orangeCard.classList.remove('forecast-threshold-orange');
  redCard.classList.remove('forecast-threshold-red');
  box.classList.remove('hidden');out.classList.add('hidden');renderThresholdLabels(code);
- document.querySelector('#forecastHeading').textContent=de?'🔎 Wasserstandstrend':tr('🔎 Tendance du niveau sur 6 h','🔎 6-hour water-level trend');
+ document.querySelector('#forecastHeading').textContent=de?'🔎 Wasserstandstrend':tr('🔎 Tendance du niveau','🔎 Water-level trend');
  document.querySelector('#forecastDisclaimer').textContent=tr('Estimation sur 6 heures basée sur les dernières variations du niveau d’eau. Ce n’est ni une prévision officielle ni une alerte. Le niveau peut changer rapidement et l’incertitude augmente avec le temps.','Estimate of the next 6 hours based on recent water-level changes. Not an official forecast or warning. Conditions can change quickly, and uncertainty increases over time.');
  const unavailable=(msg)=>{statusEl.textContent=msg||tr('Mesures récentes insuffisantes pour établir une tendance.','Insufficient recent measurements for a trend.')};
  if(items.length<3){unavailable();return}
@@ -1155,6 +1155,26 @@ function renderForecast(items,code){
     return p.value/1000+(speed*duration+k*duration*duration/2)/100;}};
  }
  const m=model(last);
+ // Station-v2: weighted recent slopes, with bounded exponential damping.
+ // All inputs precede the issue time; no future readings or warning changes.
+ function recentScenario(p){
+  const rates=[];
+  for(const [minutes,weight] of [[15,.45],[30,.30],[60,.20],[120,.05]]){
+   const t=+p.date-minutes*60000,a=nearest(t);
+   if(!a||+a.date>=+p.date||Math.abs(+a.date-t)>(minutes<=30?5:10)*60000)return null;
+   rates.push({v:(p.value-a.value)/10/((p.date-a.date)/3600000),weight});
+  }
+  if(rates.some(x=>!Number.isFinite(x.v)))return null;
+  const speed=rates.reduce((sum,x)=>sum+x.v*x.weight,0);
+  const slowing=rates[0].v>=0&&rates[0].v<rates[2].v&&rates[2].v<rates[3].v;
+  const easing=slowing||(rates[0].v<=0&&rates[0].v>rates[2].v&&rates[2].v>rates[3].v);
+  const v=easing?Math.sign(speed)*Math.min(Math.abs(speed),Math.abs(rates[0].v)):speed;
+  const change=(h,k)=>k===0?v*h:v*(-Math.expm1(-k*h))/k;
+  const scenarios=h=>[change(h,easing?1:0.5),change(h,easing?.35:.15),change(h,0)].map(d=>Math.max(0,p.value/1000+d/100));
+  return {v,one:change(1,easing?.35:0),scenarios};
+ }
+ const recent=recentScenario(last);
+
  const words=(fr,enText,deText)=>de?deText:en?enText:fr;
  const exp=document.createElement('div');exp.id='experimentalRiverTrend';exp.className='note';exp.style.cssText='white-space:pre-line;text-align:center;margin:14px 0;padding:12px;border:1px solid #dce9ed;border-radius:14px';
  if(m){
@@ -1201,7 +1221,7 @@ function renderForecast(items,code){
   label.textContent=words('Comparaison à 6 h','6-hour comparison','Prognosevergleich für 6 Stunden');
   comparison.append(label);
   const formatLevel=n=>n.toLocaleString(de?'de-DE':en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' m';
-  for(const [name,value] of [[words('Tendance linéaire','Linear trend','Bisherige lineare Prognose'),metres+rateM*6],[words('Scénario dynamique expérimental','Experimental dynamic scenario','Dynamische Prognose (Test)'),m.dynamic(6)]]){
+  for(const [name,value] of [[words('Tendance linéaire','Linear trend','Bisherige lineare Prognose'),metres+rateM*6],...(recent?[[words('Ralentissement marqué','Strong slowdown','Starke Verlangsamung'),recent.scenarios(6)[0]],[words('Ralentissement modéré','Moderate slowdown','Moderate Verlangsamung'),recent.scenarios(6)[1]],[words('Vitesse constante','Constant rate','Konstanter aktueller Anstieg / Rückgang'),recent.scenarios(6)[2]]]:[])]){
    const row=document.createElement('div');row.style.cssText='margin:8px 0';
    const title=document.createElement('div');title.textContent=name;
    const val=document.createElement('strong');val.style.cssText='display:block;font-size:24px;color:#163447';val.textContent=formatLevel(value);row.append(title,val);comparison.append(row);
@@ -1229,7 +1249,7 @@ function renderForecast(items,code){
  document.querySelector('#forecastOrange').textContent=estimate(thresholds.orange);
  document.querySelector('#forecastRed').textContent=estimate(thresholds.red);
  const signed=rate>0?'+':'';
- statusEl.textContent=direction+' · '+signed+rate.toFixed(1).replace('.',de?',':en?'.':',')+(de?' cm/Std.':' cm/h');
+ statusEl.textContent=recent?words('Estimation pour la prochaine heure (test)','Next-hour estimate (test)','Voraussichtliche nächste Stunde (Test)')+' · '+(recent.one>0?'+':'')+recent.one.toLocaleString(de?'de-DE':en?'en-GB':'fr-FR',{maximumFractionDigits:1})+' cm\n'+words('Niveau estimé : ','Estimated level: ','Geschätzter Pegel: ')+num(Math.max(0,metres+recent.one/100))+' m · '+new Intl.DateTimeFormat(de?'de-DE':en?'en-GB':'fr-FR',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}).format(new Date(+last.date+3600000)):words('Estimation à 1 h indisponible','1-hour estimate unavailable','Ein-Stunden-Prognose nicht verfügbar');
  projectedEl.textContent=tr('Niveau estimé dans 6 h : ','Estimated level within the next 6h: ')+num(projected)+' m';
  projectedEl.classList.remove('hidden');
  out.classList.remove('hidden');
