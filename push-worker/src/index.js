@@ -582,6 +582,37 @@ async function cachedPiafMetadata(env){
   headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=90'}}));
  return data;
 }
+
+async function archiveRiverForecasts(env){
+ const station='Y531201001',db=env.DB,now=Date.now(),hour=3600000;
+ if(!db)throw Error('Archive database unavailable');
+ await db.prepare('CREATE TABLE IF NOT EXISTS river_forecast_archive (station TEXT NOT NULL, observed_at INTEGER NOT NULL, level_mm REAL NOT NULL, rate_cm_h REAL, acceleration_cm_h2 REAL, model_version TEXT NOT NULL, predictions_json TEXT, archived_at INTEGER NOT NULL, PRIMARY KEY(station,observed_at,model_version))').run();
+ const latest=await db.prepare('SELECT MAX(observed_at) AS t FROM river_forecast_archive WHERE station=? AND model_version=?').bind(station,'station-v1').first();
+ const start=Math.max(now-52*hour,Number(latest?.t||0)-3*hour);
+ const query=new URLSearchParams({code_entite:station,grandeur_hydro:'H',date_debut_obs:new Date(start).toISOString(),size:'1000',sort:'desc',format:'json'});
+ const response=await fetch(API+'?'+query,{signal:AbortSignal.timeout(15000)});
+ if(!response.ok)throw Error('Archive Hub Eau HTTP '+response.status);
+ const payload=await response.json();
+ const points=[...new Map((payload.data||[]).filter(x=>x.resultat_obs!==null&&x.resultat_obs!==undefined&&x.resultat_obs!=='').map(x=>({t:Date.parse(x.date_obs),v:Number(x.resultat_obs)})).filter(x=>Number.isFinite(x.t)&&x.t<=now+15*60000&&Number.isFinite(x.v)&&x.v>=-5000&&x.v<=30000).map(x=>[x.t,x])).values()].sort((a,b)=>a.t-b.t);
+ if(!points.length)throw Error('No archive observations');
+ const nearest=t=>{let best=null;for(const p of points){if(Math.abs(p.t-t)<=600000&&(!best||Math.abs(p.t-t)<Math.abs(best.t-t)))best=p;}return best;};
+ const statements=[];
+ for(const p of points){
+  if(latest?.t&&p.t<=latest.t)continue;
+  const a=nearest(p.t-hour),b=nearest(p.t-2*hour);
+  let v=null,k=null,pred=null;
+  if(a&&b&&b.t<a.t&&a.t<p.t){
+   const d1=(p.t-a.t)/hour,d2=(a.t-b.t)/hour;
+   v=(p.v-a.v)/10/d1;const w=(a.v-b.v)/10/d2;k=(v-w)/((d1+d2)/2);
+   const speed=v+k*d1/2;
+   pred=[.5,1,2,3,6].map(h=>{const d=speed>0&&k<0?Math.min(h,-speed/k):speed<0&&k>0?Math.min(h,-speed/k):h;return {h,linearM:p.v/1000+(v+w)/200*h,dynamicM:p.v/1000+(speed*d+k*d*d/2)/100};});
+  }
+  statements.push(db.prepare('INSERT OR IGNORE INTO river_forecast_archive(station,observed_at,level_mm,rate_cm_h,acceleration_cm_h2,model_version,predictions_json,archived_at) VALUES(?,?,?,?,?,?,?,?)').bind(station,p.t,p.v,v,k,'station-v1',pred?JSON.stringify(pred):null,now));
+ }
+ for(let i=0;i<statements.length;i+=50)await db.batch(statements.slice(i,i+50));
+ console.log('River forecast archive',station,'new rows',statements.length);
+}
+
 export default {
  async fetch(request,env,ctx){
   const url=new URL(request.url);
@@ -1372,6 +1403,7 @@ export default {
   return json(request,{error:'Not found'},404);
  },
  async scheduled(event,env,ctx){
+  ctx.waitUntil(archiveRiverForecasts(env).catch(e=>console.error('River forecast archive failed',String(e))));
   // Rivière Alerte's four independent safety checks are kept unchanged.
   ctx.waitUntil(scheduledCheck(env).catch(async e=>{console.error('Scheduled check failed',String(e));await recordMonitorStatus(env,false,e)}));
   ctx.waitUntil(checkRainForecast(env).catch(e=>console.error('Rain forecast check failed',String(e))));
