@@ -165,5 +165,32 @@ export async function getShadowComparisons(env,nowMs=Date.now()){
 export async function runShadowComparisonCycle(env,nowMs=Date.now(),ops={}){
   const recorded=await (ops.store||storeHourlyForecast)(env,nowMs);
   const verified=await (ops.evaluate||evaluateDueForecasts)(env,nowMs);
+  try{await runHybridCycle(env,nowMs)}catch(e){console.error('Hybrid shadow cycle failed',safeReason(e))}
+
   return {recorded,verified};
 }
+
+ // Independent experimental model; original issued forecasts remain immutable.
+ export async function runHybridCycle(env,nowMs=Date.now()){
+ const db=env.DB;if(!db)return;
+ await db.prepare("CREATE TABLE IF NOT EXISTS forecast_hybrid_v1 (issue_hour_utc TEXT PRIMARY KEY, issued_at_utc TEXT NOT NULL, valid_until_utc TEXT NOT NULL, forecast_peak_m REAL NOT NULL, shadow_peak_m REAL NOT NULL, rate_cm_h REAL NOT NULL, local_rain_today_mm REAL, actual_peak_m REAL, eval_status TEXT DEFAULT 'pending')").run();
+ const original=await db.prepare("SELECT * FROM forecast_shadow_comparison WHERE issue_hour_utc=?").bind(hourIso(nowMs)).first();
+ if(original&&Math.abs(nowMs-Date.parse(original.issued_at_utc))<120000){
+ const hydro=await getForecastGaugeSeries(fetch,nowMs);
+ const issued=Date.parse(original.issued_at_utc);
+ const series=(hydro.series||[]).map(p=>({t:Date.parse(p.at),m:p.metres})).filter(p=>Number.isFinite(p.t)&&Number.isFinite(p.m)&&p.t<=issued).sort((a,b)=>b.t-a.t);
+ const last=series[0],near=t=>series.reduce((best,p)=>!best||Math.abs(p.t-t)<Math.abs(best.t-t)?p:best,null);
+ if(last&&issued-last.t<=1800000){
+ const prev=near(last.t-HOUR),older=near(last.t-2*HOUR);
+ if(prev&&older&&Math.abs(prev.t-(last.t-HOUR))<=600000&&Math.abs(older.t-(last.t-2*HOUR))<=600000){
+ const v=(last.m-prev.m)/((last.t-prev.t)/HOUR),w=(prev.m-older.m)/((prev.t-older.t)/HOUR);
+ const remaining=Math.max(0,(Date.parse(original.valid_until_utc)-issued)/HOUR);
+ // Conservative persistence floor, with bounded acceleration contribution.
+ const floor=last.m+Math.max(0,v)*remaining+Math.min(.15,Math.max(0,v-w))*Math.min(remaining,2);
+ const peak=Math.max(original.forecast_peak_m,last.m,floor);
+ let rain=null;try{const r=await db.prepare("SELECT today_mm FROM local_rain_archive WHERE status='ok' AND checked_at<=? AND checked_at>=? ORDER BY checked_at DESC LIMIT 1").bind(issued,issued-900000).first();rain=r?.today_mm??null}catch{}
+ if(Number.isFinite(peak)&&peak<=20)await db.prepare("INSERT OR IGNORE INTO forecast_hybrid_v1(issue_hour_utc,issued_at_utc,valid_until_utc,forecast_peak_m,shadow_peak_m,rate_cm_h,local_rain_today_mm) VALUES(?,?,?,?,?,?,?)").bind(original.issue_hour_utc,original.issued_at_utc,original.valid_until_utc,peak,original.forecast_peak_m,v*100,rain).run();
+ }}
+ }
+ await db.prepare("UPDATE forecast_hybrid_v1 SET actual_peak_m=(SELECT actual_peak_m FROM forecast_shadow_comparison s WHERE s.issue_hour_utc=forecast_hybrid_v1.issue_hour_utc),eval_status='evaluated' WHERE eval_status='pending' AND EXISTS(SELECT 1 FROM forecast_shadow_comparison s WHERE s.issue_hour_utc=forecast_hybrid_v1.issue_hour_utc AND s.eval_status='evaluated')").run();
+ }
