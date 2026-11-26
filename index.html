@@ -1196,6 +1196,17 @@ function renderForecast(items,code){
    change.textContent=pct+' % '+(slowing?words('de ralentissement','slower rise','langsamerer Anstieg'):words('d’accélération','faster rise','schnellerer Anstieg'));exp.append(change);
   }
   const note=document.createElement('div');note.textContent=slowing?words('Le niveau continue de monter. Le pic de crue reste incertain.','The level is still rising. The flood crest remains uncertain.','Der Wasserstand steigt weiterhin. Ein Höchststand ist noch nicht bestätigt.'):words('Le niveau peut changer rapidement.','The water level can change quickly.','Der Wasserstand kann sich schnell verändern.');exp.append(note);statusEl.after(exp);
+  const comparison=document.createElement('div');comparison.style.cssText='margin-top:14px;padding:12px;border-top:1px solid #dce9ed';
+  const label=document.createElement('strong');label.style.cssText='display:block;color:#163447;font-size:16px;margin-bottom:8px';
+  label.textContent=words('Comparaison à 6 h','6-hour comparison','Prognosevergleich für 6 Stunden');
+  comparison.append(label);
+  const formatLevel=n=>n.toLocaleString(de?'de-DE':en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' m';
+  for(const [name,value] of [[words('Tendance linéaire','Linear trend','Bisherige lineare Prognose'),metres+rateM*6],[words('Scénario dynamique expérimental','Experimental dynamic scenario','Dynamische Prognose (Test)'),m.dynamic(6)]]){
+   const row=document.createElement('div');row.style.cssText='margin:8px 0';
+   const title=document.createElement('div');title.textContent=name;
+   const val=document.createElement('strong');val.style.cssText='display:block;font-size:24px;color:#163447';val.textContent=formatLevel(value);row.append(title,val);comparison.append(row);
+  }
+  const caveat=document.createElement('div');caveat.textContent=words('Scénario mathématique non validé, supposant que la dynamique récente se poursuit. Une nouvelle hausse reste possible. Ne pas utiliser pour décider des mesures de protection.','Unvalidated mathematical scenario assuming recent dynamics continue. A renewed rise remains possible. Do not use to decide protective measures.','Ungeprüftes Rechenszenario bei anhaltender aktueller Dynamik. Ein erneuter Anstieg bleibt möglich. Nicht als Grundlage für Schutzmaßnahmen verwenden.');comparison.append(caveat);exp.append(comparison);
  }
 
  const direction=rate>2?tr('En hausse','Rising'):rate< -2?tr('En baisse','Falling'):tr('Stable','Stable');
