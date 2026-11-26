@@ -613,6 +613,16 @@ async function archiveRiverForecasts(env){
  console.log('River forecast archive',station,'new rows',statements.length);
 }
 
+
+async function archiveLocalRain(env){
+ const db=env.DB,slot=Math.floor(Date.now()/300000)*300000;
+ await db.prepare('CREATE TABLE IF NOT EXISTS local_rain_archive (slot INTEGER PRIMARY KEY, checked_at INTEGER, today_mm REAL, yesterday_mm REAL, raining INTEGER, status TEXT NOT NULL)').run();
+ let r=null;
+ try{r=await env.SMART_GARDEN_MONITOR.readFloodRain()}catch(e){console.error('Private rain RPC unavailable',String(e))}
+ const stamp=Date.parse(r?.checkedAt||'');
+ const ok=r?.ok===true&&Number.isFinite(stamp)&&Math.abs(Date.now()-stamp)<300000&&Number.isFinite(r.todayMm);
+ await db.prepare('INSERT INTO local_rain_archive(slot,checked_at,today_mm,yesterday_mm,raining,status) VALUES(?,?,?,?,?,?) ON CONFLICT(slot) DO UPDATE SET checked_at=excluded.checked_at,today_mm=excluded.today_mm,yesterday_mm=excluded.yesterday_mm,raining=excluded.raining,status=excluded.status WHERE local_rain_archive.status<>\'ok\'').bind(slot,Number.isFinite(stamp)?stamp:null,ok?r.todayMm:null,ok&&Number.isFinite(r.yesterdayMm)?r.yesterdayMm:null,ok&&typeof r.raining==='boolean'?Number(r.raining):null,ok?'ok':'missing').run();
+}
 export default {
  async fetch(request,env,ctx){
   const url=new URL(request.url);
@@ -1412,5 +1422,7 @@ export default {
   // Reuse this existing 5-minute cron, WITHOUT creating another trigger.
   // Any garden failure is caught inside the bridge and cannot block flood checks.
   ctx.waitUntil(runGardenBridge(env));
+  ctx.waitUntil(archiveLocalRain(env).catch(e=>console.error('Local rain archive failed',String(e))));
+
 }
 };
