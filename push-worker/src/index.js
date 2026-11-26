@@ -617,6 +617,16 @@ async function archiveRiverForecasts(env){
 async function archiveLocalRain(env){
  const db=env.DB,slot=Math.floor(Date.now()/300000)*300000;
  await db.prepare('CREATE TABLE IF NOT EXISTS local_rain_archive (slot INTEGER PRIMARY KEY, checked_at INTEGER, today_mm REAL, yesterday_mm REAL, raining INTEGER, status TEXT NOT NULL)').run();
+ await db.prepare('CREATE TABLE IF NOT EXISTS local_rain_history (checked_at INTEGER PRIMARY KEY,today_mm REAL NOT NULL,yesterday_mm REAL)').run();
+ // Retry on subsequent cron runs until a successful import; never overwrite originals.
+ const done=await db.prepare('SELECT COUNT(*) AS n FROM local_rain_history').first();
+ if(!done?.n){
+  try{
+   const history=await env.SMART_GARDEN_MONITOR.readFloodRainHistory();
+   const statements=(Array.isArray(history)?history:[]).filter(x=>Number.isFinite(Date.parse(x.checkedAt))&&Number.isFinite(x.todayMm)).map(x=>db.prepare('INSERT OR IGNORE INTO local_rain_history VALUES(?,?,?)').bind(Date.parse(x.checkedAt),x.todayMm,Number.isFinite(x.yesterdayMm)?x.yesterdayMm:null));
+   for(let i=0;i<statements.length;i+=50)await db.batch(statements.slice(i,i+50));
+  }catch(e){console.error('Historical rain import failed',String(e))}
+ }
  let r=null;
  try{r=await env.SMART_GARDEN_MONITOR.readFloodRain()}catch(e){console.error('Private rain RPC unavailable',String(e))}
  const stamp=Date.parse(r?.checkedAt||'');
