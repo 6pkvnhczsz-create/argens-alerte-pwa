@@ -596,8 +596,20 @@ async function archiveRiverForecasts(env){
  const points=[...new Map((payload.data||[]).filter(x=>x.resultat_obs!==null&&x.resultat_obs!==undefined&&x.resultat_obs!=='').map(x=>({t:Date.parse(x.date_obs),v:Number(x.resultat_obs)})).filter(x=>Number.isFinite(x.t)&&x.t<=now+15*60000&&Number.isFinite(x.v)&&x.v>=-5000&&x.v<=30000).map(x=>[x.t,x])).values()].sort((a,b)=>a.t-b.t);
  if(!points.length)throw Error('No archive observations');
  const nearest=t=>{let best=null;for(const p of points){if(Math.abs(p.t-t)<=600000&&(!best||Math.abs(p.t-t)<Math.abs(best.t-t)))best=p;}return best;};
+ const latestV2=await db.prepare('SELECT MAX(observed_at) AS t FROM river_forecast_archive WHERE station=? AND model_version=?').bind(station,'station-v2').first();
  const statements=[];
  for(const p of points){
+  if(!latestV2?.t||p.t>latestV2.t){
+   const rates=[[15,.45],[30,.30],[60,.20],[120,.05]].map(([m,weight])=>{const q=nearest(p.t-m*60000);return q&&q.t<p.t&&Math.abs(q.t-(p.t-m*60000))<=(m<=30?5:10)*60000?{v:(p.v-q.v)/10/((p.t-q.t)/hour),weight}:null});
+   if(rates.every(x=>x&&Number.isFinite(x.v))){
+    const speed=rates.reduce((sum,x)=>sum+x.v*x.weight,0);
+    const easing=(rates[0].v>=0&&rates[0].v<rates[2].v&&rates[2].v<rates[3].v)||(rates[0].v<=0&&rates[0].v>rates[2].v&&rates[2].v>rates[3].v);
+    const v=easing?Math.sign(speed)*Math.min(Math.abs(speed),Math.abs(rates[0].v)):speed;
+    const change=(h,k)=>k===0?v*h:v*(-Math.expm1(-k*h))/k;
+    const predictions=[.5,1,2,3,6].map(h=>({h,scenarios:[easing?1:.5,easing?.35:.15,0].map(k=>Math.max(0,p.v/1000+change(h,k)/100)),oneM:Math.max(0,p.v/1000+change(h,easing?.35:0)/100)}));
+    statements.push(db.prepare('INSERT OR IGNORE INTO river_forecast_archive(station,observed_at,level_mm,rate_cm_h,acceleration_cm_h2,model_version,predictions_json,archived_at) VALUES(?,?,?,?,?,?,?,?)').bind(station,p.t,p.v,v,null,'station-v2',JSON.stringify(predictions),now));
+   }
+  }
   if(latest?.t&&p.t<=latest.t)continue;
   const a=nearest(p.t-hour),b=nearest(p.t-2*hour);
   let v=null,k=null,pred=null;
