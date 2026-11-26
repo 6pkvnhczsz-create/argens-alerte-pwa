@@ -1209,9 +1209,9 @@ function renderForecast(items,code){
    const cell=document.createElement('div'),small=document.createElement('div'),strong=document.createElement('strong');
    small.textContent=label;strong.textContent=fmtRate(value);strong.style.cssText='display:block;font-size:18px;color:#163447';cell.append(small,strong);grid.append(cell);
   }
-  exp.append(heading,grid);
+  exp.append(heading);
   if(slowing||accelerating){
-   const change=document.createElement('strong');change.style.cssText='display:block;color:#163447;font-size:16px;margin-bottom:8px';
+   const change=document.createElement('strong');change.style.cssText='display:block;color:#163447;font-size:14px;margin-bottom:8px';
    const pct=(Math.abs(m.v/m.w-1)*100).toLocaleString(de?'de-DE':en?'en-GB':'fr-FR',{maximumFractionDigits:1});
    change.textContent=pct+' % '+(slowing?words('de ralentissement','slower rise','langsamerer Anstieg'):words('d’accélération','faster rise','schnellerer Anstieg'));exp.append(change);
   }
@@ -1226,7 +1226,18 @@ function renderForecast(items,code){
    const title=document.createElement('div');title.textContent=name;
    const val=document.createElement('strong');val.style.cssText='display:block;font-size:24px;color:#163447';val.textContent=formatLevel(value);row.append(title,val);comparison.append(row);
   }
-  const caveat=document.createElement('div');caveat.textContent=words('Scénario mathématique non validé, supposant que la dynamique récente se poursuit. Une nouvelle hausse reste possible. Ne pas utiliser pour décider des mesures de protection.','Unvalidated mathematical scenario assuming recent dynamics continue. A renewed rise remains possible. Do not use to decide protective measures.','Ungeprüftes Rechenszenario bei anhaltender aktueller Dynamik. Ein erneuter Anstieg bleibt möglich. Nicht als Grundlage für Schutzmaßnahmen verwenden.');comparison.append(caveat);exp.append(comparison);
+  const caveat=document.createElement('div');caveat.textContent=words('Scénario mathématique non validé, supposant que la dynamique récente se poursuit. Une nouvelle hausse reste possible. Ne pas utiliser pour décider des mesures de protection.','Unvalidated mathematical scenario assuming recent dynamics continue. A renewed rise remains possible. Do not use to decide protective measures.','Ungeprüftes Rechenszenario bei anhaltender aktueller Dynamik. Ein erneuter Anstieg bleibt möglich. Nicht als Grundlage für Schutzmaßnahmen verwenden.');comparison.append(caveat);
+  const details=document.createElement('details');details.style.cssText='margin-top:12px;text-align:center';
+  const summary=document.createElement('summary');summary.style.cssText='cursor:pointer;color:#087f91;font-weight:600';summary.textContent=words('Détails des scénarios','Forecast details','Prognosedetails');details.append(summary,grid,comparison);
+  if(recent){
+   const values=recent.scenarios(6),range=document.createElement('div');range.style.cssText='margin:12px 0';
+   const time=new Intl.DateTimeFormat(de?'de-DE':en?'en-GB':'fr-FR',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}).format(new Date(+last.date+21600000));
+   const caption=document.createElement('div');caption.textContent=words('Dans 6 h · ','In 6 hours · ','In 6 Stunden · ')+time;
+   const value=document.createElement('strong');value.style.cssText='display:block;font-size:25px;color:#163447';value.textContent=formatLevel(Math.min(...values)).replace(' m','')+'–'+formatLevel(Math.max(...values));
+   const warning=document.createElement('div');warning.textContent=words('Scénarios non validés. Des niveaux plus élevés restent possibles. Aucune levée d’alerte.','Unvalidated scenarios. Higher levels remain possible. No all-clear.','Ungeprüfte Szenarien. Höhere Pegel bleiben möglich. Keine Entwarnung.');
+   range.append(caption,value,warning);exp.insertBefore(range,note);note.remove();
+  }
+  exp.append(details);
  }
 
  const direction=rate>2?tr('En hausse','Rising'):rate< -2?tr('En baisse','Falling'):tr('Stable','Stable');
