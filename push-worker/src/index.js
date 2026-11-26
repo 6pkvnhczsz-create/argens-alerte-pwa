@@ -649,6 +649,34 @@ async function archiveLocalRain(env){
  const stamp=Date.parse(r?.checkedAt||'');
  const ok=r?.ok===true&&Number.isFinite(stamp)&&Math.abs(Date.now()-stamp)<300000&&Number.isFinite(r.todayMm);
  await db.prepare('INSERT INTO local_rain_archive(slot,checked_at,today_mm,yesterday_mm,raining,status) VALUES(?,?,?,?,?,?) ON CONFLICT(slot) DO UPDATE SET checked_at=excluded.checked_at,today_mm=excluded.today_mm,yesterday_mm=excluded.yesterday_mm,raining=excluded.raining,status=excluded.status WHERE local_rain_archive.status<>\'ok\'').bind(slot,Number.isFinite(stamp)?stamp:null,ok?r.todayMm:null,ok&&Number.isFinite(r.yesterdayMm)?r.yesterdayMm:null,ok&&typeof r.raining==='boolean'?Number(r.raining):null,ok?'ok':'missing').run();
+ await persistRainIntervals(db);
+}
+async function persistRainIntervals(db){
+ await db.prepare("CREATE TABLE IF NOT EXISTS local_rain_intervals (start_at INTEGER PRIMARY KEY,end_at INTEGER NOT NULL,mm REAL,quality TEXT NOT NULL)").run();
+ const last=await db.prepare("SELECT MAX(end_at) AS t FROM local_rain_intervals").first();
+ const from=last?.t??0;
+ const history=(await db.prepare("SELECT checked_at,today_mm,yesterday_mm FROM local_rain_history WHERE checked_at>=?").bind(Math.max(0,from-120000)).all()).results||[];
+ const live=(await db.prepare("SELECT checked_at,today_mm,yesterday_mm FROM local_rain_archive WHERE status='ok' AND checked_at>=?").bind(Math.max(0,from-120000)).all()).results||[];
+ const points=new Map();
+ for(const p of [...history,...live]){
+  const t=Math.round(p.checked_at/300000)*300000;
+  if(Number.isFinite(p.today_mm)&&Math.abs(t-p.checked_at)<=120000&&t>=from&&t<=Date.now())points.set(t,{...p,t});
+ }
+ const ordered=[...points.values()].sort((a,b)=>a.t-b.t),writes=[];
+ for(let i=1;i<ordered.length;i++){
+  const a=ordered[i-1],b=ordered[i],dt=b.t-a.t;
+  let mm=b.today_mm-a.today_mm,quality='normal';
+  const changed=Number.isFinite(a.yesterday_mm)&&Number.isFinite(b.yesterday_mm)&&Math.abs(b.yesterday_mm-a.yesterday_mm)>.001;
+  if(changed||mm<-.001){
+   const hour=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Paris',hour:'2-digit',hourCycle:'h23'}).format(b.t);
+   if(hour==='07'&&Number.isFinite(b.yesterday_mm)&&b.yesterday_mm>=a.today_mm-.001){mm=b.yesterday_mm-a.today_mm+b.today_mm;quality='reset_reconstructed';}
+   else {mm=null;quality='gap';}
+  }
+  if(dt>1800000||Math.floor(a.t/3600000)!==Math.floor((b.t-1)/3600000)||mm===null||!Number.isFinite(mm)||mm<-.001){mm=null;quality='gap';}
+  writes.push(db.prepare("INSERT OR IGNORE INTO local_rain_intervals VALUES(?,?,?,?)").bind(a.t,b.t,mm===null?null:Math.max(0,Math.round(mm*1000)/1000),quality));
+ }
+ for(let i=0;i<writes.length;i+=50)await db.batch(writes.slice(i,i+50));
+
 }
 export default {
  async fetch(request,env,ctx){
