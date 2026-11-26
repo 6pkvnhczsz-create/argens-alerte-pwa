@@ -1097,6 +1097,7 @@ let weatherLocation={lat:43.44,lon:6.64,name:'Roquebrune-sur-Argens'};
 function renderForecast(items,code){
  const box=document.querySelector('#forecastPanel'),out=document.querySelector('#forecastResults'),statusEl=document.querySelector('#forecastStatus');
  const en=document.documentElement.lang==='en',de=document.documentElement.lang==='de';
+ document.getElementById('experimentalRiverTrend')?.remove();
  statusEl.style.whiteSpace='pre-line';
  const tr=(fr,english)=>de?(window.argensGermanText?window.argensGermanText(fr,english):fr):en?english:fr;
  const projectedEl=document.querySelector('#forecastProjected');projectedEl.classList.add('hidden');
@@ -1133,6 +1134,52 @@ function renderForecast(items,code){
  // Allow rising, falling and stable trends. A strongly changing slope is too unreliable to extrapolate.
  if(Math.abs(r1-r2)>Math.max(15,Math.max(Math.abs(r1),Math.abs(r2))*.75)){unavailable(tr('Évolution du niveau trop variable pour une estimation.','Water level changing too unpredictably for an estimate.'));return}
  const rate=(r1+r2)/2,metres=last.value/1000,rateM=rate/100;
+ // Experimental station-only hindcast: compare models on already observed outcomes.
+ const horizons=[.5,1,2,3,6], tolerance=10*60000;
+ const ordered=[...new Map(items.map(p=>[p.date.getTime(),p])).values()].sort((a,b)=>a.date-b.date);
+ function nearest(t){
+  let lo=0,hi=ordered.length;
+  while(lo<hi){const m=(lo+hi)>>1;if(+ordered[m].date<t)lo=m+1;else hi=m}
+  const candidates=[ordered[lo-1],ordered[lo]].filter(Boolean).sort((a,b)=>Math.abs(+a.date-t)-Math.abs(+b.date-t));
+  return candidates[0]&&Math.abs(+candidates[0].date-t)<=tolerance?candidates[0]:null;
+ }
+ function model(p){
+  const t=+p.date,a=nearest(t-3600000),b=nearest(t-7200000);
+  if(!a||!b||!(+b.date<+a.date&&+a.date<t))return null;
+  const d1=(t-a.date)/3600000,d2=(a.date-b.date)/3600000;
+  const v=(p.value-a.value)/10/d1,w=(a.value-b.value)/10/d2;
+  if(!Number.isFinite(v)||!Number.isFinite(w))return null;
+  const accel=(v-w)/((d1+d2)/2);
+  return {v,w,accel,linear:h=>p.value/1000+(v+w)/200*h,
+   dynamic:h=>{const speed=v+accel*d1/2;const k=accel;const duration=speed>0&&k<0?Math.min(h,-speed/k):speed<0&&k>0?Math.min(h,-speed/k):h;
+    return p.value/1000+(speed*duration+k*duration*duration/2)/100;}};
+ }
+ const m=model(last);
+ const words=(fr,enText,deText)=>de?deText:en?enText:fr;
+ const exp=document.createElement('div');exp.id='experimentalRiverTrend';exp.className='note';exp.style.cssText='white-space:pre-line;text-align:center;margin:14px 0;padding:12px;border:1px solid #dce9ed;border-radius:14px';
+ if(m){
+  const fmtRate=n=>(n>0?'+':'')+n.toLocaleString(de?'de-DE':en?'en-GB':'fr-FR',{maximumFractionDigits:1})+' cm/h';
+  const lines=[words('Analyse expérimentale du niveau','Experimental water-level analysis','Experimentelle Pegelanalyse'),
+   words('Heure précédente : ','Previous hour: ','Vorletzte Stunde: ')+fmtRate(m.w),
+   words('Dernière heure : ','Latest hour: ','Letzte Stunde: ')+fmtRate(m.v)];
+  if(m.v>2&&m.w>2&&m.v<m.w*.8)lines.push(words('Hausse en ralentissement','Rise slowing','Anstieg verlangsamt sich'));
+  else if(m.v>2&&m.w>2&&m.v>m.w*1.2)lines.push(words('Hausse en accélération','Rise accelerating','Anstieg beschleunigt sich'));
+  lines.push(words('Test rétrospectif sur les mesures disponibles (erreur absolue moyenne, cm ; linéaire / dynamique)','Backtest on available readings (mean absolute error, cm; linear / dynamic)','Rücktest anhand verfügbarer Messwerte (mittlerer absoluter Fehler, cm; linear / dynamisch)'));
+  for(const h of horizons){
+   let n=0,e1=0,e2=0;
+   for(const p of ordered){
+    const target=+p.date+h*3600000;if(target>+last.date)continue;
+    const actual=nearest(target),past=model(p);if(!actual||!past||+actual.date<=+p.date)continue;
+    const elapsed=(actual.date-p.date)/3600000;
+    e1+=Math.abs(past.linear(elapsed)-actual.value/1000)*100;
+    e2+=Math.abs(past.dynamic(elapsed)-actual.value/1000)*100;n++;
+   }
+   if(n)lines.push(h+' h: '+(e1/n).toFixed(1)+' / '+(e2/n).toFixed(1)+' (n='+n+')');
+  }
+  lines.push(words('Test uniquement. Aucun pic prévu, aucune modification des alertes.','Test only. No predicted crest or change to alerts.','Nur Modelltest. Keine Scheitelprognose oder Änderung der Warnungen.'));
+  exp.textContent=lines.join('\n');statusEl.after(exp);
+ }
+
  const direction=rate>2?tr('En hausse','Rising'):rate< -2?tr('En baisse','Falling'):tr('Stable','Stable');
  const projected=metres+rateM*6;
  const num=n=>n.toLocaleString(de?'de-DE':en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1158,7 +1205,7 @@ function renderForecast(items,code){
  projectedEl.classList.remove('hidden');
  out.classList.remove('hidden');
 }
-function noReading(text){document.querySelectorAll('#forecastResults .card').forEach(card=>card.classList.remove('forecast-threshold-orange','forecast-threshold-red'));document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'Not enough reliable data to estimate the short-term trend.':'Données insuffisantes pour estimer l’évolution à court terme.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";scheduleLevelConnector();document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='threshold-message';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren();document.getElementById('chartProbeTooltip').hidden=true}
+function noReading(text){document.getElementById('experimentalRiverTrend')?.remove();document.querySelectorAll('#forecastResults .card').forEach(card=>card.classList.remove('forecast-threshold-orange','forecast-threshold-red'));document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'Not enough reliable data to estimate the short-term trend.':'Données insuffisantes pour estimer l’évolution à court terme.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";scheduleLevelConnector();document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='threshold-message';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren();document.getElementById('chartProbeTooltip').hidden=true}
 function drawChart(items){
  const svg=document.querySelector('#chart'),axis=document.querySelector('#chartTimes'),info=document.querySelector('#rangeInfo');
  document.getElementById('chartProbeTooltip').hidden=true;
