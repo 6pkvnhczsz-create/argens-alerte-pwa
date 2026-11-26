@@ -33,7 +33,7 @@ export default {
  if(!request.headers.get('Cf-Access-Jwt-Assertion'))return response({error:'Cloudflare Access authentication required'},403);
  if(!env.DB||!env.PUSH_SERVICE)return response({error:'Admin bindings not configured'},503);
  const url=new URL(request.url);
- if(request.method==='GET'&&url.pathname==='/')return new Response(PAGE.replace('</nav>','<a href="/forecast-shadow">Prognose-Test</a></nav>'),{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'}});
+ if(request.method==='GET'&&url.pathname==='/')return new Response(PAGE.replace('</nav>','<a href="/forecast-shadow">Prognose-Test</a><a href="/forecast-models">Modellvergleich</a></nav>'),{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'}});
  if(request.method==='GET'&&url.pathname==='/forecast-shadow')return new Response(FORECAST_SHADOW_PAGE.replace('</script>',FORECAST_SHADOW_I18N_SCRIPT+'\n</script>'),{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"}});
  if(request.method==='POST'&&url.pathname==='/api/forecast-shadow/sync-now'){
   if(request.headers.get('Origin')!==url.origin)return response({error:'Origin mismatch'},403);
@@ -57,6 +57,24 @@ export default {
   if(request.headers.get('Origin')!==url.origin)return response({error:'Origin mismatch'},403);
   try{return response(await probeForecastRain(env))}
   catch(error){console.error('Forecast shadow probe failed',String(error));return response({error:'Météo-France-Verbindungstest derzeit nicht möglich'},503)}
+ }
+
+ if(request.method==='GET'&&url.pathname==='/forecast-models'){
+  try{
+   const shadow=await getShadowComparisons(env);
+   const exists=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='river_forecast_archive'").first();
+   const rows=exists?(await env.DB.prepare("SELECT observed_at,level_mm,predictions_json,archived_at FROM river_forecast_archive WHERE station=? AND model_version=? ORDER BY observed_at DESC LIMIT 9000").bind('Y531201001','station-v1').all()).results||[]:[];
+   const fmt=n=>Number.isFinite(n)?n.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' m':'–';
+   const date=t=>Number.isFinite(t)?new Date(t).toLocaleString('de-DE',{timeZone:'Europe/Paris'}):'–';
+   const parse=r=>{try{return JSON.parse(r.predictions_json)||[]}catch{return []}};
+   const newest=rows.find(r=>parse(r).some(p=>p.h===6)),pred=newest?parse(newest).find(p=>p.h===6):null;
+   const lastShadow=shadow.recent?.[0];
+   const chronological=rows.slice().reverse();
+   const nearest=t=>{let lo=0,hi=chronological.length;while(lo<hi){const m=(lo+hi)>>1;if(chronological[m].observed_at<t)lo=m+1;else hi=m}const p=[chronological[lo-1],chronological[lo]].filter(Boolean).sort((a,b)=>Math.abs(a.observed_at-t)-Math.abs(b.observed_at-t))[0];return p&&Math.abs(p.observed_at-t)<=5*60000?p:null;};
+   const stats=[.5,1,2,3,6].map(h=>{let n=0,l=0,d=0;for(const r of rows){const p=parse(r).find(x=>x.h===h),target=r.observed_at+h*3600000;if(!p||r.archived_at>r.observed_at+15*60000||target>Date.now()-30*60000)continue;const actual=nearest(target);if(!actual||actual.observed_at<=r.archived_at)continue;const v=actual.level_mm/1000;l+=Math.abs(p.linearM-v);d+=Math.abs(p.dynamicM-v);n++;}return '<tr><td>'+h+' h</td><td>'+n+'</td><td>'+fmt(n?l/n:NaN)+'</td><td>'+fmt(n?d/n:NaN)+'</td></tr>';}).join('');
+   const html='<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Modellvergleich</title><style>body{font:16px system-ui;color:#163447;max-width:800px;margin:auto;padding:20px}section{border:1px solid #dce9ed;border-radius:14px;padding:16px;margin:14px 0}strong{font-size:24px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;border-bottom:1px solid #dce9ed}a{color:#087f91}</style><a href="/forecast-shadow">← Hochwasserprognose</a><h1>Modellvergleich · Roquebrune</h1><p>Nur intern. Keine Warnung oder Entwarnung.</p><section><h2>Lineares Modell</h2><strong>'+fmt(pred?.linearM)+'</strong><p>Bezugszeit: '+date(newest?.observed_at)+' · Ziel: '+date(newest?newest.observed_at+21600000:NaN)+'</p></section><section><h2>Dynamisches Modell</h2><strong>'+fmt(pred?.dynamicM)+'</strong><p>Gleicher Bezugszeitpunkt und Zielzeitpunkt wie lineares Modell.</p></section><section><h2>Shadow-Tree-Modell</h2><strong>'+fmt(lastShadow?.forecast_peak_m)+'</strong><p>Ausgabe: '+date(Date.parse(lastShadow?.issued_at_utc))+' · Fensterende: '+date(Date.parse(lastShadow?.valid_until_utc))+'</p><p>Höchststand im Fenster, nicht Endpegel. Kein direkter Vergleich mit den Endpegelmodellen.</p><p>Mittlerer Fehler bisher: '+fmt(shadow.summary?.mean_absolute_error_m)+' · '+Number(shadow.summary?.evaluated_windows||0)+' ausgewertete Fenster.</p></section><section><h2>Archiv und Fehlerauswertung</h2><p>'+rows.length+' archivierte Messwerte im geladenen Ausschnitt (max. 9000). Letzter Messwert: '+date(rows[0]?.observed_at)+'</p><p>Nur zeitnah archivierte Prognosen mit späteren Messwerten. Mittlerer absoluter Endpegelfehler.</p><table><thead><tr><th>Horizont</th><th>Anzahl</th><th>Linear</th><th>Dynamisch</th></tr></thead><tbody>'+stats+'</tbody></table><p>Überlappende Fenster sind keine unabhängigen Hochwasserereignisse.</p></section></html>';
+   return new Response(html,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'"}});
+  }catch(error){console.error('Model comparison unavailable',String(error));return response({error:'Modellvergleich derzeit nicht verfügbar'},503)}
  }
  if(request.method==='GET'&&url.pathname==='/api/forecast-shadow/comparisons'){
   try{return response(await getShadowComparisons(env))}
