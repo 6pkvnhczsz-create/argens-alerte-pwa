@@ -1177,7 +1177,25 @@ function renderForecast(items,code){
    if(n)lines.push(h+' h: '+(e1/n).toFixed(1)+' / '+(e2/n).toFixed(1)+' (n='+n+')');
   }
   lines.push(words('Test uniquement. Aucun pic prévu, aucune modification des alertes.','Test only. No predicted crest or change to alerts.','Nur Modelltest. Keine Scheitelprognose oder Änderung der Warnungen.'));
-  exp.textContent=lines.join('\n');statusEl.after(exp);
+  // Keep diagnostic results available for development, not on the public home screen.
+  window.argensExperimentalDiagnostics={station:code,observedAt:last.date.toISOString(),lines};
+  const slowing=m.v>2&&m.w>2&&m.v<m.w*.8;
+  const accelerating=m.v>2&&m.w>2&&m.v>m.w*1.2;
+  const heading=document.createElement('strong');
+  heading.style.cssText='display:block;font-size:17px;color:#163447;margin-bottom:12px';
+  heading.textContent=slowing?words('↗ En hausse, mais plus lentement','↗ Rising, but more slowly','↗ Steigend, aber langsamer'):accelerating?words('↗ Hausse plus rapide','↗ Rising faster','↗ Anstieg beschleunigt sich'):words('Évolution récente','Recent water-level changes','Aktuelle Pegelentwicklung');
+  const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px';
+  for(const [label,value] of [[words('Heure précédente','Previous hour','Vorletzte Stunde'),m.w],[words('Dernière heure','Latest hour','Letzte Stunde'),m.v]]){
+   const cell=document.createElement('div'),small=document.createElement('div'),strong=document.createElement('strong');
+   small.textContent=label;strong.textContent=fmtRate(value);strong.style.cssText='display:block;font-size:18px;color:#163447';cell.append(small,strong);grid.append(cell);
+  }
+  exp.append(heading,grid);
+  if(slowing||accelerating){
+   const change=document.createElement('strong');change.style.cssText='display:block;color:#163447;font-size:16px;margin-bottom:8px';
+   const pct=(Math.abs(m.v/m.w-1)*100).toLocaleString(de?'de-DE':en?'en-GB':'fr-FR',{maximumFractionDigits:1});
+   change.textContent=pct+' % '+(slowing?words('de ralentissement','slower rise','langsamerer Anstieg'):words('d’accélération','faster rise','schnellerer Anstieg'));exp.append(change);
+  }
+  const note=document.createElement('div');note.textContent=slowing?words('Le niveau continue de monter. Le pic de crue reste incertain.','The level is still rising. The flood crest remains uncertain.','Der Wasserstand steigt weiterhin. Ein Höchststand ist noch nicht bestätigt.'):words('Le niveau peut changer rapidement.','The water level can change quickly.','Der Wasserstand kann sich schnell verändern.');exp.append(note);statusEl.after(exp);
  }
 
  const direction=rate>2?tr('En hausse','Rising'):rate< -2?tr('En baisse','Falling'):tr('Stable','Stable');
