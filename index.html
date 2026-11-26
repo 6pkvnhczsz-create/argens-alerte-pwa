@@ -1221,7 +1221,7 @@ function renderForecast(items,code){
   label.textContent=words('Comparaison à 6 h','6-hour comparison','Prognosevergleich für 6 Stunden');
   comparison.append(label);
   const formatLevel=n=>n.toLocaleString(de?'de-DE':en?'en-GB':'fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' m';
-  for(const [name,value] of [[words('Tendance linéaire','Linear trend','Bisherige lineare Prognose'),metres+rateM*6],...(recent?[[words('Ralentissement marqué','Strong slowdown','Starke Verlangsamung'),recent.scenarios(6)[0]],[words('Ralentissement modéré','Moderate slowdown','Moderate Verlangsamung'),recent.scenarios(6)[1]],[words('Vitesse constante','Constant rate','Konstanter aktueller Anstieg / Rückgang'),recent.scenarios(6)[2]]]:[])]){
+  for(const [name,value] of [...(recent?[[words('Ralentissement marqué','Strong slowdown','Starke Verlangsamung'),recent.scenarios(6)[0]],[words('Ralentissement modéré','Moderate slowdown','Moderate Verlangsamung'),recent.scenarios(6)[1]],[words('Vitesse constante','Constant rate','Konstanter aktueller Anstieg / Rückgang'),recent.scenarios(6)[2]]]:[])]){
    const row=document.createElement('div');row.style.cssText='margin:8px 0';
    const title=document.createElement('div');title.textContent=name;
    const val=document.createElement('strong');val.style.cssText='display:block;font-size:24px;color:#163447';val.textContent=formatLevel(value);row.append(title,val);comparison.append(row);
@@ -1262,8 +1262,9 @@ function renderForecast(items,code){
  const signed=rate>0?'+':'';
  statusEl.textContent=recent?words('Estimation pour la prochaine heure (test)','Next-hour estimate (test)','Voraussichtliche nächste Stunde (Test)')+' · '+(recent.one>0?'+':'')+recent.one.toLocaleString(de?'de-DE':en?'en-GB':'fr-FR',{maximumFractionDigits:1})+' cm\n'+words('Niveau estimé : ','Estimated level: ','Geschätzter Pegel: ')+num(Math.max(0,metres+recent.one/100))+' m · '+new Intl.DateTimeFormat(de?'de-DE':en?'en-GB':'fr-FR',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}).format(new Date(+last.date+3600000)):words('Estimation à 1 h indisponible','1-hour estimate unavailable','Ein-Stunden-Prognose nicht verfügbar');
  projectedEl.textContent=tr('Niveau estimé dans 6 h : ','Estimated level within the next 6h: ')+num(projected)+' m';
- projectedEl.classList.remove('hidden');
- out.classList.remove('hidden');
+ // Legacy linear projections and threshold ETAs remain internal only.
+ projectedEl.classList.add('hidden');
+ out.classList.add('hidden');
 }
 function noReading(text){document.getElementById('experimentalRiverTrend')?.remove();document.querySelectorAll('#forecastResults .card').forEach(card=>card.classList.remove('forecast-threshold-orange','forecast-threshold-red'));document.querySelector('#forecastResults').classList.add('hidden');document.querySelector('#forecastStatus').textContent=document.documentElement.lang==='en'?'Not enough reliable data to estimate the short-term trend.':'Données insuffisantes pour estimer l’évolution à court terme.';document.querySelector('#stationUpdated').textContent='';document.querySelectorAll('[data-threshold]').forEach(x=>x.classList.remove('is-current'));document.querySelector(".hero").dataset.alert="unknown";scheduleLevelConnector();document.querySelector("#chartTimes").replaceChildren();level.textContent='—';delta.textContent='—';period.textContent='Entre deux mesures';trend.textContent=text;readingTime.textContent='Aucune mesure vérifiée disponible';status.className='threshold-message';status.textContent='● Données indisponibles';document.querySelector('#chart').replaceChildren();document.getElementById('chartProbeTooltip').hidden=true}
 function drawChart(items){
